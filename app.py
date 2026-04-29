@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v38.7 (STABLE FORECAST & FILTERS)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v39.1 (LIVE FILTERING & EXPORT)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -24,10 +24,8 @@ st.set_page_config(
 )
 
 # ============================================================
-# 0. نظام الحفظ الدائم (Local Persistence & Memory)
+# 0. نظام الحفظ الديناميكي (Workspace Persistence)
 # ============================================================
-CONFIG_FILE = "mudir_config.json"
-
 DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري شاطر جداً، خبرة سنين في المبيعات والتسويق وإدارة الشركات.
 شخصيتك: مصري أصيل، بتتكلم بلهجة مصرية طبيعية جداً جداً وبطريقة احترافية (كأنك مدير قاعد في مكتبه بيوجه فريقه)، حازم، جاد، معلم، ومبتسمحش في التقصير أو الأعذار. بتدي أوامر واضحة وتتابعها وتقيم الموظفين وتناقشهم في أوقات التنفيذ.
 
@@ -40,12 +38,17 @@ DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري
 6. التحكم في النظام: لو شفت إن في ضرورة ماسة لإنشاء مسودة عرض سعر لعميل لإنقاذ الموقف، أضف هذا الكود في نهاية رسالتك بالضبط:
 $$ACTION: CREATE_SO | العميل: [اسم العميل] | القيمة: [مبلغ تقديري]$$"""
 
+def get_workspace_file():
+    ws_id = st.session_state.get('workspace_id', 'default')
+    safe_id = "".join(c for c in str(ws_id) if c.isalnum() or c in ('_', '-'))
+    return f"mudir_workspace_{safe_id}.json"
+
 def load_config():
     defaults = {
-        'ODOO_URL': 'https://abna-ghareeb-contracting.odoo.com',
-        'ODOO_DB': 'abna-ghareeb-contracting',
-        'ODOO_USER': 'men712000@gmail.com',
-        'ODOO_PASS': '863bd9d5e4273ac973c45ec88ab5d2b010cd4c41',
+        'ODOO_URL': '',
+        'ODOO_DB': '',
+        'ODOO_USER': '',
+        'ODOO_PASS': '',
         'AI_PROVIDER_URL': 'https://api.openai.com/v1',
         'AI_API_KEY': '',
         'AI_MODEL_NAME': 'gpt-4o',
@@ -55,25 +58,31 @@ def load_config():
         'EVALUATIONS': {},
         'ALL_CHATS': {} 
     }
-    if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-                saved_config = json.load(f)
-                defaults.update(saved_config)
-        except Exception:
-            pass
+    
+    if 'workspace_id' in st.session_state:
+        ws_file = get_workspace_file()
+        if os.path.exists(ws_file):
+            try:
+                with open(ws_file, 'r', encoding='utf-8') as f:
+                    saved_config = json.load(f)
+                    defaults.update(saved_config)
+            except Exception:
+                pass
     return defaults
 
 def save_config(cfg_dict):
-    try:
-        with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
-            json.dump(cfg_dict, f, ensure_ascii=False, indent=4)
-    except Exception:
-        pass 
+    if 'workspace_id' in st.session_state:
+        try:
+            ws_file = get_workspace_file()
+            with open(ws_file, 'w', encoding='utf-8') as f:
+                json.dump(cfg_dict, f, ensure_ascii=False, indent=4)
+        except Exception:
+            pass 
 
 def save_chats():
-    CFG['ALL_CHATS'] = st.session_state.all_chats
-    save_config(CFG)
+    if 'app_config' in st.session_state:
+        st.session_state.app_config['ALL_CHATS'] = st.session_state.all_chats
+        save_config(st.session_state.app_config)
 
 # ============================================================
 # 1. نظام الأيقونات المبرمجة (SVG Icon System)
@@ -320,6 +329,10 @@ ALL_NAV_ITEMS = [
 ]
 
 def init_state():
+    if 'workspace_key' not in st.session_state:
+        st.session_state.view = 'workspace_login'
+        return
+        
     if 'app_config' not in st.session_state:
         st.session_state.app_config = load_config()
         
@@ -335,18 +348,15 @@ def init_state():
     if 'all_chats' not in st.session_state:
         st.session_state.all_chats = st.session_state.app_config.get('ALL_CHATS', {})
 
-init_state()
-CFG = st.session_state.app_config
-
 def call_universal_ai(messages):
-    api_key = CFG.get('AI_API_KEY', '').strip()
+    api_key = st.session_state.app_config.get('AI_API_KEY', '').strip()
     if not api_key:
         raise Exception("مفتاح الاتصال بالخادم غير متوفر.")
     
-    base_url = CFG.get('AI_PROVIDER_URL', '').strip()
+    base_url = st.session_state.app_config.get('AI_PROVIDER_URL', '').strip()
     if not base_url: base_url = None
     
-    model_name = CFG.get('AI_MODEL_NAME', 'gpt-4o')
+    model_name = st.session_state.app_config.get('AI_MODEL_NAME', 'gpt-4o')
 
     client = OpenAI(api_key=api_key, base_url=base_url)
     
@@ -358,7 +368,7 @@ def call_universal_ai(messages):
     return response.choices[0].message.content
 
 # ============================================================
-# 4. طبقة البيانات (Data Layer & Intelligent Extraction - PURE REAL DATA ONLY)
+# 4. طبقة البيانات (Data Layer & Intelligent Extraction)
 # ============================================================
 
 def clean_department_name(val):
@@ -425,9 +435,6 @@ def fetch_master_data(url, db, user, pswd):
         empty_df = pd.DataFrame()
         return empty_df, empty_df, empty_df, empty_df, empty_df, False
 
-# ----------------------------------------------------
-# Helper function for calculating Deltas
-# ----------------------------------------------------
 def get_delta_html(current_val, previous_val):
     if previous_val == 0 or pd.isna(previous_val):
         return "<span class='delta-neu'>--</span>"
@@ -438,9 +445,6 @@ def get_delta_html(current_val, previous_val):
         return f"<span class='delta-neg'>▼ {delta_pct:.1f}%</span>"
     return "<span class='delta-neu'>--</span>"
 
-# ----------------------------------------------------
-# 4.5. الفلتر الزمني الذكي الموحد (Smart Date Filter Component)
-# ----------------------------------------------------
 def get_smart_filter_dates(prefix):
     st.markdown(f"<div style='font-size:1.1rem; font-weight:900; color:var(--c-primary); margin-bottom:15px; display:flex; align-items:center; gap:8px;'>{get_icon('calendar', 22)} الفلتر الزمني الذكي</div>", unsafe_allow_html=True)
     
@@ -501,9 +505,6 @@ def get_smart_filter_dates(prefix):
         
     return start_dt, end_dt, prev_start_dt, prev_end_dt
 
-# ----------------------------------------------------
-# 4.6. شريط الأخبار المالي (Live Ticker)
-# ----------------------------------------------------
 def render_live_ticker(df_s, df_p):
     if df_s is None or df_s.empty: return
     
@@ -523,36 +524,37 @@ def render_live_ticker(df_s, df_p):
     st.markdown(f'<div class="ticker-wrap"><div class="ticker-move">{ticker_text}{ticker_text}</div></div>', unsafe_allow_html=True)
 
 # ----------------------------------------------------
-# 4.7. تنبيهات الطوارئ الاستراتيجية (Executive Alerts)
+# 5. شاشة مساحة العمل و تسجيل الدخول
 # ----------------------------------------------------
-def render_alerts(df_s, df_i):
-    if df_s is None or df_i is None: return
-    alerts = []
+def render_workspace_login():
+    st.markdown("<div style='margin-top: 10vh;'></div>", unsafe_allow_html=True)
+    st.markdown("<div class='g-card' style='max-width: 500px; margin: 0 auto; text-align: center;'>", unsafe_allow_html=True)
+    st.markdown(f"<div style='color:var(--c-primary); margin-bottom: 20px;'>{get_icon('fusion', 60)}</div>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color:#fff; margin-top:0;'>مساحة العمل (Workspace)</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='color:var(--c-dim); margin-bottom: 30px;'>أدخل كود الشركة الخاص بك لفتح الإعدادات والبيانات</p>", unsafe_allow_html=True)
     
-    if not df_s.empty and 'state' in df_s.columns:
-        canceled_amt = df_s[df_s['state'] == 'cancel']['amount_total'].sum()
-        if canceled_amt > 50000:
-            alerts.append(f"نزيف مالي: إجمالي العروض الملغاة بلغ {canceled_amt:,.0f} ج.م، يرجى التوجيه للمراجعة الفورية.")
-            
-    if not df_i.empty and 'qty_available' in df_i.columns:
-        low_stock_items = df_i[df_i['qty_available'] < 3]
-        if not low_stock_items.empty:
-            alerts.append(f"تحذير مخزون: يوجد {len(low_stock_items)} أصناف أساسية رصيدها قارب على النفاذ.")
+    ws_key = st.text_input("كود الشركة:", type="password", placeholder="أدخل كود المساحة...")
+    
+    if st.button("تأكيد ودخول", type="primary", use_container_width=True):
+        if ws_key.strip():
+            st.session_state.workspace_key = ws_key.strip()
+            st.session_state.workspace_id = ws_key.strip()
+            st.session_state.app_config = load_config()
+            st.session_state.all_chats = st.session_state.app_config.get('ALL_CHATS', {})
+            st.session_state.view = 'login'
+            st.rerun()
+        else:
+            st.error("الرجاء إدخال الكود.")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    if alerts:
-        st.markdown("<div style='background:rgba(255,45,120,0.1); border:1px solid rgba(255,45,120,0.5); padding:10px 20px; border-radius:8px; margin-bottom:20px; color:#ff2d78;'><strong style='display:flex; align-items:center; gap:8px;'>" + get_icon("bell", 18) + " تنبيهات الطوارئ الاستراتيجية:</strong><ul style='margin:10px 20px 0 0;'>" + "".join([f"<li>{a}</li>" for a in alerts]) + "</ul></div>", unsafe_allow_html=True)
-
-# ----------------------------------------------------
-# 5. شاشة تسجيل الدخول الموحدة (Login Gate)
-# ----------------------------------------------------
 def render_login():
     st.markdown("<div style='margin-top: 10vh;'></div>", unsafe_allow_html=True)
     st.markdown("<div class='g-card' style='max-width: 500px; margin: 0 auto; text-align: center;'>", unsafe_allow_html=True)
     st.markdown(f"<div style='color:var(--c-primary); margin-bottom: 20px;'>{get_icon('command', 60)}</div>", unsafe_allow_html=True)
-    st.markdown("<h2 style='color:#fff; margin-top:0;'>تسجيل الدخول للنظام</h2>", unsafe_allow_html=True)
+    st.markdown(f"<h2 style='color:#fff; margin-top:0;'>تسجيل الدخول - مساحة: {st.session_state.get('workspace_key', '')}</h2>", unsafe_allow_html=True)
     st.markdown("<p style='color:var(--c-dim); margin-bottom: 30px;'>الرجاء تحديد هويتك للوصول لمهامك وصلاحياتك المحددة</p>", unsafe_allow_html=True)
     
-    employees = CFG.get('EMPLOYEES', [])
+    employees = st.session_state.app_config.get('EMPLOYEES', [])
     user_options = ["المدير العام (صلاحيات كاملة)"] + [f"{emp['name']} - {emp['role']}" for emp in employees]
     selected_user = st.selectbox("من أنت؟", user_options, label_visibility="collapsed")
     
@@ -560,9 +562,9 @@ def render_login():
     if "المدير العام" in selected_user:
         pin = st.text_input("رمز الدخول السري (PIN)", type="password", placeholder="أدخل الرقم السري للمدير")
         
-    if st.button("دخول", type="primary", use_container_width=True):
+    if st.button("دخول للنظام", type="primary", use_container_width=True):
         if "المدير العام" in selected_user:
-            if pin == CFG.get('MANAGER_PIN', '0000'):
+            if pin == st.session_state.app_config.get('MANAGER_PIN', '0000'):
                 st.session_state.current_user = "المدير العام"
                 st.session_state.view = 'dashboard'
                 if selected_user not in st.session_state.all_chats:
@@ -584,15 +586,25 @@ def render_login():
                 st.session_state.all_chats[selected_user] = [{"role": "assistant", "content": f"أهلاً بيك يا {emp_name_only}. أنا مديرك. مفيش وقت نضيعه، وريني إيه اللي وراك النهاردة عشان أديك تكليفاتك."}]
                 save_chats()
             st.rerun()
+            
+    if st.button("تغيير مساحة العمل", use_container_width=True):
+        del st.session_state['workspace_key']
+        del st.session_state['workspace_id']
+        st.session_state.view = 'workspace_login'
+        st.rerun()
+        
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ============================================================
 # 6. شريط التنقل الجانبي 
 # ============================================================
-if st.session_state.current_user is not None:
+init_state()
+
+if st.session_state.get('view') != 'workspace_login' and st.session_state.current_user is not None:
+    CFG = st.session_state.app_config
     if not st.session_state.data_loaded:
-        with st.spinner('جاري تهيئة النواة وربط الخوادم لاستخراج بيانات Odoo الحقيقية فقط...'):
-            df_s_raw, df_p_raw, df_i_raw, df_po_raw, df_pol_raw, is_real = fetch_master_data(CFG['ODOO_URL'], CFG['ODOO_DB'], CFG['ODOO_USER'], CFG['ODOO_PASS'])
+        with st.spinner('جاري تهيئة النواة وربط الخوادم لاستخراج بيانات Odoo...'):
+            df_s_raw, df_p_raw, df_i_raw, df_po_raw, df_pol_raw, is_real = fetch_master_data(CFG.get('ODOO_URL',''), CFG.get('ODOO_DB',''), CFG.get('ODOO_USER',''), CFG.get('ODOO_PASS',''))
             st.session_state.df_s = df_s_raw
             st.session_state.df_p = df_p_raw
             st.session_state.df_i = df_i_raw
@@ -602,7 +614,7 @@ if st.session_state.current_user is not None:
             st.session_state.data_loaded = True
             
             if not is_real:
-                st.toast("سيرفر Odoo غير متجاوب حالياً. النظام يعمل على البيانات المحفوظة محلياً.")
+                st.toast("سيرفر Odoo غير متجاوب أو البيانات غير متوفرة لهذه المساحة.")
 
     df_s_master = st.session_state.df_s
     df_p_master = st.session_state.df_p
@@ -611,7 +623,7 @@ if st.session_state.current_user is not None:
     df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v38.7 APEX</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v39.1</div></div>""", unsafe_allow_html=True)
         
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
@@ -683,11 +695,10 @@ def build_infographic_html(data: dict) -> str:
     return f"""<div style="font-family:'Cairo',sans-serif;direction:rtl;color:#e2e8f0;"><p style="color:#94a3b8;font-size:1rem;margin:0 0 1.5rem;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:15px;">{data.get('subtitle', '')}</p><div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:2rem;">{kpi_html}</div>{f'<div style="font-weight:900;font-size:1rem;color:#64748b;text-transform:uppercase;margin:1.5rem 0 1rem;">{get_icon("chart",18)} المؤشرات الحيوية</div>{bar_html}' if bar_html else ''}{f'<div style="font-weight:900;font-size:1rem;color:#64748b;text-transform:uppercase;margin:2rem 0 1rem;">{get_icon("check",18)} التصنيفات الاستراتيجية</div><div>{badge_html}</div>' if badge_html else ''}</div>"""
 
 # ============================================================
-# 5. نظام التصدير الموحد الخالي من الأخطاء (Safe Export System)
+# 5. نظام التصدير الموحد الخالي من الأخطاء والجدول المباشر (Safe Export & Live Table System)
 # ============================================================
 
 def make_safe_df(df_val):
-    """دالة حماية لضمان تحويل البيانات المتشابكة لنصوص آمنة وعدم انهيار PyArrow"""
     if hasattr(df_val, 'data'):
         df = df_val.data.copy()
     else:
@@ -741,7 +752,7 @@ def create_export_buttons(title, df_dict):
     c1, c2 = st.columns(2)
     with c1:
         st.download_button(
-            label="📄 حفظ التقرير كملف Word",
+            label="حفظ التقرير بصيغة Word",
             data=html_content.encode('utf-8-sig'),
             file_name=f"Report_{title}.doc",
             mime="application/msword",
@@ -749,7 +760,7 @@ def create_export_buttons(title, df_dict):
         )
     with c2:
         st.download_button(
-            label="🖨️ استخراج للطباعة (PDF)",
+            label="استخراج للطباعة وحفظ (PDF)",
             data=html_content_pdf.encode('utf-8-sig'),
             file_name=f"Report_{title}.html",
             mime="text/html",
@@ -758,26 +769,26 @@ def create_export_buttons(title, df_dict):
         )
 
 def render_filters_and_export(title, original_df_dict):
-    st.markdown("#### 🔍 فلاتر البيانات قبل الحفظ والتصدير")
+    st.markdown("#### 🔍 فلاتر البيانات الحية للجدول الشامل")
     
     all_clients = ['الكل']
     for df_val in original_df_dict.values():
         df = df_val.data if hasattr(df_val, 'data') else df_val
         if df is not None and not df.empty:
-            if 'partner_id' in df.columns:
-                all_clients.extend([clean_odoo_m2o(x) for x in df['partner_id'].dropna().unique()])
+            if 'العميل' in df.columns:
+                all_clients.extend(df['العميل'].dropna().astype(str).unique())
+            elif 'المورد' in df.columns:
+                all_clients.extend(df['المورد'].dropna().astype(str).unique())
             elif 'اسم الجهة' in df.columns:
                 all_clients.extend(df['اسم الجهة'].dropna().astype(str).unique())
-            elif 'العميل' in df.columns:
-                all_clients.extend(df['العميل'].dropna().astype(str).unique())
                 
     all_clients = list(dict.fromkeys(all_clients)) # Remove duplicates
     
     c1, c2, c3 = st.columns(3)
     with c1:
-        selected_state = st.selectbox("تصفية بحالة العروض:", ['الكل', 'موافق عليه', 'مسودة', 'ملغي'], key=f"state_{title}")
+        selected_state = st.selectbox("تصفية بحالة العروض/الأوامر:", ['الكل', 'موافق عليه', 'مسودة', 'ملغي', 'معتمد', 'مسودة / قيد الانتظار'], key=f"state_{title}")
     with c2:
-        selected_client = st.selectbox("تصفية باسم العميل:", all_clients, key=f"client_{title}")
+        selected_client = st.selectbox("العميل / المورد / الجهة:", all_clients, key=f"client_{title}")
     with c3:
         date_filter = st.date_input("تحديد فترة (من - إلى):", value=[], key=f"date_{title}")
 
@@ -786,29 +797,24 @@ def render_filters_and_export(title, original_df_dict):
         df = df_val.data.copy() if hasattr(df_val, 'data') else df_val.copy()
         if not df.empty:
             if selected_state != 'الكل':
-                if 'state' in df.columns:
-                    df = df[df['state'].apply(map_state_ar) == selected_state]
+                if 'الحالة (عربي)' in df.columns:
+                    df = df[df['الحالة (عربي)'] == selected_state]
                 elif 'الحالة' in df.columns:
                     df = df[df['الحالة'] == selected_state]
-                elif 'الحالة (عربي)' in df.columns:
-                    df = df[df['الحالة (عربي)'] == selected_state]
             
             if selected_client != 'الكل':
-                if 'partner_id' in df.columns:
-                    df = df[df['partner_id'].apply(clean_odoo_m2o) == selected_client]
+                if 'العميل' in df.columns:
+                    df = df[df['العميل'] == selected_client]
+                elif 'المورد' in df.columns:
+                    df = df[df['المورد'] == selected_client]
                 elif 'اسم الجهة' in df.columns:
                     df = df[df['اسم الجهة'] == selected_client]
-                elif 'العميل' in df.columns:
-                    df = df[df['العميل'] == selected_client]
                     
             if len(date_filter) == 2:
                 start_date, end_date = date_filter
                 start_dt = pd.to_datetime(start_date)
                 end_dt = pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
-                if 'date_order' in df.columns:
-                    dates = pd.to_datetime(df['date_order'], errors='coerce')
-                    df = df[(dates >= start_dt) & (dates <= end_dt)]
-                elif 'التاريخ' in df.columns:
+                if 'التاريخ' in df.columns:
                     try:
                         temp_dt = pd.to_datetime(df['التاريخ'])
                         df = df[(temp_dt >= start_dt) & (temp_dt <= end_dt)]
@@ -818,8 +824,9 @@ def render_filters_and_export(title, original_df_dict):
         
     st.markdown("<hr style='border-color: rgba(255,255,255,0.1); margin: 25px 0;'>", unsafe_allow_html=True)
     create_export_buttons(title, filtered_dict)
+    return filtered_dict
 
-@st.dialog("التحليل الاستراتيجي التفصيلي", width="large")
+@st.dialog("التحليل الاستراتيجي التفصيلي والتصدير", width="large")
 def show_detailed_report(title: str, data: dict):
     st.markdown(f"<h3 style='color:var(--c-primary); margin-top:0; margin-bottom: 20px;'>{title}</h3>", unsafe_allow_html=True)
     
@@ -830,11 +837,25 @@ def show_detailed_report(title: str, data: dict):
         else:
             df_dict = {"البيانات التفصيلية": data['df']}
             
+    filtered_dict = {}
     if df_dict:
-        render_filters_and_export(title, df_dict)
+        filtered_dict = render_filters_and_export(title, df_dict)
         st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 20px 0;'>", unsafe_allow_html=True)
 
-    st.markdown(build_infographic_html(data), unsafe_allow_html=True)
+    if 'kpis' in data or 'bars' in data or 'badges' in data:
+        st.markdown(build_infographic_html(data), unsafe_allow_html=True)
+    
+    if filtered_dict:
+        st.markdown(f"""<div style="margin-top:25px; margin-bottom:15px; font-weight:900; font-size:1.1rem; color:var(--c-primary); display:flex; align-items:center; gap:8px;">{get_icon('table', 20)} استعراض السجل الشامل (بعد الفلترة)</div>""", unsafe_allow_html=True)
+        tabs = st.tabs(list(filtered_dict.keys()))
+        for i, (tab_name, df_val) in enumerate(filtered_dict.items()):
+            with tabs[i]:
+                df_safe = make_safe_df(df_val)
+                if not df_safe.empty:
+                    st.dataframe(df_safe, use_container_width=True, hide_index=True)
+                else:
+                    st.info("لا توجد بيانات مطابقة للفلاتر التي قمت بتحديدها.")
+
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("إغلاق التقرير", type="primary", use_container_width=True):
         st.rerun()
@@ -971,12 +992,12 @@ def render_dashboard():
         clean_pol = clean_pol.sort_values('product_qty', ascending=False)
         clean_pol = clean_pol.rename(columns={'product_qty': 'الكمية المطلوبة', 'price_subtotal': 'إجمالي التكلفة (ج.م)'})
 
-    s_all = style_dataframe(clean_s.sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s, 'القيمة (ج.م)')
     s_appr = style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'موافق عليه'].sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s, 'القيمة (ج.م)')
     s_draft = style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'مسودة'].sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s, 'القيمة (ج.م)')
     s_canc = style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'ملغي'].sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s, 'القيمة (ج.م)')
 
-    split_sales_dict = {"الكل": s_all, "موافق عليه": s_appr, "مسودة": s_draft, "ملغي": s_canc}
+    # تم إضافة "السجل الشامل" ليظهر في نافذة المعاينة المفلترة
+    split_sales_dict = {"السجل الشامل للعروض والطلبات": clean_s, "موافق عليه": s_appr, "مسودة": s_draft, "ملغي": s_canc}
 
     po_all = style_dataframe(clean_po.sort_values('القيمة (ج.م)', ascending=False) if not clean_po.empty else clean_po, 'القيمة (ج.م)')
     top_suppliers = pd.DataFrame()
@@ -984,7 +1005,7 @@ def render_dashboard():
         top_suppliers = clean_po[clean_po['الحالة'] == 'معتمد'].groupby('المورد')['القيمة (ج.م)'].sum().reset_index().sort_values('القيمة (ج.م)', ascending=False)
     
     split_po_dict = {
-        "أوامر الشراء (الكل)": po_all,
+        "السجل الشامل للمشتريات": clean_po,
         "أقوى الموردين": style_dataframe(top_suppliers, 'القيمة (ج.م)') if not top_suppliers.empty else top_suppliers,
         "المنتجات / المواد الأكثر طلباً": style_dataframe(clean_pol, 'الكمية المطلوبة') if not clean_pol.empty else clean_pol
     }
@@ -1015,20 +1036,21 @@ def render_dashboard():
         c_merged = c_merged[[c for c in c_cols if c in c_merged.columns]]
 
         split_clients = {
+            "السجل الشامل للعملاء": clean_p,
             "الأقوى (معتمد)": style_dataframe(c_merged.sort_values('معتمد (ج.م)', ascending=False), 'معتمد (ج.م)'),
             "حسب المسودة": style_dataframe(c_merged.sort_values('مسودة (ج.م)', ascending=False), 'مسودة (ج.م)'),
             "حسب الملغي": style_dataframe(c_merged.sort_values('ملغي (ج.م)', ascending=False), 'ملغي (ج.م)'),
             "الأكثر طلباً (عدد)": style_dataframe(c_merged.sort_values('إجمالي العروض', ascending=False), 'إجمالي العروض')
         }
     else:
-        split_clients = {"الكل": style_dataframe(clean_p, 'إجمالي الفواتير (ج.م)') if not clean_p.empty else clean_p}
+        split_clients = {"السجل الشامل للعملاء": style_dataframe(clean_p, 'إجمالي الفواتير (ج.م)') if not clean_p.empty else clean_p}
 
     split_stock = {}
     if not clean_i.empty:
         split_stock = {
+            "سجل المنتجات الشامل": clean_i,
             "المنتجات الأكثر توفراً (الكمية)": style_dataframe(clean_i.sort_values('الكمية المتاحة', ascending=False), 'الكمية المتاحة'),
-            "المنتجات الأغلى سعراً": style_dataframe(clean_i.sort_values('السعر (ج.م)', ascending=False), 'السعر (ج.م)'),
-            "الكل": clean_i
+            "المنتجات الأغلى سعراً": style_dataframe(clean_i.sort_values('السعر (ج.م)', ascending=False), 'السعر (ج.م)')
         }
     else:
         split_stock = {"الكل": clean_i}
@@ -1105,9 +1127,12 @@ def render_dashboard():
 
     st.markdown(f"<div style='margin-top: 30px; margin-bottom: 15px;'><div class='g-card-title' style='border: none; padding: 0;'>{get_icon('tabs', 24)} سجل العروض والتوريدات المباشر</div></div>", unsafe_allow_html=True)
     
+    # في الشاشة الرئيسية نظهر السجلات الشاملة فقط للعرض السريع
+    s_all_df = style_dataframe(clean_s.sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s, 'القيمة (ج.م)')
+    
     tb_all, tb_appr, tb_draft, tb_canc = st.tabs(["الكل", "موافق عليه", "مسودة", "ملغي"])
     with tb_all:
-        if not s_all.data.empty if hasattr(s_all, 'data') else not s_all.empty: st.dataframe(s_all, use_container_width=True, hide_index=True)
+        if not clean_s.empty: st.dataframe(s_all_df, use_container_width=True, hide_index=True)
         else: st.info("لا توجد بيانات متاحة في هذه الفترة.")
     with tb_appr:
         if not s_appr.data.empty if hasattr(s_appr, 'data') else not s_appr.empty: st.dataframe(s_appr, use_container_width=True, hide_index=True)
@@ -1160,12 +1185,12 @@ def render_departments():
         np.random.seed(42)
         appr_df['المصروفات'] = appr_df['amount_total'] * np.random.uniform(0.60, 0.85, size=len(appr_df))
 
-    appr_df['صافي الربح'] = appr_df['amount_total'] - appr_df['المصروفات']
+    appr_df['صاف الربح'] = appr_df['amount_total'] - appr_df['المصروفات']
 
     dept_summary = appr_df.groupby('القسم').agg(
         الإيرادات=('amount_total', 'sum'),
         المصروفات=('المصروفات', 'sum'),
-        صافي_الربح=('صافي الربح', 'sum')
+        صافي_الربح=('صاف الربح', 'sum')
     ).reset_index()
 
     dept_summary['هامش الربح %'] = (dept_summary['صافي_الربح'] / dept_summary['الإيرادات'] * 100).fillna(0)
@@ -1233,9 +1258,6 @@ def render_departments():
     else:
         st.info("لا توجد بيانات ربحية لعرضها في هذه الفترة.")
 
-    st.markdown(f"<div class='g-card-title' style='margin-top:20px;'>{get_icon('table', 22)} الجدول التحليلي الشامل لأداء الأقسام</div>", unsafe_allow_html=True)
-    st.dataframe(style_dataframe(final_table, 'صافي الربح'), use_container_width=True, hide_index=True)
-
 
 # ────────────────────────────────────────────────────────────
 # 7.3 التنبؤ المستقبلي (Predictive Forecasting)
@@ -1270,7 +1292,6 @@ def render_forecast():
         st.dataframe(style_dataframe(monthly.rename(columns={'amount_total':'القيمة (ج.م)'}), 'القيمة (ج.م)'), use_container_width=True, hide_index=True)
         return
 
-    # التعديل: تغيير المعادلة الرياضية لمعادلة خطية من الدرجة الأولى لتجنب هبوط التنبؤ بشكل غير منطقي لصفر
     x = np.arange(len(monthly))
     y = monthly['amount_total'].values
     coeffs = np.polyfit(x, y, 1)
@@ -1280,7 +1301,6 @@ def render_forecast():
     future_months = [last_month + pd.DateOffset(months=i) for i in range(1, 4)]
     future_x = np.arange(len(monthly), len(monthly) + 3)
     future_y = poly_func(future_x)
-    # منع التنبؤ من إعطاء قيم سالبة (في حالة كان المنحنى هابطاً بشدة)
     future_y = np.maximum(future_y, 0) 
 
     pred_df = pd.DataFrame({'Month': future_months, 'amount_total': future_y})
