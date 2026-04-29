@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v40.0 (SAAS LICENSE MANAGER)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v41.0 (WHATSAPP UI & SAAS FIXED)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -156,7 +156,7 @@ def get_base64_svg(icon_name, color="#00f2ff"):
     return f"data:image/svg+xml;base64,{b64}"
 
 # ============================================================
-# 2. التنسيقات العامة والـ CSS (محدثة للإخفاء التام لعلامات Streamlit)
+# 2. التنسيقات العامة والـ CSS (محدثة للإخفاء التام لعلامات Streamlit وتصميم واتساب)
 # ============================================================
 st.markdown("""
 <style>
@@ -269,23 +269,82 @@ div[role="radiogroup"] > label:has(input:checked) { background: var(--c-primary)
 div[role="radiogroup"] > label:has(input:checked) div[data-testid="stMarkdownContainer"] p { color: #000 !important; font-weight: 900 !important; }
 div[role="radiogroup"] > label > div:first-child { display: none !important; }
 
-[data-testid="stChatMessage"] { direction: rtl !important; width: fit-content !important; min-width: 300px !important; max-width: 85% !important; padding: 1.5rem !important; margin-bottom: 1rem !important; display: flex !important; flex-direction: column !important; clear: both !important; }
-[data-testid="stChatMessage"]:has(.msg-user) { background-color: rgba(0, 242, 255, 0.05) !important; border: 1px solid rgba(0, 242, 255, 0.2) !important; margin-right: auto !important; margin-left: 0 !important; align-self: flex-start !important; border-radius: 12px 12px 12px 0 !important; }
-[data-testid="stChatMessage"]:has(.msg-assistant) { background-color: rgba(15, 15, 20, 0.6) !important; border: 1px solid rgba(255, 255, 255, 0.05) !important; margin-left: auto !important; margin-right: 0 !important; align-self: flex-end !important; border-radius: 12px 12px 0 12px !important; }
-[data-testid="stChatMessage"] > div:first-child { margin-left: 15px !important; margin-right: 0 !important; align-self: flex-start !important; }
-[data-testid="stChatMessageContent"] { text-align: right !important; direction: rtl !important; font-family: 'Cairo', sans-serif !important; width: 100% !important; }
+/* ── WhatsApp Style Chat (RTL & Clean) ──────────────────────────── */
+[data-testid="stChatMessage"] {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin-bottom: 1.5rem !important;
+    display: flex !important;
+    flex-direction: column !important; 
+    clear: both !important;
+}
+
+[data-testid="stChatMessage"]:has(.msg-user) {
+    align-items: flex-start !important; /* Right side in RTL */
+}
+
+[data-testid="stChatMessage"]:has(.msg-assistant) {
+    align-items: flex-end !important; /* Left side in RTL */
+}
+
+[data-testid="stChatMessageContent"] {
+    padding: 0 !important;
+    background: transparent !important;
+    width: fit-content !important;
+    max-width: 80% !important;
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-bubble {
+    padding: 12px 18px !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
+    border: 1px solid rgba(255,255,255,0.05);
+    font-family: 'Cairo', sans-serif !important;
+}
+
+[data-testid="stChatMessage"]:has(.msg-user) .chat-bubble {
+    background-color: #005c4b !important;
+    border-radius: 12px 0 12px 12px !important;
+}
+
+[data-testid="stChatMessage"]:has(.msg-assistant) .chat-bubble {
+    background-color: #202c33 !important;
+    border-radius: 0 12px 12px 12px !important;
+}
+
+/* Hide avatars for neat WhatsApp look */
+[data-testid="stChatAvatar"] { display: none !important; }
 
 .stMarkdown div[dir="rtl"] { text-align: right !important; }
-.stMarkdown div[dir="rtl"] ul, .stMarkdown div[dir="rtl"] ol { padding-right: 1.5rem !important; padding-left: 0 !important; margin-bottom: 1rem !important; }
-.stMarkdown div[dir="rtl"] li { font-size: 1.1rem !important; line-height: 1.9 !important; color: #e2e8f0 !important; margin-bottom: 8px !important; }
-.stMarkdown div[dir="rtl"] p { font-size: 1.1rem !important; line-height: 1.9 !important; color: #e2e8f0 !important; margin-bottom: 10px !important; }
+.stMarkdown div[dir="rtl"] p { font-size: 1.05rem !important; line-height: 1.8 !important; color: #e9edef !important; margin-bottom: 5px !important; }
+.stMarkdown div[dir="rtl"] ul, .stMarkdown div[dir="rtl"] ol { padding-right: 1.5rem !important; padding-left: 0 !important; margin-bottom: 1rem !important; color: #e9edef !important; }
 .stMarkdown div[dir="rtl"] strong { color: #00f2ff !important; }
 
-[data-testid="stChatMessage"] div.stButton > button { padding: 6px 12px !important; font-size: 0.85rem !important; background: rgba(255,255,255,0.03) !important; border: 1px solid rgba(255,255,255,0.1) !important; color: var(--c-dim) !important; margin-top: 8px !important; border-radius: 6px !important; width: 100% !important; min-height: 32px !important; line-height: 1 !important; transition: var(--transition); }
-[data-testid="stChatMessage"] div.stButton > button:hover { background: rgba(0,242,255,0.08) !important; border-color: var(--c-primary) !important; color: var(--c-primary) !important; box-shadow: 0 0 10px rgba(0,242,255,0.1) !important; }
+/* Buttons styling inside chat */
+[data-testid="stChatMessage"] div.stButton > button { 
+    padding: 2px 8px !important; 
+    font-size: 0.75rem !important; 
+    background: rgba(0,0,0,0.2) !important; 
+    border: 1px solid rgba(255,255,255,0.05) !important; 
+    color: #8696a0 !important; 
+    margin-top: 8px !important; 
+    border-radius: 4px !important; 
+    width: 100% !important; 
+    min-height: 24px !important; 
+    height: 24px !important;
+    line-height: 1 !important; 
+    transition: var(--transition); 
+}
+[data-testid="stChatMessage"] div.stButton > button:hover { 
+    background: rgba(255,255,255,0.1) !important; 
+    color: #fff !important; 
+}
 
 .stSpinner > div > div { border-color: var(--c-primary) transparent transparent transparent !important; }
 
+/* ── UI Elements ──────────────────────────── */
 .page-header { position: relative; overflow: hidden; padding: 2.5rem 3rem; margin-bottom: 1rem; border-radius: var(--r); background: linear-gradient(135deg, #090912, #050508); border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 20px 40px rgba(0,0,0,0.6); display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
 .page-header::after { content: ''; position: absolute; right: 0; top: 0; width: 40%; height: 100%; background: radial-gradient(circle at right, rgba(0,242,255,0.08), transparent 70%); pointer-events: none; }
 .ph-icon-wrap { background: rgba(0,242,255,0.05); border-radius: 16px; padding: 18px; display: flex; border: 1px solid rgba(0,242,255,0.2); box-shadow: inset 0 0 20px rgba(0,242,255,0.05); }
@@ -349,7 +408,8 @@ ALL_NAV_ITEMS = [
 
 def init_state():
     if 'workspace_key' not in st.session_state:
-        st.session_state.view = 'workspace_login'
+        if st.session_state.get('view') != 'super_admin':
+            st.session_state.view = 'workspace_login'
         return
         
     if 'app_config' not in st.session_state:
@@ -557,6 +617,8 @@ def render_workspace_login():
     if st.button("تأكيد ودخول", type="primary", use_container_width=True):
         if ws_key.strip():
             if ws_key.strip() == MASTER_ADMIN_CODE:
+                st.session_state.workspace_key = "SUPER_ADMIN"
+                st.session_state.workspace_id = "SUPER_ADMIN"
                 st.session_state.view = 'super_admin'
                 st.rerun()
                 return
@@ -565,7 +627,7 @@ def render_workspace_login():
             ws_data = licenses.get('workspaces', {}).get(ws_key.strip())
             
             if not ws_data:
-                st.error("كود الشركة غير مسجل! يرجى التأكد من الكود أو التواصل مع مطور النظام.")
+                st.error("كود الشركة غير مسجل! يرجى التأكد من الكود أو التواصل مع الإدارة.")
             elif ws_data.get('status') == 'suspended':
                 st.error("تم إيقاف هذه المساحة من قبل الإدارة. يرجى المراجعة.")
             else:
@@ -662,7 +724,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
     df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v40.0</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v41.0</div></div>""", unsafe_allow_html=True)
         
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
@@ -861,7 +923,7 @@ def render_filters_and_export(title, original_df_dict):
                         pass
         filtered_dict[name] = df
         
-    st.markdown("<hr style='border-color: rgba(255,255,255,0.1); margin: 25px 0;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 25px 0;'>", unsafe_allow_html=True)
     create_export_buttons(title, filtered_dict)
     return filtered_dict
 
@@ -1483,9 +1545,6 @@ def render_ai():
             team_context_lines.append(f"- {emp}: {last_task_clean}...")
     team_context_str = "\n".join(team_context_lines) if team_context_lines else "لا توجد تكليفات لزملاء آخرين حالياً."
 
-    avatar_user = get_base64_svg("users", "#cbd5e1")
-    avatar_manager = get_base64_svg("command", "#00f2ff")
-
     if "المدير العام" in curr_user:
         gm_tabs = st.tabs(["مراقبة وتقييم الموظفين (سري)", "مكتبي الخاص (توجيهات الإدارة)"])
         
@@ -1517,16 +1576,16 @@ def render_ai():
                     st.markdown("<br>", unsafe_allow_html=True)
                     chat_to_view = st.session_state.all_chats[sel_emp]
                     for idx, m in enumerate(chat_to_view):
-                        av = avatar_user if m["role"] == "user" else avatar_manager
-                        with st.chat_message(m["role"], avatar=av):
+                        with st.chat_message(m["role"]):
                             st.markdown(f"<span class='msg-{m['role']}' style='display:none;'></span>", unsafe_allow_html=True)
-                            st.markdown(f"<div dir='rtl' style='text-align: right;'>\n\n{m['content']}\n\n</div>", unsafe_allow_html=True)
-                            bc1, bc2, bc3 = st.columns([8, 1, 1])
-                            with bc2:
-                                if st.button("تعديل", key=f"gm_ed_{sel_emp}_{idx}"):
+                            st.markdown(f"<div class='chat-bubble' dir='rtl'>{m['content']}</div>", unsafe_allow_html=True)
+                            
+                            c1, c2, c3, c4 = st.columns([6, 1.5, 1.5, 0.1])
+                            with c2:
+                                if st.button("✏️ تعديل", key=f"gm_ed_{sel_emp}_{idx}", use_container_width=True):
                                     edit_message_dialog(sel_emp, idx, m['content'])
-                            with bc3:
-                                if st.button("حذف", key=f"gm_dl_{sel_emp}_{idx}"):
+                            with c3:
+                                if st.button("🗑️ حذف", key=f"gm_dl_{sel_emp}_{idx}", use_container_width=True):
                                     st.session_state.all_chats[sel_emp].pop(idx)
                                     save_chats()
                                     st.rerun()
@@ -1537,16 +1596,16 @@ def render_ai():
             chat_area = st.container(height=450, border=False)
             with chat_area:
                 for idx, msg in enumerate(st.session_state.all_chats.get(curr_user, [])):
-                    av = avatar_user if msg["role"] == "user" else avatar_manager
-                    with st.chat_message(msg["role"], avatar=av):
+                    with st.chat_message(msg["role"]):
                         st.markdown(f"<span class='msg-{msg['role']}' style='display:none;'></span>", unsafe_allow_html=True)
-                        st.markdown(f"<div dir='rtl' style='text-align: right;'>\n\n{msg['content']}\n\n</div>", unsafe_allow_html=True)
-                        bc1, bc2, bc3 = st.columns([8, 1, 1])
-                        with bc2:
-                            if st.button("تعديل", key=f"ed_{curr_user}_{idx}"):
+                        st.markdown(f"<div class='chat-bubble' dir='rtl'>{msg['content']}</div>", unsafe_allow_html=True)
+                        
+                        c1, c2, c3, c4 = st.columns([6, 1.5, 1.5, 0.1])
+                        with c2:
+                            if st.button("✏️ تعديل", key=f"ed_{curr_user}_{idx}", use_container_width=True):
                                 edit_message_dialog(curr_user, idx, msg['content'])
-                        with bc3:
-                            if st.button("حذف", key=f"dl_{curr_user}_{idx}"):
+                        with c3:
+                            if st.button("🗑️ حذف", key=f"dl_{curr_user}_{idx}", use_container_width=True):
                                 st.session_state.all_chats[curr_user].pop(idx)
                                 save_chats()
                                 st.rerun()
@@ -1557,16 +1616,16 @@ def render_ai():
         chat_area = st.container(height=450, border=False)
         with chat_area:
             for idx, msg in enumerate(st.session_state.all_chats.get(curr_user, [])):
-                av = avatar_user if msg["role"] == "user" else avatar_manager
-                with st.chat_message(msg["role"], avatar=av):
+                with st.chat_message(msg["role"]):
                     st.markdown(f"<span class='msg-{msg['role']}' style='display:none;'></span>", unsafe_allow_html=True)
-                    st.markdown(f"<div dir='rtl' style='text-align: right;'>\n\n{msg['content']}\n\n</div>", unsafe_allow_html=True)
-                    bc1, bc2, bc3 = st.columns([8, 1, 1])
-                    with bc2:
-                        if st.button("تعديل", key=f"ed_{curr_user}_{idx}"):
+                    st.markdown(f"<div class='chat-bubble' dir='rtl'>{msg['content']}</div>", unsafe_allow_html=True)
+                    
+                    c1, c2, c3, c4 = st.columns([6, 1.5, 1.5, 0.1])
+                    with c2:
+                        if st.button("✏️ تعديل", key=f"ed_{curr_user}_{idx}", use_container_width=True):
                             edit_message_dialog(curr_user, idx, msg['content'])
-                    with bc3:
-                        if st.button("حذف", key=f"dl_{curr_user}_{idx}"):
+                    with c3:
+                        if st.button("🗑️ حذف", key=f"dl_{curr_user}_{idx}", use_container_width=True):
                             st.session_state.all_chats[curr_user].pop(idx)
                             save_chats()
                             st.rerun()
@@ -1584,9 +1643,9 @@ def render_ai():
         save_chats()
         
         with chat_area:
-            with st.chat_message("user", avatar=avatar_user):
+            with st.chat_message("user"):
                 st.markdown("<span class='msg-user' style='display:none;'></span>", unsafe_allow_html=True)
-                st.markdown(f"<div dir='rtl' style='text-align: right;'>\n\n{user_input}\n\n</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='chat-bubble' dir='rtl'>{user_input}</div>", unsafe_allow_html=True)
             
             with st.spinner("يكتب الآن..."):
                 base_prompt = CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT)
@@ -1688,7 +1747,7 @@ def render_fusion():
             if st.button(f"📥 تحليل وتصدير البيانات المدخلة (Word / PDF)", use_container_width=True):
                 show_detailed_report("البيانات الخارجية", {"df": {"البيانات المدرجة": ext_df}})
                 
-            st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin-bottom: 20px;'>", unsafe_allow_html=True)
+            st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 20px 0;'>", unsafe_allow_html=True)
 
             with st.container():
                 # مسح إحصائي تلقائي (Auto-Data Scan)
@@ -1805,10 +1864,10 @@ def render_settings():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # --- 2. إدارة الموظفين (HR Module) ---
-    st.markdown(f"<div class='g-card-title'>{get_icon('users', 22)} نظام إدارة الموظفين والصلاحيات (الحد الأقصى: {max_devices})</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='g-card-title'>{get_icon('users', 22)} نظام إدارة الموظفين والصلاحيات (الحد الأقصى المسموح: {max_devices} مستخدم)</div>", unsafe_allow_html=True)
     
     current_emps = CFG.get('EMPLOYEES', [])
-    st.info(f"تم استهلاك {len(current_emps)} من أصل {max_devices} مستخدم/جهاز مسموح به في خطة شركتك.")
+    st.info(f"تم استهلاك {len(current_emps)} من أصل {max_devices} مستخدم مسموح به في رخصة شركتك.")
     
     c_emp1, c_emp2, c_emp3 = st.columns([2, 2, 2])
     with c_emp1: new_emp_name = st.text_input("اسم الموظف", placeholder="مثال: أحمد محمود")
@@ -1819,7 +1878,7 @@ def render_settings():
 
     if st.button("إضافة الموظف", use_container_width=True):
         if len(current_emps) >= max_devices:
-            st.error("🚫 عذراً! لقد وصلت للحد الأقصى لعدد المستخدمين المسموح به في رخصتك الحالية. لا يمكنك إضافة المزيد. يرجى التواصل مع الدعم للترقية.")
+            st.error("🚫 عذراً! لقد وصلت للحد الأقصى لعدد المستخدمين المسموح به في رخصتك الحالية. لا يمكنك إضافة المزيد. يرجى التواصل مع الإدارة العليا للترقية.")
         elif new_emp_name and new_emp_role and new_emp_views:
             view_keys = [view_options[k] for k in new_emp_views]
             current_emps.append({'name': new_emp_name, 'role': new_emp_role, 'views': view_keys})
