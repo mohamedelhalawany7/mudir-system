@@ -673,12 +673,13 @@ def render_live_ticker(df_s, df_p):
     canc = df_s[df_s['state'] == 'cancel']['amount_total'].sum() if 'state' in df_s.columns else 0
     clients = len(df_p) if df_p is not None else 0
     
+    # استخدام Base64 بدلاً من SVG المباشر لمنع ظهور الأكواد كنصوص على الشاشة
     ticker_text = f"""
-    <div class="ticker-item"><span style="display:inline-block; vertical-align:middle; margin-left:5px;">{get_icon("rocket", 18, "#00ff82")}</span> إجمالي المبيعات المعتمدة: <span>{appr:,.0f} ج.م</span></div>
-    <div class="ticker-item"><span style="display:inline-block; vertical-align:middle; margin-left:5px;">{get_icon("orders", 18, "#ffd700")}</span> عروض قيد الانتظار: <span>{draft:,.0f} ج.م</span></div>
-    <div class="ticker-item"><span style="display:inline-block; vertical-align:middle; margin-left:5px;">{get_icon("bell", 18, "#ff2d78")}</span> نزيف مالي (ملغي): <span>{canc:,.0f} ج.م</span></div>
-    <div class="ticker-item"><span style="display:inline-block; vertical-align:middle; margin-left:5px;">{get_icon("users", 18, "#00f2ff")}</span> إجمالي العملاء: <span>{clients} عميل</span></div>
-    <div class="ticker-item"><span style="display:inline-block; vertical-align:middle; margin-left:5px;">{get_icon("bulb", 18, "#ffd700")}</span> النظام يعمل بأقصى طاقة استيعابية...</div>
+    <div class="ticker-item"><img src="{get_base64_svg("rocket", "#00ff82")}" width="18" style="vertical-align:middle; margin-left:5px;"> إجمالي المبيعات المعتمدة: <span>{appr:,.0f} ج.م</span></div>
+    <div class="ticker-item"><img src="{get_base64_svg("orders", "#ffd700")}" width="18" style="vertical-align:middle; margin-left:5px;"> عروض قيد الانتظار: <span>{draft:,.0f} ج.م</span></div>
+    <div class="ticker-item"><img src="{get_base64_svg("bell", "#ff2d78")}" width="18" style="vertical-align:middle; margin-left:5px;"> نزيف مالي (ملغي): <span>{canc:,.0f} ج.م</span></div>
+    <div class="ticker-item"><img src="{get_base64_svg("users", "#00f2ff")}" width="18" style="vertical-align:middle; margin-left:5px;"> إجمالي العملاء: <span>{clients} عميل</span></div>
+    <div class="ticker-item"><img src="{get_base64_svg("bulb", "#ffd700")}" width="18" style="vertical-align:middle; margin-left:5px;"> النظام يعمل بأقصى طاقة استيعابية...</div>
     """
     st.markdown(f'<div class="ticker-wrap"><div class="ticker-move">{ticker_text}{ticker_text}</div></div>', unsafe_allow_html=True)
 
