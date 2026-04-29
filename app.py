@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v38.3 (EXPORT APEX)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v38.4 (ULTIMATE FIX)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -133,6 +133,14 @@ def get_base64_svg(icon_name, color="#00f2ff"):
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Orbitron:wght@400;700;900&display=swap');
+
+/* إخفاء القوائم الافتراضية الخاصة بـ Streamlit و Manage App */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+[data-testid="stHeader"] {display: none;}
+[data-testid="stToolbar"] {display: none;}
+.stAppDeployButton {display: none;}
 
 :root {
     --c-primary:   #00f2ff;
@@ -673,14 +681,15 @@ def render_live_ticker(df_s, df_p):
     canc = df_s[df_s['state'] == 'cancel']['amount_total'].sum() if 'state' in df_s.columns else 0
     clients = len(df_p) if df_p is not None else 0
     
-    # استخدام Base64 بدلاً من SVG المباشر لمنع ظهور الأكواد كنصوص على الشاشة
-    ticker_text = f"""
-    <div class="ticker-item"><img src="{get_base64_svg("rocket", "#00ff82")}" width="18" style="vertical-align:middle; margin-left:5px;"> إجمالي المبيعات المعتمدة: <span>{appr:,.0f} ج.م</span></div>
-    <div class="ticker-item"><img src="{get_base64_svg("orders", "#ffd700")}" width="18" style="vertical-align:middle; margin-left:5px;"> عروض قيد الانتظار: <span>{draft:,.0f} ج.م</span></div>
-    <div class="ticker-item"><img src="{get_base64_svg("bell", "#ff2d78")}" width="18" style="vertical-align:middle; margin-left:5px;"> نزيف مالي (ملغي): <span>{canc:,.0f} ج.م</span></div>
-    <div class="ticker-item"><img src="{get_base64_svg("users", "#00f2ff")}" width="18" style="vertical-align:middle; margin-left:5px;"> إجمالي العملاء: <span>{clients} عميل</span></div>
-    <div class="ticker-item"><img src="{get_base64_svg("bulb", "#ffd700")}" width="18" style="vertical-align:middle; margin-left:5px;"> النظام يعمل بأقصى طاقة استيعابية...</div>
-    """
+    # بناء شريط الأخبار في سطر واحد بدون مسافات (Indentations) لتجنب أخطاء قراءة الـ Markdown
+    ticker_text = "".join([
+        f'<div class="ticker-item"><img src="{get_base64_svg("rocket", "#00ff82")}" width="18" style="vertical-align:middle; margin-left:5px;"> إجمالي المبيعات المعتمدة: <span>{appr:,.0f} ج.م</span></div>',
+        f'<div class="ticker-item"><img src="{get_base64_svg("orders", "#ffd700")}" width="18" style="vertical-align:middle; margin-left:5px;"> عروض قيد الانتظار: <span>{draft:,.0f} ج.م</span></div>',
+        f'<div class="ticker-item"><img src="{get_base64_svg("bell", "#ff2d78")}" width="18" style="vertical-align:middle; margin-left:5px;"> نزيف مالي (ملغي): <span>{canc:,.0f} ج.م</span></div>',
+        f'<div class="ticker-item"><img src="{get_base64_svg("users", "#00f2ff")}" width="18" style="vertical-align:middle; margin-left:5px;"> إجمالي العملاء: <span>{clients} عميل</span></div>',
+        f'<div class="ticker-item"><img src="{get_base64_svg("bulb", "#ffd700")}" width="18" style="vertical-align:middle; margin-left:5px;"> النظام يعمل بأقصى طاقة استيعابية...</div>'
+    ])
+    
     st.markdown(f'<div class="ticker-wrap"><div class="ticker-move">{ticker_text}{ticker_text}</div></div>', unsafe_allow_html=True)
 
 # ----------------------------------------------------
@@ -772,7 +781,7 @@ if st.session_state.current_user is not None:
     df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v38.3 APEX</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v38.4 APEX</div></div>""", unsafe_allow_html=True)
         
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
@@ -844,8 +853,21 @@ def build_infographic_html(data: dict) -> str:
     return f"""<div style="font-family:'Cairo',sans-serif;direction:rtl;color:#e2e8f0;"><p style="color:#94a3b8;font-size:1rem;margin:0 0 1.5rem;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:15px;">{data.get('subtitle', '')}</p><div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:2rem;">{kpi_html}</div>{f'<div style="font-weight:900;font-size:1rem;color:#64748b;text-transform:uppercase;margin:1.5rem 0 1rem;">{get_icon("chart",18)} المؤشرات الحيوية</div>{bar_html}' if bar_html else ''}{f'<div style="font-weight:900;font-size:1rem;color:#64748b;text-transform:uppercase;margin:2rem 0 1rem;">{get_icon("check",18)} التصنيفات الاستراتيجية</div><div>{badge_html}</div>' if badge_html else ''}</div>"""
 
 # ============================================================
-# 5. نظام التصدير الموحد (Export System - Word/PDF)
+# 5. نظام التصدير الموحد الخالي من الأخطاء (Safe Export System)
 # ============================================================
+
+def make_safe_df(df_val):
+    """دالة حماية قصوى: تقوم بتحويل أي جداول بها مصفوفات أو بيانات غير متوافقة إلى نصوص صريحة لمنع انهيار PyArrow"""
+    if hasattr(df_val, 'data'):
+        df = df_val.data.copy()
+    else:
+        df = df_val.copy()
+        
+    if df is None or df.empty: 
+        return pd.DataFrame()
+        
+    return df.astype(str)
+
 def create_export_buttons(title, df_dict):
     html_content = f"""<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
     <head><meta charset='utf-8'><title>{title}</title>
@@ -865,11 +887,11 @@ def create_export_buttons(title, df_dict):
     """
     has_data = False
     for section, df_val in df_dict.items():
-        df = df_val.data if hasattr(df_val, 'data') else df_val
-        if df is not None and not df.empty:
+        df_safe = make_safe_df(df_val)
+        if not df_safe.empty:
             has_data = True
             html_content += f"<h3>{section}</h3>"
-            html_content += df.to_html(index=False)
+            html_content += df_safe.to_html(index=False)
     
     if not has_data:
         html_content += "<p style='text-align: center; color: red;'>لا توجد بيانات متاحة للتصدير في هذه الفترة.</p>"
@@ -909,9 +931,9 @@ def show_main_export_dialog(title, df_dict):
     tabs = st.tabs(list(df_dict.keys()))
     for i, (name, df_val) in enumerate(df_dict.items()):
         with tabs[i]:
-            df = df_val.data if hasattr(df_val, 'data') else df_val
-            if df is not None and not df.empty:
-                st.dataframe(df, use_container_width=True, hide_index=True)
+            df_safe = make_safe_df(df_val)
+            if not df_safe.empty:
+                st.dataframe(df_safe, use_container_width=True, hide_index=True)
             else:
                 st.warning("الجدول فارغ ولا يوجد به بيانات للفترة المحددة.")
     
@@ -942,8 +964,8 @@ def show_detailed_report(title: str, data: dict):
         tabs = st.tabs(list(df_dict.keys()))
         for i, (tab_name, df_val) in enumerate(df_dict.items()):
             with tabs[i]:
-                df_to_check = df_val.data if hasattr(df_val, 'data') else df_val
-                if not df_to_check.empty:
+                df_safe = make_safe_df(df_val)
+                if not df_safe.empty:
                     st.dataframe(df_val, use_container_width=True, hide_index=True)
                 else:
                     st.info("لا توجد بيانات متاحة في هذا التصنيف.")
