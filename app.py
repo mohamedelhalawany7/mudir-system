@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v39.2 (ROUTER FIXED)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v40.0 (SAAS LICENSE MANAGER)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -24,8 +24,12 @@ st.set_page_config(
 )
 
 # ============================================================
-# 0. نظام الحفظ الديناميكي (Workspace Persistence)
+# 0. نظام الحفظ الديناميكي وإدارة التراخيص (License & Workspace)
 # ============================================================
+CONFIG_FILE = "mudir_config.json"
+LICENSES_FILE = "mudir_licenses.json"
+MASTER_ADMIN_CODE = "admin185710" # الكود السري الخاص بك لدخول لوحة تحكم التراخيص
+
 DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري شاطر جداً، خبرة سنين في المبيعات والتسويق وإدارة الشركات.
 شخصيتك: مصري أصيل، بتتكلم بلهجة مصرية طبيعية جداً جداً وبطريقة احترافية (كأنك مدير قاعد في مكتبه بيوجه فريقه)، حازم، جاد، معلم، ومبتسمحش في التقصير أو الأعذار. بتدي أوامر واضحة وتتابعها وتقيم الموظفين وتناقشهم في أوقات التنفيذ.
 
@@ -83,6 +87,21 @@ def save_chats():
     if 'app_config' in st.session_state:
         st.session_state.app_config['ALL_CHATS'] = st.session_state.all_chats
         save_config(st.session_state.app_config)
+
+# --- دوال إدارة التراخيص الجديدة ---
+def load_licenses():
+    if os.path.exists(LICENSES_FILE):
+        try:
+            with open(LICENSES_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except: pass
+    return {"workspaces": {}}
+
+def save_licenses(data):
+    try:
+        with open(LICENSES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+    except: pass
 
 # ============================================================
 # 1. نظام الأيقونات المبرمجة (SVG Icon System)
@@ -530,19 +549,39 @@ def render_workspace_login():
     st.markdown("<div style='margin-top: 10vh;'></div>", unsafe_allow_html=True)
     st.markdown("<div class='g-card' style='max-width: 500px; margin: 0 auto; text-align: center;'>", unsafe_allow_html=True)
     st.markdown(f"<div style='color:var(--c-primary); margin-bottom: 20px;'>{get_icon('fusion', 60)}</div>", unsafe_allow_html=True)
-    st.markdown("<h2 style='color:#fff; margin-top:0;'>مساحة العمل (Workspace)</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='color:var(--c-dim); margin-bottom: 30px;'>أدخل كود الشركة الخاص بك لفتح الإعدادات والبيانات</p>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color:#fff; margin-top:0;'>بوابة الولوج الآمنة (Mudir OS)</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='color:var(--c-dim); margin-bottom: 30px;'>أدخل كود الشركة المرخص لفتح مساحة العمل الخاصة بك</p>", unsafe_allow_html=True)
     
-    ws_key = st.text_input("كود الشركة:", type="password", placeholder="أدخل كود المساحة...")
+    ws_key = st.text_input("كود الشركة (License Key):", type="password", placeholder="أدخل الكود هنا...")
     
     if st.button("تأكيد ودخول", type="primary", use_container_width=True):
         if ws_key.strip():
-            st.session_state.workspace_key = ws_key.strip()
-            st.session_state.workspace_id = ws_key.strip()
-            st.session_state.app_config = load_config()
-            st.session_state.all_chats = st.session_state.app_config.get('ALL_CHATS', {})
-            st.session_state.view = 'login'
-            st.rerun()
+            if ws_key.strip() == MASTER_ADMIN_CODE:
+                st.session_state.view = 'super_admin'
+                st.rerun()
+                return
+
+            licenses = load_licenses()
+            ws_data = licenses.get('workspaces', {}).get(ws_key.strip())
+            
+            if not ws_data:
+                st.error("كود الشركة غير مسجل! يرجى التأكد من الكود أو التواصل مع مطور النظام.")
+            elif ws_data.get('status') == 'suspended':
+                st.error("تم إيقاف هذه المساحة من قبل الإدارة. يرجى المراجعة.")
+            else:
+                expiry_str = ws_data.get('expiry_date')
+                if expiry_str:
+                    expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
+                    if datetime.now() > expiry_date:
+                        st.error(f"لقد انتهت صلاحية اشتراك شركتك في ({expiry_str}). يرجى تجديد الاشتراك لاستعادة الوصول للبيانات.")
+                        return
+                
+                st.session_state.workspace_key = ws_key.strip()
+                st.session_state.workspace_id = ws_key.strip()
+                st.session_state.app_config = load_config()
+                st.session_state.all_chats = st.session_state.app_config.get('ALL_CHATS', {})
+                st.session_state.view = 'login'
+                st.rerun()
         else:
             st.error("الرجاء إدخال الكود.")
     st.markdown("</div>", unsafe_allow_html=True)
@@ -600,7 +639,7 @@ def render_login():
 # ============================================================
 init_state()
 
-if st.session_state.get('view') not in ['workspace_login', 'login'] and st.session_state.current_user is not None:
+if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login'] and st.session_state.current_user is not None:
     CFG = st.session_state.app_config
     if not st.session_state.data_loaded:
         with st.spinner('جاري تهيئة النواة وربط الخوادم لاستخراج بيانات Odoo...'):
@@ -623,7 +662,7 @@ if st.session_state.get('view') not in ['workspace_login', 'login'] and st.sessi
     df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v39.2</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v40.0</div></div>""", unsafe_allow_html=True)
         
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
@@ -1052,8 +1091,6 @@ def render_dashboard():
         }
     else:
         split_stock = {"الكل": clean_i}
-
-    render_live_ticker(st.session_state.df_s, st.session_state.df_p)
 
     metrics = [
         ("الإيرادات (المعتمدة)", f"{t_sales_appr:,.0f}", "ج", "money", get_delta_html(t_sales_appr, t_sales_appr_prev), {
@@ -1755,6 +1792,12 @@ def render_territories():
 def render_settings():
     st.markdown(f"""<div class="page-header"><div class="ph-icon-wrap">{get_icon("settings", 46, "#00f2ff")}</div><div><div class="ph-title">إعدادات النواة المركزية</div><div class="ph-sub">إصدار COMMANDER: إدارة شاملة للبيانات، الخوادم، وهيكل الموظفين</div></div></div>""", unsafe_allow_html=True)
 
+    # جلب الحد الأقصى للمستخدمين من الترخيص
+    licenses = load_licenses()
+    ws_id = st.session_state.get('workspace_key', '')
+    ws_data = licenses.get('workspaces', {}).get(ws_id, {})
+    max_devices = ws_data.get('max_devices', 1)
+
     # --- 1. إعدادات الأمان (المدير العام) ---
     st.markdown(f"<div class='g-card-title'>{get_icon('check', 22)} إعدادات الأمان للمدير العام</div>", unsafe_allow_html=True)
     m_pin = st.text_input("رمز الدخول السري للمدير (PIN)", value=CFG.get('MANAGER_PIN', '0000'), type="password")
@@ -1762,10 +1805,10 @@ def render_settings():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # --- 2. إدارة الموظفين (HR Module) ---
-    st.markdown(f"<div class='g-card-title'>{get_icon('users', 22)} نظام إدارة الموظفين والصلاحيات (HR Module)</div>", unsafe_allow_html=True)
-    st.info("قم بإضافة الموظفين هنا وحدد الشاشات التي يحق لهم رؤيتها عند الدخول.")
+    st.markdown(f"<div class='g-card-title'>{get_icon('users', 22)} نظام إدارة الموظفين والصلاحيات (الحد الأقصى: {max_devices})</div>", unsafe_allow_html=True)
     
     current_emps = CFG.get('EMPLOYEES', [])
+    st.info(f"تم استهلاك {len(current_emps)} من أصل {max_devices} مستخدم/جهاز مسموح به في خطة شركتك.")
     
     c_emp1, c_emp2, c_emp3 = st.columns([2, 2, 2])
     with c_emp1: new_emp_name = st.text_input("اسم الموظف", placeholder="مثال: أحمد محمود")
@@ -1775,7 +1818,9 @@ def render_settings():
         new_emp_views = st.multiselect("الشاشات المسموحة للموظف", list(view_options.keys()), default=["مكتب المدير"])
 
     if st.button("إضافة الموظف", use_container_width=True):
-        if new_emp_name and new_emp_role and new_emp_views:
+        if len(current_emps) >= max_devices:
+            st.error("🚫 عذراً! لقد وصلت للحد الأقصى لعدد المستخدمين المسموح به في رخصتك الحالية. لا يمكنك إضافة المزيد. يرجى التواصل مع الدعم للترقية.")
+        elif new_emp_name and new_emp_role and new_emp_views:
             view_keys = [view_options[k] for k in new_emp_views]
             current_emps.append({'name': new_emp_name, 'role': new_emp_role, 'views': view_keys})
             CFG['EMPLOYEES'] = current_emps
@@ -1907,10 +1952,109 @@ def render_settings():
     st.markdown("<div style='text-align: center; color: var(--c-dim); font-size: 0.9rem; margin-top: 50px; font-weight: bold;'>Powered by محمد الحلواني</div>", unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────────────────
+# 8. لوحة التحكم الخفية للإدارة العليا (Super Admin)
+# ────────────────────────────────────────────────────────────
+def render_super_admin():
+    st.markdown(f"""
+    <div class="page-header" style="justify-content: space-between; background: linear-gradient(135deg, #1a0b2e, #050508);">
+        <div style="display: flex; align-items: center; gap: 24px;">
+            <div class="ph-icon-wrap" style="background:rgba(112,0,255,0.1); border-color:#7000ff;">{get_icon("check", 46, "#7000ff")}</div>
+            <div>
+                <div class="ph-title" style="color:#e2e8f0;">مركز القيادة والتراخيص (Super Admin)</div>
+                <div class="ph-sub" style="color:#b490ff;">إدارة اشتراكات الشركات، توليد الأكواد، وتحديد المستخدمين.</div>
+            </div>
+        </div>
+        <div class="print-btn-wrapper">
+            <button style="background:rgba(255,45,120,0.1); border:1px solid #ff2d78; color:#ff2d78; padding:8px 16px; border-radius:8px; cursor:pointer;" onclick="window.location.reload();">تسجيل الخروج وإغلاق</button>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    licenses = load_licenses()
+    if 'workspaces' not in licenses:
+        licenses['workspaces'] = {}
+
+    st.markdown("<div class='g-card'>", unsafe_allow_html=True)
+    st.markdown(f"<div class='g-card-title' style='color:var(--c-gold);'>{get_icon('rocket', 22)} إصدار ترخيص لشركة جديدة</div>", unsafe_allow_html=True)
+    
+    c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
+    with c1: new_ws_id = st.text_input("كود الشركة (بالإنجليزية):", placeholder="مثال: Ghareeb2026")
+    with c2: duration = st.selectbox("مدة الاشتراك:", ["شهر واحد", "3 شهور", "6 شهور", "سنة كاملة"])
+    with c3: max_dev = st.number_input("الحد الأقصى للمستخدمين:", min_value=1, max_value=1000, value=5)
+    with c4: st.markdown("<br>", unsafe_allow_html=True); add_btn = st.button("تفعيل المساحة", use_container_width=True, type="primary")
+
+    if add_btn:
+        safe_id = "".join(c for c in str(new_ws_id) if c.isalnum() or c in ('_', '-'))
+        if not safe_id:
+            st.error("يرجى إدخال كود صحيح.")
+        elif safe_id in licenses['workspaces']:
+            st.error("هذا الكود موجود بالفعل! اختر كوداً آخر.")
+        else:
+            days = 30 if duration == "شهر واحد" else 90 if duration == "3 شهور" else 180 if duration == "6 شهور" else 365
+            expiry = (datetime.now() + timedelta(days=days)).strftime("%Y-%m-%d")
+            licenses['workspaces'][safe_id] = {
+                "status": "active",
+                "expiry_date": expiry,
+                "created_on": datetime.now().strftime("%Y-%m-%d"),
+                "max_devices": int(max_dev)
+            }
+            save_licenses(licenses)
+            st.success(f"تم إنشاء ترخيص الشركة بنجاح! الأجهزة: {max_dev} | الانتهاء: {expiry}")
+            time.sleep(1)
+            st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("<div class='g-card'>", unsafe_allow_html=True)
+    st.markdown(f"<div class='g-card-title'>{get_icon('table', 22)} الشركات المشتركة وإدارة التراخيص</div>", unsafe_allow_html=True)
+    
+    if not licenses['workspaces']:
+        st.info("لا توجد أي شركات مسجلة حتى الآن.")
+    else:
+        for ws_id, ws_info in licenses['workspaces'].items():
+            is_active = ws_info['status'] == 'active'
+            exp_date = datetime.strptime(ws_info['expiry_date'], "%Y-%m-%d")
+            is_expired = datetime.now() > exp_date
+            
+            status_html = "<span style='color:#00ff82;'>نشط</span>" if is_active and not is_expired else "<span style='color:#ff2d78;'>منتهي / متوقف</span>"
+            max_d = ws_info.get('max_devices', 1)
+            
+            with st.container():
+                rc1, rc2, rc3, rc4, rc5 = st.columns([2, 1.5, 1.5, 1.5, 2])
+                rc1.markdown(f"**الشركة:** `{ws_id}`")
+                rc2.markdown(f"**الحالة:** {status_html}", unsafe_allow_html=True)
+                rc3.markdown(f"**مستخدمين:** {max_d}")
+                rc4.markdown(f"**الانتهاء:** {ws_info['expiry_date']}")
+                
+                with rc5:
+                    action_opts = ["اختر إجراء...", "تجديد +شهر", "تجديد +سنة", "زيادة مستخدمين (+5)", "إيقاف (تعليق)", "تفعيل"]
+                    action = st.selectbox("الإجراء", action_opts, key=f"act_{ws_id}", label_visibility="collapsed")
+                    if action != "اختر إجراء...":
+                        if action == "تجديد +شهر":
+                            new_exp = (exp_date + timedelta(days=30)).strftime("%Y-%m-%d")
+                            licenses['workspaces'][ws_id]['expiry_date'] = new_exp
+                            licenses['workspaces'][ws_id]['status'] = 'active'
+                        elif action == "تجديد +سنة":
+                            new_exp = (exp_date + timedelta(days=365)).strftime("%Y-%m-%d")
+                            licenses['workspaces'][ws_id]['expiry_date'] = new_exp
+                            licenses['workspaces'][ws_id]['status'] = 'active'
+                        elif action == "زيادة مستخدمين (+5)":
+                            licenses['workspaces'][ws_id]['max_devices'] = max_d + 5
+                        elif action == "إيقاف (تعليق)":
+                            licenses['workspaces'][ws_id]['status'] = 'suspended'
+                        elif action == "تفعيل":
+                            licenses['workspaces'][ws_id]['status'] = 'active'
+                            
+                        save_licenses(licenses)
+                        st.rerun()
+                st.markdown("<hr style='border-color:rgba(255,255,255,0.05); margin:10px 0;'>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# ────────────────────────────────────────────────────────────
 # محول العرض (Router)
 # ────────────────────────────────────────────────────────────
 view = st.session_state.get('view', 'login')
 if view == "workspace_login": render_workspace_login()
+elif view == "super_admin": render_super_admin()
 elif view == "login": render_login()
 elif view == "dashboard": render_dashboard()
 elif view == "departments": render_departments()
