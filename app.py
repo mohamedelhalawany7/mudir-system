@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v38.4 (ULTIMATE FIX)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v38.5 (PRO EXPORT & FILTERS)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -128,19 +128,26 @@ def get_base64_svg(icon_name, color="#00f2ff"):
     return f"data:image/svg+xml;base64,{b64}"
 
 # ============================================================
-# 2. التنسيقات العامة والـ CSS (محدثة لدعم الأنميشن)
+# 2. التنسيقات العامة والـ CSS (محدثة للإخفاء التام لعلامات Streamlit)
 # ============================================================
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Orbitron:wght@400;700;900&display=swap');
 
-/* إخفاء القوائم الافتراضية الخاصة بـ Streamlit و Manage App */
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-header {visibility: hidden;}
-[data-testid="stHeader"] {display: none;}
-[data-testid="stToolbar"] {display: none;}
-.stAppDeployButton {display: none;}
+/* التدمير الشامل لقوائم وأزرار Streamlit Cloud و Manage app */
+#MainMenu {visibility: hidden !important; display: none !important;}
+footer {visibility: hidden !important; display: none !important;}
+header {visibility: hidden !important; display: none !important;}
+[data-testid="stHeader"] {display: none !important;}
+[data-testid="stToolbar"] {display: none !important;}
+.stAppDeployButton {display: none !important;}
+.stDeployButton {display: none !important;}
+#st-deploy-button {display: none !important;}
+.viewerBadge_container__1QSob {display: none !important;}
+.viewerBadge_link__1S137 {display: none !important;}
+[data-testid="manage-app-button"] {display: none !important;}
+[data-testid="stStatusWidget"] {display: none !important;}
+iframe[title="streamlitApp"] {border: none !important;}
 
 :root {
     --c-primary:   #00f2ff;
@@ -168,7 +175,6 @@ html, body, [class*="css"] {
 ::-webkit-scrollbar-thumb { background: var(--c-dim); border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--c-primary); }
 
-/* ── Cinematic Animations ───────────────────────── */
 @keyframes fadeUp {
     0% { opacity: 0; transform: translateY(20px); }
     100% { opacity: 1; transform: translateY(0); }
@@ -177,14 +183,12 @@ html, body, [class*="css"] {
     animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* ── Scroll Enforcers & Responsive ───────────────────────── */
 [data-testid="stAppViewBlockContainer"] {
     max-width: 100% !important;
     padding: 1rem 2rem !important;
     overflow-x: hidden !important;
 }
 
-/* ── Sidebar ───────────────────────── */
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg, #05050c 0%, #030306 100%) !important;
     border-left: 1px solid var(--c-border) !important; 
@@ -211,7 +215,6 @@ html, body, [class*="css"] {
 .brand-name { font-family: 'Orbitron', sans-serif; font-size: 0.85rem; letter-spacing: 4px; color: #fff; text-shadow: 0 0 10px rgba(0,242,255,0.5); font-weight: 900;}
 .brand-ver { font-size: 0.65rem; color: var(--c-primary); margin-top: 6px; font-weight: bold; background: rgba(0,242,255,0.1); padding: 2px 8px; border-radius: 99px; display: inline-block;}
 
-/* Custom Nav Buttons Styling in Sidebar */
 [data-testid="stSidebar"] div.stButton > button {
     background: transparent !important; 
     border: 1px solid transparent !important;
@@ -237,195 +240,47 @@ html, body, [class*="css"] {
     font-weight: 900 !important;
 }
 
-/* ── Smart Pills Filter CSS ──────────────────────────── */
-div[role="radiogroup"] {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 12px;
-}
-div[role="radiogroup"] > label {
-    background: rgba(0, 242, 255, 0.05) !important;
-    border: 1px solid rgba(0, 242, 255, 0.2) !important;
-    padding: 8px 20px !important;
-    border-radius: 99px !important;
-    cursor: pointer !important;
-    margin: 0 !important;
-    transition: var(--transition) !important;
-}
-div[role="radiogroup"] > label:hover {
-    background: rgba(0, 242, 255, 0.15) !important;
-}
-div[role="radiogroup"] > label:has(input:checked) {
-    background: var(--c-primary) !important;
-    border-color: var(--c-primary) !important;
-    box-shadow: 0 0 15px rgba(0, 242, 255, 0.4) !important;
-}
-div[role="radiogroup"] > label:has(input:checked) div[data-testid="stMarkdownContainer"] p {
-    color: #000 !important;
-    font-weight: 900 !important;
-}
-div[role="radiogroup"] > label > div:first-child {
-    display: none !important;
-}
+div[role="radiogroup"] { display: flex; flex-direction: row; flex-wrap: wrap; gap: 12px; }
+div[role="radiogroup"] > label { background: rgba(0, 242, 255, 0.05) !important; border: 1px solid rgba(0, 242, 255, 0.2) !important; padding: 8px 20px !important; border-radius: 99px !important; cursor: pointer !important; margin: 0 !important; transition: var(--transition) !important; }
+div[role="radiogroup"] > label:hover { background: rgba(0, 242, 255, 0.15) !important; }
+div[role="radiogroup"] > label:has(input:checked) { background: var(--c-primary) !important; border-color: var(--c-primary) !important; box-shadow: 0 0 15px rgba(0, 242, 255, 0.4) !important; }
+div[role="radiogroup"] > label:has(input:checked) div[data-testid="stMarkdownContainer"] p { color: #000 !important; font-weight: 900 !important; }
+div[role="radiogroup"] > label > div:first-child { display: none !important; }
 
-/* ── WhatsApp Style Chat (RTL & Clean) ──────────────────────────── */
-[data-testid="stChatMessage"] {
-    direction: rtl !important;
-    width: fit-content !important;
-    min-width: 300px !important;
-    max-width: 85% !important;
-    padding: 1.5rem !important;
-    margin-bottom: 1rem !important;
-    display: flex !important;
-    flex-direction: column !important; 
-    clear: both !important;
-}
-[data-testid="stChatMessage"]:has(.msg-user) {
-    background-color: rgba(0, 242, 255, 0.05) !important;
-    border: 1px solid rgba(0, 242, 255, 0.2) !important;
-    margin-right: auto !important;
-    margin-left: 0 !important;
-    align-self: flex-start !important;
-    border-radius: 12px 12px 12px 0 !important;
-}
-[data-testid="stChatMessage"]:has(.msg-assistant) {
-    background-color: rgba(15, 15, 20, 0.6) !important;
-    border: 1px solid rgba(255, 255, 255, 0.05) !important;
-    margin-left: auto !important;
-    margin-right: 0 !important;
-    align-self: flex-end !important;
-    border-radius: 12px 12px 0 12px !important;
-}
-[data-testid="stChatMessage"] > div:first-child {
-    margin-left: 15px !important;
-    margin-right: 0 !important;
-    align-self: flex-start !important; 
-}
-[data-testid="stChatMessageContent"] {
-    text-align: right !important;
-    direction: rtl !important;
-    font-family: 'Cairo', sans-serif !important;
-    width: 100% !important;
-}
-.stMarkdown div[dir="rtl"] {
-    text-align: right !important;
-}
-.stMarkdown div[dir="rtl"] ul, .stMarkdown div[dir="rtl"] ol {
-    padding-right: 1.5rem !important;
-    padding-left: 0 !important;
-    margin-bottom: 1rem !important;
-}
-.stMarkdown div[dir="rtl"] li {
-    font-size: 1.1rem !important;
-    line-height: 1.9 !important;
-    color: #e2e8f0 !important;
-    margin-bottom: 8px !important;
-}
-.stMarkdown div[dir="rtl"] p { 
-    font-size: 1.1rem !important;
-    line-height: 1.9 !important;
-    color: #e2e8f0 !important;
-    margin-bottom: 10px !important; 
-}
-.stMarkdown div[dir="rtl"] strong {
-    color: #00f2ff !important;
-}
+[data-testid="stChatMessage"] { direction: rtl !important; width: fit-content !important; min-width: 300px !important; max-width: 85% !important; padding: 1.5rem !important; margin-bottom: 1rem !important; display: flex !important; flex-direction: column !important; clear: both !important; }
+[data-testid="stChatMessage"]:has(.msg-user) { background-color: rgba(0, 242, 255, 0.05) !important; border: 1px solid rgba(0, 242, 255, 0.2) !important; margin-right: auto !important; margin-left: 0 !important; align-self: flex-start !important; border-radius: 12px 12px 12px 0 !important; }
+[data-testid="stChatMessage"]:has(.msg-assistant) { background-color: rgba(15, 15, 20, 0.6) !important; border: 1px solid rgba(255, 255, 255, 0.05) !important; margin-left: auto !important; margin-right: 0 !important; align-self: flex-end !important; border-radius: 12px 12px 0 12px !important; }
+[data-testid="stChatMessage"] > div:first-child { margin-left: 15px !important; margin-right: 0 !important; align-self: flex-start !important; }
+[data-testid="stChatMessageContent"] { text-align: right !important; direction: rtl !important; font-family: 'Cairo', sans-serif !important; width: 100% !important; }
 
-[data-testid="stChatMessage"] div.stButton > button {
-    padding: 6px 12px !important;
-    font-size: 0.85rem !important;
-    background: rgba(255,255,255,0.03) !important;
-    border: 1px solid rgba(255,255,255,0.1) !important;
-    color: var(--c-dim) !important;
-    margin-top: 8px !important;
-    border-radius: 6px !important;
-    width: 100% !important;
-    min-height: 32px !important;
-    line-height: 1 !important;
-    transition: var(--transition);
-}
-[data-testid="stChatMessage"] div.stButton > button:hover {
-    background: rgba(0,242,255,0.08) !important;
-    border-color: var(--c-primary) !important;
-    color: var(--c-primary) !important;
-    box-shadow: 0 0 10px rgba(0,242,255,0.1) !important;
-}
+.stMarkdown div[dir="rtl"] { text-align: right !important; }
+.stMarkdown div[dir="rtl"] ul, .stMarkdown div[dir="rtl"] ol { padding-right: 1.5rem !important; padding-left: 0 !important; margin-bottom: 1rem !important; }
+.stMarkdown div[dir="rtl"] li { font-size: 1.1rem !important; line-height: 1.9 !important; color: #e2e8f0 !important; margin-bottom: 8px !important; }
+.stMarkdown div[dir="rtl"] p { font-size: 1.1rem !important; line-height: 1.9 !important; color: #e2e8f0 !important; margin-bottom: 10px !important; }
+.stMarkdown div[dir="rtl"] strong { color: #00f2ff !important; }
 
-/* Spinner styling */
-.stSpinner > div > div {
-    border-color: var(--c-primary) transparent transparent transparent !important;
-}
+[data-testid="stChatMessage"] div.stButton > button { padding: 6px 12px !important; font-size: 0.85rem !important; background: rgba(255,255,255,0.03) !important; border: 1px solid rgba(255,255,255,0.1) !important; color: var(--c-dim) !important; margin-top: 8px !important; border-radius: 6px !important; width: 100% !important; min-height: 32px !important; line-height: 1 !important; transition: var(--transition); }
+[data-testid="stChatMessage"] div.stButton > button:hover { background: rgba(0,242,255,0.08) !important; border-color: var(--c-primary) !important; color: var(--c-primary) !important; box-shadow: 0 0 10px rgba(0,242,255,0.1) !important; }
 
-/* ── UI Elements ──────────────────────────── */
-.page-header {
-    position: relative; overflow: hidden; padding: 2.5rem 3rem; margin-bottom: 1rem;
-    border-radius: var(--r); background: linear-gradient(135deg, #090912, #050508);
-    border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 20px 40px rgba(0,0,0,0.6);
-    display: flex; align-items: center; gap: 24px; flex-wrap: wrap; 
-}
-.page-header::after {
-    content: ''; position: absolute; right: 0; top: 0; width: 40%; height: 100%;
-    background: radial-gradient(circle at right, rgba(0,242,255,0.08), transparent 70%); pointer-events: none;
-}
+.stSpinner > div > div { border-color: var(--c-primary) transparent transparent transparent !important; }
+
+.page-header { position: relative; overflow: hidden; padding: 2.5rem 3rem; margin-bottom: 1rem; border-radius: var(--r); background: linear-gradient(135deg, #090912, #050508); border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 20px 40px rgba(0,0,0,0.6); display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.page-header::after { content: ''; position: absolute; right: 0; top: 0; width: 40%; height: 100%; background: radial-gradient(circle at right, rgba(0,242,255,0.08), transparent 70%); pointer-events: none; }
 .ph-icon-wrap { background: rgba(0,242,255,0.05); border-radius: 16px; padding: 18px; display: flex; border: 1px solid rgba(0,242,255,0.2); box-shadow: inset 0 0 20px rgba(0,242,255,0.05); }
 .ph-title { font-size: 2.2rem; font-weight: 900; color: #fff; margin: 0; letter-spacing: -0.5px; line-height: 1.2;}
 .ph-sub { color: #94a3b8; font-size: 1rem; margin-top: 8px; font-weight: 600; line-height: 1.5;}
 
-/* Isolated Card container */
-.g-card {
-    background: var(--c-card); backdrop-filter: blur(25px); border: 1px solid rgba(255,255,255,0.06);
-    border-radius: var(--r); padding: 1.8rem; margin-bottom: 1.5rem; transition: var(--transition);
-    overflow-x: auto;
-}
+.g-card { background: var(--c-card); backdrop-filter: blur(25px); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--r); padding: 1.8rem; margin-bottom: 1.5rem; transition: var(--transition); overflow-x: auto; }
 .g-card:hover { border-color: rgba(0,242,255,0.25); box-shadow: 0 15px 35px rgba(0,0,0,0.5), 0 0 20px rgba(0,242,255,0.05); transform: translateY(-2px); }
 .g-card-title { font-weight: 800; font-size: 1.2rem; color: #fff; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; white-space: normal; line-height: 1.4; flex-wrap: wrap;} 
 
-/* ── Dynamic KPI Deltas CSS ──────────────────────────── */
-.delta-pos {
-    color: #00ff82;
-    font-size: 0.85rem;
-    font-weight: 800;
-    margin-left: 8px;
-    background: rgba(0,255,130,0.1);
-    padding: 2px 8px;
-    border-radius: 99px;
-}
-.delta-neg {
-    color: #ff2d78;
-    font-size: 0.85rem;
-    font-weight: 800;
-    margin-left: 8px;
-    background: rgba(255,45,120,0.1);
-    padding: 2px 8px;
-    border-radius: 99px;
-}
-.delta-neu {
-    color: #cbd5e1;
-    font-size: 0.85rem;
-    font-weight: 800;
-    margin-left: 8px;
-    background: rgba(255,255,255,0.05);
-    padding: 2px 8px;
-    border-radius: 99px;
-}
+.delta-pos { color: #00ff82; font-size: 0.85rem; font-weight: 800; margin-left: 8px; background: rgba(0,255,130,0.1); padding: 2px 8px; border-radius: 99px; }
+.delta-neg { color: #ff2d78; font-size: 0.85rem; font-weight: 800; margin-left: 8px; background: rgba(255,45,120,0.1); padding: 2px 8px; border-radius: 99px; }
+.delta-neu { color: #cbd5e1; font-size: 0.85rem; font-weight: 800; margin-left: 8px; background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 99px; }
 
-.custom-metric {
-    background: rgba(15,15,20,0.8);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255,255,255,0.05); border-radius: var(--r); padding: 1.5rem;
-    position: relative; overflow: hidden; transition: var(--transition);
-    display: flex; flex-direction: column; gap: 12px; cursor: pointer; min-width: 180px; height: 100%;
-}
-.custom-metric::before {
-    content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    background: radial-gradient(circle at top right, rgba(0,242,255,0.1), transparent 60%); opacity: 0; transition: opacity 0.4s;
-}
-.custom-metric::after {
-    content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
-    background: linear-gradient(90deg, var(--c-primary), var(--c-secondary));
-    transform: scaleX(0); transform-origin: right; transition: transform 0.4s ease;
-}
+.custom-metric { background: rgba(15,15,20,0.8); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05); border-radius: var(--r); padding: 1.5rem; position: relative; overflow: hidden; transition: var(--transition); display: flex; flex-direction: column; gap: 12px; cursor: pointer; min-width: 180px; height: 100%; }
+.custom-metric::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at top right, rgba(0,242,255,0.1), transparent 60%); opacity: 0; transition: opacity 0.4s; }
+.custom-metric::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--c-primary), var(--c-secondary)); transform: scaleX(0); transform-origin: right; transition: transform 0.4s ease; }
 .custom-metric:hover { border-color: rgba(0,242,255,0.4); transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0,0,0,0.6); }
 .custom-metric:hover::before { opacity: 1; }
 .custom-metric:hover::after { transform: scaleX(1); transform-origin: left; }
@@ -433,13 +288,7 @@ div[role="radiogroup"] > label > div:first-child {
 .cm-label { color: #cbd5e1; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; white-space: normal; line-height: 1.3;} 
 .cm-val { font-family: 'Orbitron', sans-serif; color: #fff; font-weight: 900; font-size: 1.8rem; position: relative; z-index: 1; text-shadow: 0 2px 10px rgba(0,0,0,0.5); word-wrap: break-word; display: flex; align-items: center; gap: 5px;}
 
-.neon-forecast {
-    font-family: 'Orbitron', sans-serif;
-    color: #ffd700;
-    text-shadow: 0 0 15px rgba(255,215,0,0.6);
-    font-size: 2rem;
-    font-weight: 900;
-}
+.neon-forecast { font-family: 'Orbitron', sans-serif; color: #ffd700; text-shadow: 0 0 15px rgba(255,215,0,0.6); font-size: 2rem; font-weight: 900; }
 
 [data-testid="stTextInput"]>div>div>input, [data-testid="stSelectbox"]>div>div, [data-testid="stMultiSelect"]>div, [data-testid="stTextArea"]>div>div>textarea { background: rgba(0,0,0,0.2) !important; border: 1px solid rgba(255,255,255,0.1) !important; color: #fff !important; border-radius: var(--r-sm) !important; }
 [data-testid="stTextInput"]>div>div>input:focus, [data-testid="stTextArea"]>div>div>textarea:focus { border-color: var(--c-primary) !important; box-shadow: 0 0 0 2px rgba(0,242,255,0.2) !important; }
@@ -452,23 +301,11 @@ div[role="radiogroup"] > label > div:first-child {
 [aria-selected="true"] { color: var(--c-primary) !important; border: 1px solid rgba(0,242,255,0.3) !important; border-bottom: none !important; background: rgba(0,242,255,0.05) !important;}
 
 /* ── Live Ticker Animation ──────────────────────────── */
-.ticker-wrap {
-    width: 100%; overflow: hidden; background-color: rgba(0,0,0,0.5);
-    border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05);
-    padding: 8px 0; margin-bottom: 20px; box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
-}
-.ticker-move {
-    display: inline-block; white-space: nowrap; padding-right: 100%; box-sizing: content-box;
-    animation: ticker 40s linear infinite;
-}
+.ticker-wrap { width: 100%; overflow: hidden; background-color: rgba(0,0,0,0.5); border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05); padding: 8px 0; margin-bottom: 20px; box-shadow: inset 0 0 10px rgba(0,0,0,0.8); }
+.ticker-move { display: inline-block; white-space: nowrap; padding-right: 100%; box-sizing: content-box; animation: ticker 40s linear infinite; }
 .ticker-move:hover { animation-play-state: paused; }
-@keyframes ticker {
-    0%   { transform: translate3d(0, 0, 0); }
-    100% { transform: translate3d(100%, 0, 0); }
-}
-.ticker-item {
-    display: inline-block; padding: 0 2rem; font-size: 0.95rem; font-weight: 700; color: #e2e8f0;
-}
+@keyframes ticker { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(100%, 0, 0); } }
+.ticker-item { display: inline-block; padding: 0 2rem; font-size: 0.95rem; font-weight: 700; color: #e2e8f0; }
 .ticker-item span { color: var(--c-primary); margin-left: 5px; }
 
 </style>
@@ -781,7 +618,7 @@ if st.session_state.current_user is not None:
     df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v38.4 APEX</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v38.5 APEX</div></div>""", unsafe_allow_html=True)
         
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
@@ -857,7 +694,7 @@ def build_infographic_html(data: dict) -> str:
 # ============================================================
 
 def make_safe_df(df_val):
-    """دالة حماية قصوى: تقوم بتحويل أي جداول بها مصفوفات أو بيانات غير متوافقة إلى نصوص صريحة لمنع انهيار PyArrow"""
+    """دالة حماية لضمان تحويل البيانات لنصوص آمنة وعدم انهيار PyArrow"""
     if hasattr(df_val, 'data'):
         df = df_val.data.copy()
     else:
@@ -918,24 +755,80 @@ def create_export_buttons(title, df_dict):
             use_container_width=True
         )
 
-@st.dialog("معاينة وتصدير التقرير الشامل", width="large")
+@st.dialog("نافذة التصدير والفلاتر", width="large")
 def show_main_export_dialog(title, df_dict):
-    st.markdown(f"<h3 style='color:var(--c-primary); text-align:center; margin-bottom:20px;'>نافذة التصدير: {title}</h3>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='color:var(--c-primary); text-align:center; margin-bottom:20px;'>تصدير التقرير: {title}</h3>", unsafe_allow_html=True)
+    st.markdown("#### 🔍 فلاتر البيانات قبل الحفظ والتصدير")
     
-    st.info("💡 يمكنك الآن حفظ كافة البيانات الموجودة في هذه الشاشة بضغطة زر. اختر الصيغة المناسبة لك:")
-    create_export_buttons(title, df_dict)
-    
+    df_s = None
+    if "جميع العروض والطلبات" in df_dict:
+        df_val = df_dict["جميع العروض والطلبات"]
+        df_s = df_val.data.copy() if hasattr(df_val, 'data') else df_val.copy()
+        
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        state_opts = ['الكل', 'موافق عليه', 'مسودة', 'ملغي']
+        selected_state = st.selectbox("تصفية بحالة العروض:", state_opts)
+    with c2:
+        clients = ['الكل']
+        if df_s is not None and 'partner_id' in df_s.columns:
+            clients += sorted([clean_odoo_m2o(x) for x in df_s['partner_id'].dropna().unique()])
+        elif "قاعدة العملاء" in df_dict:
+            df_p_val = df_dict["قاعدة العملاء"]
+            df_p = df_p_val.data.copy() if hasattr(df_p_val, 'data') else df_p_val.copy()
+            if 'name' in df_p.columns:
+                clients += sorted(df_p['name'].astype(str).dropna().unique().tolist())
+        selected_client = st.selectbox("تصفية باسم العميل:", clients)
+    with c3:
+        date_filter = st.date_input("تحديد فترة (من - إلى):", value=[])
+
+    filtered_dict = {}
+    for name, df_val in df_dict.items():
+        df = df_val.data.copy() if hasattr(df_val, 'data') else df_val.copy()
+        
+        if not df.empty:
+            # 1. State filter
+            if selected_state != 'الكل':
+                if 'state' in df.columns:
+                    temp_state = df['state'].apply(map_state_ar)
+                    df = df[temp_state == selected_state]
+                elif 'الحالة' in df.columns:
+                    df = df[df['الحالة'] == selected_state]
+                elif 'الحالة (عربي)' in df.columns:
+                    df = df[df['الحالة (عربي)'] == selected_state]
+            
+            # 2. Client filter
+            if selected_client != 'الكل':
+                if 'partner_id' in df.columns:
+                    df = df[df['partner_id'].apply(clean_odoo_m2o) == selected_client]
+                elif 'اسم الجهة' in df.columns:
+                    df = df[df['اسم الجهة'] == selected_client]
+                elif 'العميل' in df.columns:
+                    df = df[df['العميل'] == selected_client]
+                    
+            # 3. Date filter
+            if len(date_filter) == 2:
+                start_date, end_date = date_filter
+                start_dt = pd.to_datetime(start_date)
+                end_dt = pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+                
+                if 'date_order' in df.columns:
+                    dates = pd.to_datetime(df['date_order'], errors='coerce')
+                    df = df[(dates >= start_dt) & (dates <= end_dt)]
+                elif 'التاريخ' in df.columns:
+                    try:
+                        temp_dt = pd.to_datetime(df['التاريخ'])
+                        df = df[(temp_dt >= start_dt) & (temp_dt <= end_dt)]
+                    except:
+                        pass
+        
+        filtered_dict[name] = df
+        
     st.markdown("<hr style='border-color: rgba(255,255,255,0.1); margin: 25px 0;'>", unsafe_allow_html=True)
-    st.markdown(f"<h4 style='color:var(--c-dim);'>{get_icon('eye', 20)} معاينة سريعة للبيانات التي سيتم تصديرها:</h4>", unsafe_allow_html=True)
+    st.info("💡 تم تطبيق الفلاتر بنجاح. يمكنك الآن حفظ التقرير بالصيغة المناسبة لك:")
     
-    tabs = st.tabs(list(df_dict.keys()))
-    for i, (name, df_val) in enumerate(df_dict.items()):
-        with tabs[i]:
-            df_safe = make_safe_df(df_val)
-            if not df_safe.empty:
-                st.dataframe(df_safe, use_container_width=True, hide_index=True)
-            else:
-                st.warning("الجدول فارغ ولا يوجد به بيانات للفترة المحددة.")
+    # لا نقوم هنا بطباعة الجداول الكبيرة في الشاشة، فقط نعرض الأزرار
+    create_export_buttons(title, filtered_dict)
     
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("إغلاق النافذة", use_container_width=True):
@@ -945,7 +838,6 @@ def show_main_export_dialog(title, df_dict):
 def show_detailed_report(title: str, data: dict):
     st.markdown(f"<h3 style='color:var(--c-primary); margin-top:0; margin-bottom: 20px;'>{title}</h3>", unsafe_allow_html=True)
     
-    # Export buttons for the specific detailed report
     df_dict = {}
     if 'df' in data and data['df'] is not None:
         if isinstance(data['df'], dict):
@@ -959,16 +851,7 @@ def show_detailed_report(title: str, data: dict):
 
     st.markdown(build_infographic_html(data), unsafe_allow_html=True)
     
-    if df_dict:
-        st.markdown(f"""<div style="margin-top:25px; margin-bottom:15px; font-weight:900; font-size:1.1rem; color:var(--c-primary); display:flex; align-items:center; gap:8px;">{get_icon('table', 20)} البيانات التفصيلية المباشرة (Live Odoo Data)</div>""", unsafe_allow_html=True)
-        tabs = st.tabs(list(df_dict.keys()))
-        for i, (tab_name, df_val) in enumerate(df_dict.items()):
-            with tabs[i]:
-                df_safe = make_safe_df(df_val)
-                if not df_safe.empty:
-                    st.dataframe(df_val, use_container_width=True, hide_index=True)
-                else:
-                    st.info("لا توجد بيانات متاحة في هذا التصنيف.")
+    # تم إزالة الجداول الكبيرة (المعاينة) من هذه النافذة أيضاً لتسريع الأداء وجعلها نافذة تحليل وتصدير فقط
 
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("إغلاق التقرير", type="primary", use_container_width=True):
@@ -992,7 +875,7 @@ def render_dashboard():
     </div>
     """, unsafe_allow_html=True)
     
-    if st.button(f"📥 نافذة المعاينة وتصدير التقرير الشامل (Word / PDF)", use_container_width=True):
+    if st.button(f"📥 تصدير التقرير الشامل مع الفلاتر (Word / PDF)", use_container_width=True):
         export_data = {}
         if 'df_s' in st.session_state and not st.session_state.df_s.empty:
             export_data["جميع العروض والطلبات"] = st.session_state.df_s
@@ -1325,7 +1208,7 @@ def render_departments():
     final_table = pd.merge(summ_df_all, dept_summary[['القسم', 'المصروفات', 'صافي_الربح', 'هامش الربح %']], on='القسم', how='left').fillna(0)
     final_table = final_table.rename(columns={'إيرادات_معتمدة': 'الإيرادات', 'صافي_الربح': 'صافي الربح'}).sort_values('صافي الربح', ascending=False)
 
-    if st.button(f"📥 نافذة المعاينة وتصدير تقرير الأقسام (Word / PDF)", use_container_width=True):
+    if st.button(f"📥 تصدير التقرير الشامل مع الفلاتر (Word / PDF)", use_container_width=True):
         export_data = {"الجدول التحليلي الشامل لأداء الأقسام": final_table}
         show_main_export_dialog("التحليل الاستراتيجي للأقسام", export_data)
         
@@ -1428,7 +1311,7 @@ def render_forecast():
 
     pred_df = pd.DataFrame({'Month': future_months, 'amount_total': future_y})
     
-    if st.button(f"📥 نافذة المعاينة وتصدير تقرير التنبؤ (Word / PDF)", use_container_width=True):
+    if st.button(f"📥 تصدير التقرير الشامل مع الفلاتر (Word / PDF)", use_container_width=True):
         export_data = {"الأداء التاريخي (فعلي)": monthly, "الأرقام المتوقعة": pred_df}
         show_main_export_dialog("تقرير التنبؤ المستقبلي", export_data)
         
@@ -1771,7 +1654,7 @@ def render_fusion():
         try:
             ext_df = pd.read_excel(file_up) if file_up.name.endswith('.xlsx') else pd.read_csv(file_up)
             
-            if st.button(f"📥 نافذة المعاينة وتصدير البيانات المدخلة (Word / PDF)", use_container_width=True):
+            if st.button(f"📥 تصدير التقرير الشامل مع الفلاتر (Word / PDF)", use_container_width=True):
                 show_main_export_dialog("البيانات الخارجية", {"البيانات المدرجة": ext_df})
                 
             st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin-bottom: 20px;'>", unsafe_allow_html=True)
@@ -1853,7 +1736,7 @@ def render_territories():
         إجمالي_الفواتير=('amount_total', 'sum')
     ).reset_index().sort_values('إجمالي_الفواتير', ascending=False)
     
-    if st.button(f"📥 نافذة المعاينة وتصدير التقرير الجغرافي (Word / PDF)", use_container_width=True):
+    if st.button(f"📥 تصدير التقرير الشامل مع الفلاتر (Word / PDF)", use_container_width=True):
         export_data = {"المدن والتمركز الجغرافي": city_details}
         show_main_export_dialog("التحليل الجغرافي للاستحواذ", export_data)
         
