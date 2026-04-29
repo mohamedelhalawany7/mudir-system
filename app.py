@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v38.0 (STANDALONE)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v38.1 (CLOUD APEX FIXED)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -36,7 +36,7 @@ DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري
 2. إذا كان دوره "مبيعات": كلفه بصرامة إنه يتابع (عروض الأسعار المعلقة) واطلب منه يجيبلك الخلاصة ويقفل البيعة.
 3. إذا كان "تسويق" أو "تطوير أعمال": اقترح عليه أسماء شركات واقعية في مصر أو الخليج لفتح أسواق معاها.
 4. تابعه واسأله عن الوقت اللي خده، لو اتأخر أو مفيش نتيجة، كن حازم ووبخه بشياكة كمدير. لو شاطر شجعه بكلمة (عاش يا بطل).
-5. تجنب استخدام الرموز التعبيرية (Emojis) تماماً عشان تحافظ على هيبتك كمدير. استخدم التنسيق الواضح بالماركداون (عناوين، نقاط، أرقام).
+5. تجنب استخدام الرموز التعبيرية تماماً عشان تحافظ على هيبتك كمدير. استخدم التنسيق الواضح بالماركداون (عناوين، نقاط، أرقام).
 6. التحكم في النظام: لو شفت إن في ضرورة ماسة لإنشاء مسودة عرض سعر لعميل لإنقاذ الموقف، أضف هذا الكود في نهاية رسالتك بالضبط:
 $$ACTION: CREATE_SO | العميل: [اسم العميل] | القيمة: [مبلغ تقديري]$$"""
 
@@ -373,10 +373,39 @@ div[role="radiogroup"] > label > div:first-child {
 .g-card:hover { border-color: rgba(0,242,255,0.25); box-shadow: 0 15px 35px rgba(0,0,0,0.5), 0 0 20px rgba(0,242,255,0.05); transform: translateY(-2px); }
 .g-card-title { font-weight: 800; font-size: 1.2rem; color: #fff; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; white-space: normal; line-height: 1.4; flex-wrap: wrap;} 
 
-/* Custom HTML Metric Cards */
+/* ── Dynamic KPI Deltas CSS ──────────────────────────── */
+.delta-pos {
+    color: #00ff82;
+    font-size: 0.85rem;
+    font-weight: 800;
+    margin-left: 8px;
+    background: rgba(0,255,130,0.1);
+    padding: 2px 8px;
+    border-radius: 99px;
+}
+.delta-neg {
+    color: #ff2d78;
+    font-size: 0.85rem;
+    font-weight: 800;
+    margin-left: 8px;
+    background: rgba(255,45,120,0.1);
+    padding: 2px 8px;
+    border-radius: 99px;
+}
+.delta-neu {
+    color: #cbd5e1;
+    font-size: 0.85rem;
+    font-weight: 800;
+    margin-left: 8px;
+    background: rgba(255,255,255,0.05);
+    padding: 2px 8px;
+    border-radius: 99px;
+}
+
 .custom-metric {
-    background: linear-gradient(145deg, rgba(20,20,30,0.9), rgba(10,10,15,0.9));
-    border: 1px solid rgba(255,255,255,0.05); border-radius: var(--r); padding: 1.2rem;
+    background: rgba(15,15,20,0.8);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.05); border-radius: var(--r); padding: 1.5rem;
     position: relative; overflow: hidden; transition: var(--transition);
     display: flex; flex-direction: column; gap: 12px; cursor: pointer; min-width: 180px; height: 100%;
 }
@@ -394,9 +423,8 @@ div[role="radiogroup"] > label > div:first-child {
 .custom-metric:hover::after { transform: scaleX(1); transform-origin: left; }
 .cm-top { display: flex; justify-content: space-between; align-items: flex-start; position: relative; z-index: 1;}
 .cm-label { color: #cbd5e1; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; white-space: normal; line-height: 1.3;} 
-.cm-val { font-family: 'Orbitron', sans-serif; color: #fff; font-weight: 900; font-size: 1.6rem; position: relative; z-index: 1; text-shadow: 0 2px 10px rgba(0,0,0,0.5); word-wrap: break-word;}
+.cm-val { font-family: 'Orbitron', sans-serif; color: #fff; font-weight: 900; font-size: 1.8rem; position: relative; z-index: 1; text-shadow: 0 2px 10px rgba(0,0,0,0.5); word-wrap: break-word; display: flex; align-items: center; gap: 5px;}
 
-/* Forecast Neon Text Elements */
 .neon-forecast {
     font-family: 'Orbitron', sans-serif;
     color: #ffd700;
@@ -405,20 +433,15 @@ div[role="radiogroup"] > label > div:first-child {
     font-weight: 900;
 }
 
-/* Inputs & Expander */
 [data-testid="stTextInput"]>div>div>input, [data-testid="stSelectbox"]>div>div, [data-testid="stMultiSelect"]>div, [data-testid="stTextArea"]>div>div>textarea { background: rgba(0,0,0,0.2) !important; border: 1px solid rgba(255,255,255,0.1) !important; color: #fff !important; border-radius: var(--r-sm) !important; }
 [data-testid="stTextInput"]>div>div>input:focus, [data-testid="stTextArea"]>div>div>textarea:focus { border-color: var(--c-primary) !important; box-shadow: 0 0 0 2px rgba(0,242,255,0.2) !important; }
 [data-testid="stDataFrame"] { border: 1px solid var(--c-border) !important; border-radius: var(--r-sm) !important; background: var(--c-bg2) !important; overflow-x: auto !important;}
 [data-testid="stDataFrame"] th { background: rgba(0,242,255,0.08) !important; color: var(--c-primary) !important; font-weight: 800 !important; font-size: 0.9rem !important; white-space: nowrap !important;}
 [data-testid="stExpander"] { border: 1px solid rgba(255,255,255,0.08) !important; border-radius: var(--r-sm) !important; background: rgba(15,15,25,0.5) !important; }
 
-/* Tabs Styling */
 [data-baseweb="tab-list"] { background: transparent !important; border-bottom: 2px solid rgba(255,255,255,0.05) !important; gap: 8px; overflow-x: auto !important; flex-wrap: nowrap !important;}
 [data-baseweb="tab"] { font-family: 'Cairo', sans-serif !important; font-weight: 700 !important; color: var(--c-dim) !important; background: rgba(255,255,255,0.02) !important; border-radius: 8px 8px 0 0 !important; padding: 10px 20px !important; border: 1px solid transparent !important; margin: 0 !important; white-space: nowrap;}
 [aria-selected="true"] { color: var(--c-primary) !important; border: 1px solid rgba(0,242,255,0.3) !important; border-bottom: none !important; background: rgba(0,242,255,0.05) !important;}
-
-.status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-left: 8px; animation: pulse 2s infinite; box-shadow: 0 0 10px currentColor;}
-@keyframes pulse { 0%, 100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
 
 /* ── Live Ticker Animation ──────────────────────────── */
 .ticker-wrap {
@@ -673,7 +696,29 @@ def get_smart_filter_dates(prefix):
     return start_dt, end_dt, prev_start_dt, prev_end_dt
 
 # ----------------------------------------------------
-# 4.6. تنبيهات الطوارئ الاستراتيجية (Executive Alerts)
+# 4.6. شريط الأخبار المالي (Live Ticker)
+# ----------------------------------------------------
+def render_live_ticker(df_s, df_p):
+    if df_s is None or df_s.empty: return
+    
+    # Calculate live stats
+    appr = df_s[df_s['state'].isin(['sale','done'])]['amount_total'].sum() if 'state' in df_s.columns else 0
+    draft = df_s[df_s['state'].isin(['draft','sent'])]['amount_total'].sum() if 'state' in df_s.columns else 0
+    canc = df_s[df_s['state'] == 'cancel']['amount_total'].sum() if 'state' in df_s.columns else 0
+    clients = len(df_p) if df_p is not None else 0
+    
+    ticker_text = f"""
+    <div class="ticker-item"><span>🚀</span> إجمالي المبيعات المعتمدة: <span>{appr:,.0f} ج.م</span></div>
+    <div class="ticker-item"><span>⏳</span> عروض قيد الانتظار: <span>{draft:,.0f} ج.م</span></div>
+    <div class="ticker-item"><span>⚠️</span> نزيف مالي (ملغي): <span>{canc:,.0f} ج.م</span></div>
+    <div class="ticker-item"><span>👥</span> إجمالي العملاء: <span>{clients} عميل</span></div>
+    <div class="ticker-item"><span>💡</span> النظام يعمل بأقصى طاقة استيعابية...</div>
+    """
+    # Repeat to make it seamless
+    st.markdown(f'<div class="ticker-wrap"><div class="ticker-move">{ticker_text}{ticker_text}</div></div>', unsafe_allow_html=True)
+
+# ----------------------------------------------------
+# 4.7. تنبيهات الطوارئ الاستراتيجية (Executive Alerts)
 # ----------------------------------------------------
 def render_alerts(df_s, df_i):
     if df_s is None or df_i is None: return
@@ -761,7 +806,7 @@ if st.session_state.current_user is not None:
     df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v38.0 APEX</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v38.1 APEX</div></div>""", unsafe_allow_html=True)
         
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
@@ -791,21 +836,6 @@ if st.session_state.current_user is not None:
             
         status_color = "#00ff82" if st.session_state.is_real_data else "#ff2d78"
         st.markdown(f"""<div style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.05); border-radius:12px; padding:15px; text-align:center; margin-top:20px;"><div style="font-size:0.8rem; color:#64748b; margin-bottom:6px; font-weight:700;">حالة الاتصال المركزية</div><div style="color:{status_color}; font-weight:900; font-size:0.9rem; display:flex; align-items:center; justify-content:center;"><div class="status-dot" style="color:{status_color}; background:{status_color}; margin-left:8px;"></div>{'متصل بـ Odoo الحقيقي' if st.session_state.is_real_data else 'غير متصل (البيانات فارغة)'}</div></div>""", unsafe_allow_html=True)
-
-# --- Clean Data Helpers ---
-def map_state_ar(state_val):
-    val = str(state_val).lower()
-    if val in ['sale', 'done']: return 'موافق عليه'
-    if val in ['draft', 'sent']: return 'مسودة'
-    if val in ['cancel']: return 'ملغي'
-    return val
-
-def map_po_state_ar(state_val):
-    val = str(state_val).lower()
-    if val in ['purchase', 'done']: return 'معتمد'
-    if val in ['draft', 'sent', 'to approve']: return 'مسودة / قيد الانتظار'
-    if val in ['cancel']: return 'ملغي'
-    return val
 
 def style_dataframe(df, target_col):
     if df.empty or target_col not in df.columns: return df
@@ -929,22 +959,23 @@ def render_dashboard():
             if sel_states: filtered_s = filtered_s[filtered_s['state'].isin(sel_states)]
             if amt_range: filtered_s = filtered_s[(filtered_s['amount_total'] >= amt_range[0]) & (filtered_s['amount_total'] <= amt_range[1])]
 
-    is_approved = filtered_s['state'].isin(['sale', 'done']) if 'state' in df_s.columns else pd.Series(dtype=bool)
-    is_draft = filtered_s['state'].isin(['draft', 'sent']) if 'state' in df_s.columns else pd.Series(dtype=bool)
-    is_cancel = filtered_s['state'] == 'cancel' if 'state' in df_s.columns else pd.Series(dtype=bool)
+    is_approved = filtered_s['state'].isin(['sale', 'done']) if 'state' in filtered_s.columns else pd.Series(dtype=bool)
+    is_draft = filtered_s['state'].isin(['draft', 'sent']) if 'state' in filtered_s.columns else pd.Series(dtype=bool)
+    is_cancel = filtered_s['state'] == 'cancel' if 'state' in filtered_s.columns else pd.Series(dtype=bool)
 
-    t_sales_appr = df_s.loc[df_s['state'].isin(['sale', 'done']), 'amount_total'].sum() if not df_s.empty else 0
-    t_sales_draft = df_s.loc[df_s['state'].isin(['draft', 'sent']), 'amount_total'].sum() if not df_s.empty else 0
-    t_sales_canc = df_s.loc[df_s['state'] == 'cancel', 'amount_total'].sum() if not df_s.empty else 0
+    t_sales_appr = filtered_s.loc[is_approved, 'amount_total'].sum() if not filtered_s.empty else 0
+    t_sales_draft = filtered_s.loc[is_draft, 'amount_total'].sum() if not filtered_s.empty else 0
+    t_sales_canc = filtered_s.loc[is_cancel, 'amount_total'].sum() if not filtered_s.empty else 0
     
-    t_orders_appr = df_s[df_s['state'].isin(['sale', 'done'])].shape[0] if not df_s.empty else 0
-    t_orders_draft = df_s[df_s['state'].isin(['draft', 'sent'])].shape[0] if not df_s.empty else 0
-    t_orders_canc = df_s[df_s['state'] == 'cancel'].shape[0] if not df_s.empty else 0
+    t_orders_appr = is_approved.sum() if not is_approved.empty else 0
+    t_orders_draft = is_draft.sum() if not is_draft.empty else 0
+    t_orders_canc = is_cancel.sum() if not is_cancel.empty else 0
     
     t_clients = len(df_p) if df_p is not None else 0
 
-    t_po_appr = df_po.loc[df_po['state'].isin(['purchase', 'done']), 'amount_total'].sum() if not df_po.empty else 0
-    t_po_draft = df_po.loc[~df_po['state'].isin(['purchase', 'done', 'cancel']), 'amount_total'].sum() if not df_po.empty else 0
+    is_po_appr = df_po['state'].isin(['purchase', 'done']) if not df_po.empty else pd.Series(dtype=bool)
+    t_po_appr = df_po.loc[is_po_appr, 'amount_total'].sum() if not df_po.empty else 0
+    t_po_draft = df_po.loc[~is_po_appr, 'amount_total'].sum() if not df_po.empty else 0
 
     top_item_name, top_item_qty, top_item_code = "لا يوجد", 0, "-"
     if not df_i.empty and 'qty_available' in df_i.columns:
@@ -955,7 +986,7 @@ def render_dashboard():
             top_item_qty = float(top_row['qty_available'])
             top_item_code = str(top_row.get('default_code', '-'))
 
-    clean_s = df_s.copy() if not df_s.empty else pd.DataFrame()
+    clean_s = filtered_s.copy() if not filtered_s.empty else pd.DataFrame()
     if not clean_s.empty:
         clean_s['العميل'] = clean_s['partner_id'].apply(clean_odoo_m2o) if 'partner_id' in clean_s else ""
         clean_s['المسؤول'] = clean_s['user_id'].apply(clean_odoo_m2o) if 'user_id' in clean_s else ""
@@ -1480,13 +1511,16 @@ def render_ai():
                         av = avatar_user if m["role"] == "user" else avatar_manager
                         with st.chat_message(m["role"], avatar=av):
                             st.markdown(f"<span class='msg-{m['role']}' style='display:none;'></span>", unsafe_allow_html=True)
-                            st.markdown(m['content'])
-                            if st.button("تعديل", key=f"gm_ed_{sel_emp}_{idx}"):
-                                edit_message_dialog(sel_emp, idx, m['content'])
-                            if st.button("حذف", key=f"gm_dl_{sel_emp}_{idx}"):
-                                st.session_state.all_chats[sel_emp].pop(idx)
-                                save_chats()
-                                st.rerun()
+                            st.markdown(f"<div dir='rtl' style='text-align: right;'>\n\n{m['content']}\n\n</div>", unsafe_allow_html=True)
+                            bc1, bc2, bc3 = st.columns([8, 1, 1])
+                            with bc2:
+                                if st.button("تعديل", key=f"gm_ed_{sel_emp}_{idx}"):
+                                    edit_message_dialog(sel_emp, idx, m['content'])
+                            with bc3:
+                                if st.button("حذف", key=f"gm_dl_{sel_emp}_{idx}"):
+                                    st.session_state.all_chats[sel_emp].pop(idx)
+                                    save_chats()
+                                    st.rerun()
             else:
                 st.info("لا توجد محادثات نشطة للموظفين حتى الآن.")
 
@@ -1497,13 +1531,16 @@ def render_ai():
                     av = avatar_user if msg["role"] == "user" else avatar_manager
                     with st.chat_message(msg["role"], avatar=av):
                         st.markdown(f"<span class='msg-{msg['role']}' style='display:none;'></span>", unsafe_allow_html=True)
-                        st.markdown(msg['content'])
-                        if st.button("تعديل", key=f"ed_{curr_user}_{idx}"):
-                            edit_message_dialog(curr_user, idx, msg['content'])
-                        if st.button("حذف", key=f"dl_{curr_user}_{idx}"):
-                            st.session_state.all_chats[curr_user].pop(idx)
-                            save_chats()
-                            st.rerun()
+                        st.markdown(f"<div dir='rtl' style='text-align: right;'>\n\n{msg['content']}\n\n</div>", unsafe_allow_html=True)
+                        bc1, bc2, bc3 = st.columns([8, 1, 1])
+                        with bc2:
+                            if st.button("تعديل", key=f"ed_{curr_user}_{idx}"):
+                                edit_message_dialog(curr_user, idx, msg['content'])
+                        with bc3:
+                            if st.button("حذف", key=f"dl_{curr_user}_{idx}"):
+                                st.session_state.all_chats[curr_user].pop(idx)
+                                save_chats()
+                                st.rerun()
                     
             user_input = st.chat_input("أصدر أوامرك، اطلب خططاً، أو استعلم عن البيانات...")
             
@@ -1514,13 +1551,16 @@ def render_ai():
                 av = avatar_user if msg["role"] == "user" else avatar_manager
                 with st.chat_message(msg["role"], avatar=av):
                     st.markdown(f"<span class='msg-{msg['role']}' style='display:none;'></span>", unsafe_allow_html=True)
-                    st.markdown(msg['content'])
-                    if st.button("تعديل", key=f"ed_{curr_user}_{idx}"):
-                        edit_message_dialog(curr_user, idx, msg['content'])
-                    if st.button("حذف", key=f"dl_{curr_user}_{idx}"):
-                        st.session_state.all_chats[curr_user].pop(idx)
-                        save_chats()
-                        st.rerun()
+                    st.markdown(f"<div dir='rtl' style='text-align: right;'>\n\n{msg['content']}\n\n</div>", unsafe_allow_html=True)
+                    bc1, bc2, bc3 = st.columns([8, 1, 1])
+                    with bc2:
+                        if st.button("تعديل", key=f"ed_{curr_user}_{idx}"):
+                            edit_message_dialog(curr_user, idx, msg['content'])
+                    with bc3:
+                        if st.button("حذف", key=f"dl_{curr_user}_{idx}"):
+                            st.session_state.all_chats[curr_user].pop(idx)
+                            save_chats()
+                            st.rerun()
                 
         user_input = st.chat_input("اكتب رسالة...")
 
@@ -1537,7 +1577,7 @@ def render_ai():
         with chat_area:
             with st.chat_message("user", avatar=avatar_user):
                 st.markdown("<span class='msg-user' style='display:none;'></span>", unsafe_allow_html=True)
-                st.markdown(user_input)
+                st.markdown(f"<div dir='rtl' style='text-align: right;'>\n\n{user_input}\n\n</div>", unsafe_allow_html=True)
             
             with st.spinner("يكتب الآن..."):
                 base_prompt = CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT)
@@ -1718,6 +1758,7 @@ def render_territories():
     
     st.markdown(f"<div class='g-card-title'>{get_icon('globe', 22)} الخريطة الحرارية للاستحواذ المالي بالمدن</div>", unsafe_allow_html=True)
     if not city_df.empty:
+        # Treemap instead of Pie chart for a more executive look
         fig = px.treemap(city_df, path=[px.Constant("إجمالي الإيرادات"), 'المدينة'], values='total_invoiced',
                          color='total_invoiced', color_continuous_scale=['#1f2c34', '#7000ff', '#00f2ff'],
                          template='plotly_dark')
