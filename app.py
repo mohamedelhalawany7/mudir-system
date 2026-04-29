@@ -324,17 +324,18 @@ div[role="radiogroup"] > label > div:first-child { display: none !important; }
 
 /* Buttons styling inside chat */
 [data-testid="stChatMessage"] div.stButton > button { 
-    padding: 2px 8px !important; 
-    font-size: 0.75rem !important; 
+    padding: 6px 10px !important; 
+    font-size: 0.85rem !important; 
     background: rgba(0,0,0,0.2) !important; 
     border: 1px solid rgba(255,255,255,0.05) !important; 
     color: #8696a0 !important; 
     margin-top: 8px !important; 
-    border-radius: 4px !important; 
+    border-radius: 6px !important; 
     width: 100% !important; 
-    min-height: 24px !important; 
-    height: 24px !important;
-    line-height: 1 !important; 
+    min-height: 36px !important; 
+    height: auto !important;
+    line-height: 1.5 !important; 
+    white-space: nowrap !important;
     transition: var(--transition); 
 }
 [data-testid="stChatMessage"] div.stButton > button:hover { 
@@ -382,7 +383,7 @@ div[role="radiogroup"] > label > div:first-child { display: none !important; }
 [aria-selected="true"] { color: var(--c-primary) !important; border: 1px solid rgba(0,242,255,0.3) !important; border-bottom: none !important; background: rgba(0,242,255,0.05) !important;}
 
 /* ── Live Ticker Animation ──────────────────────────── */
-.ticker-wrap { width: 100%; overflow: hidden; background-color: rgba(0,0,0,0.5); border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05); padding: 8px 0; margin-bottom: 20px; box-shadow: inset 0 0 10px rgba(0,0,0,0.8); }
+.ticker-wrap { width: 100%; overflow: hidden; background: rgba(0,0,0,0.5); border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05); padding: 8px 0; margin-bottom: 20px; box-shadow: inset 0 0 10px rgba(0,0,0,0.8); }
 .ticker-move { display: inline-block; white-space: nowrap; padding-right: 100%; box-sizing: content-box; animation: ticker 40s linear infinite; }
 .ticker-move:hover { animation-play-state: paused; }
 @keyframes ticker { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(100%, 0, 0); } }
@@ -724,7 +725,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
     df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v41.0</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v41.1</div></div>""", unsafe_allow_html=True)
         
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
@@ -1545,6 +1546,9 @@ def render_ai():
             team_context_lines.append(f"- {emp}: {last_task_clean}...")
     team_context_str = "\n".join(team_context_lines) if team_context_lines else "لا توجد تكليفات لزملاء آخرين حالياً."
 
+    avatar_user = get_base64_svg("users", "#cbd5e1")
+    avatar_manager = get_base64_svg("command", "#00f2ff")
+
     if "المدير العام" in curr_user:
         gm_tabs = st.tabs(["مراقبة وتقييم الموظفين (سري)", "مكتبي الخاص (توجيهات الإدارة)"])
         
@@ -1580,12 +1584,12 @@ def render_ai():
                             st.markdown(f"<span class='msg-{m['role']}' style='display:none;'></span>", unsafe_allow_html=True)
                             st.markdown(f"<div class='chat-bubble' dir='rtl'>{m['content']}</div>", unsafe_allow_html=True)
                             
-                            c1, c2, c3, c4 = st.columns([6, 1.5, 1.5, 0.1])
+                            c1, c2, c3, c4 = st.columns([6, 2, 2, 0.1])
                             with c2:
-                                if st.button("تعديل", key=f"gm_ed_{sel_emp}_{idx}", use_container_width=True):
+                                if st.button("✏️ تعديل", key=f"gm_ed_{sel_emp}_{idx}", use_container_width=True):
                                     edit_message_dialog(sel_emp, idx, m['content'])
                             with c3:
-                                if st.button("حذف", key=f"gm_dl_{sel_emp}_{idx}", use_container_width=True):
+                                if st.button("🗑️ حذف", key=f"gm_dl_{sel_emp}_{idx}", use_container_width=True):
                                     st.session_state.all_chats[sel_emp].pop(idx)
                                     save_chats()
                                     st.rerun()
@@ -1600,12 +1604,12 @@ def render_ai():
                         st.markdown(f"<span class='msg-{msg['role']}' style='display:none;'></span>", unsafe_allow_html=True)
                         st.markdown(f"<div class='chat-bubble' dir='rtl'>{msg['content']}</div>", unsafe_allow_html=True)
                         
-                        c1, c2, c3, c4 = st.columns([6, 1.5, 1.5, 0.1])
+                        c1, c2, c3, c4 = st.columns([6, 2, 2, 0.1])
                         with c2:
-                            if st.button("تعديل", key=f"ed_{curr_user}_{idx}", use_container_width=True):
+                            if st.button("✏️ تعديل", key=f"ed_{curr_user}_{idx}", use_container_width=True):
                                 edit_message_dialog(curr_user, idx, msg['content'])
                         with c3:
-                            if st.button("حذف", key=f"dl_{curr_user}_{idx}", use_container_width=True):
+                            if st.button("🗑️ حذف", key=f"dl_{curr_user}_{idx}", use_container_width=True):
                                 st.session_state.all_chats[curr_user].pop(idx)
                                 save_chats()
                                 st.rerun()
@@ -1620,12 +1624,12 @@ def render_ai():
                     st.markdown(f"<span class='msg-{msg['role']}' style='display:none;'></span>", unsafe_allow_html=True)
                     st.markdown(f"<div class='chat-bubble' dir='rtl'>{msg['content']}</div>", unsafe_allow_html=True)
                     
-                    c1, c2, c3, c4 = st.columns([6, 1.5, 1.5, 0.1])
+                    c1, c2, c3, c4 = st.columns([6, 2, 2, 0.1])
                     with c2:
-                        if st.button("تعديل", key=f"ed_{curr_user}_{idx}", use_container_width=True):
+                        if st.button("✏️ تعديل", key=f"ed_{curr_user}_{idx}", use_container_width=True):
                             edit_message_dialog(curr_user, idx, msg['content'])
                     with c3:
-                        if st.button("حذف", key=f"dl_{curr_user}_{idx}", use_container_width=True):
+                        if st.button("🗑️ حذف", key=f"dl_{curr_user}_{idx}", use_container_width=True):
                             st.session_state.all_chats[curr_user].pop(idx)
                             save_chats()
                             st.rerun()
