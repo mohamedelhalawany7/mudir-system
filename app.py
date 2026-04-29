@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v38.2 (CLOUD APEX FULLY FIXED)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v38.3 (EXPORT APEX)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -128,7 +128,7 @@ def get_base64_svg(icon_name, color="#00f2ff"):
     return f"data:image/svg+xml;base64,{b64}"
 
 # ============================================================
-# 2. التنسيقات العامة والـ CSS (محدثة لدعم الأنميشن والطباعة)
+# 2. التنسيقات العامة والـ CSS (محدثة لدعم الأنميشن)
 # ============================================================
 st.markdown("""
 <style>
@@ -351,7 +351,7 @@ div[role="radiogroup"] > label > div:first-child {
 
 /* ── UI Elements ──────────────────────────── */
 .page-header {
-    position: relative; overflow: hidden; padding: 2.5rem 3rem; margin-bottom: 2rem;
+    position: relative; overflow: hidden; padding: 2.5rem 3rem; margin-bottom: 1rem;
     border-radius: var(--r); background: linear-gradient(135deg, #090912, #050508);
     border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 20px 40px rgba(0,0,0,0.6);
     display: flex; align-items: center; gap: 24px; flex-wrap: wrap; 
@@ -463,39 +463,6 @@ div[role="radiogroup"] > label > div:first-child {
 }
 .ticker-item span { color: var(--c-primary); margin-left: 5px; }
 
-/* ── Print Media Query ──────────────────────────── */
-@media print {
-    [data-testid="stSidebar"] { display: none !important; }
-    header { display: none !important; }
-    .stButton, .stExpander, .stChatInput { display: none !important; }
-    [data-testid="stAppViewBlockContainer"] { padding: 0 !important; width: 100% !important; max-width: 100% !important; margin: 0 !important;}
-    body, html, [class*="css"] { background: #fff !important; color: #000 !important; }
-    .g-card, .custom-metric, .page-header { background: #fff !important; color: #000 !important; border: 1px solid #ddd !important; box-shadow: none !important; break-inside: avoid; }
-    * { text-shadow: none !important; color: #000 !important; }
-    svg { stroke: #000 !important; }
-    .cm-val, .ph-title, .ph-sub { color: #000 !important; }
-    .print-btn-wrapper { display: none !important; }
-    .delta-pos, .delta-neg, .delta-neu { background: transparent !important; border: 1px solid #ddd !important;}
-    .ticker-wrap { display: none !important; }
-}
-
-.print-btn-wrapper a {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: rgba(0, 242, 255, 0.1);
-    color: #00f2ff !important;
-    border: 1px solid rgba(0, 242, 255, 0.4);
-    padding: 8px 16px;
-    border-radius: 8px;
-    font-weight: bold;
-    text-decoration: none;
-    transition: all 0.3s;
-}
-.print-btn-wrapper a:hover {
-    background: rgba(0, 242, 255, 0.2);
-    box-shadow: 0 0 15px rgba(0, 242, 255, 0.2);
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -701,7 +668,6 @@ def get_smart_filter_dates(prefix):
 def render_live_ticker(df_s, df_p):
     if df_s is None or df_s.empty: return
     
-    # Calculate live stats
     appr = df_s[df_s['state'].isin(['sale','done'])]['amount_total'].sum() if 'state' in df_s.columns else 0
     draft = df_s[df_s['state'].isin(['draft','sent'])]['amount_total'].sum() if 'state' in df_s.columns else 0
     canc = df_s[df_s['state'] == 'cancel']['amount_total'].sum() if 'state' in df_s.columns else 0
@@ -714,7 +680,6 @@ def render_live_ticker(df_s, df_p):
     <div class="ticker-item"><span style="display:inline-block; vertical-align:middle; margin-left:5px;">{get_icon("users", 18, "#00f2ff")}</span> إجمالي العملاء: <span>{clients} عميل</span></div>
     <div class="ticker-item"><span style="display:inline-block; vertical-align:middle; margin-left:5px;">{get_icon("bulb", 18, "#ffd700")}</span> النظام يعمل بأقصى طاقة استيعابية...</div>
     """
-    # Repeat to make it seamless
     st.markdown(f'<div class="ticker-wrap"><div class="ticker-move">{ticker_text}{ticker_text}</div></div>', unsafe_allow_html=True)
 
 # ----------------------------------------------------
@@ -806,7 +771,7 @@ if st.session_state.current_user is not None:
     df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v38.2 APEX</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v38.3 APEX</div></div>""", unsafe_allow_html=True)
         
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
@@ -837,7 +802,6 @@ if st.session_state.current_user is not None:
         status_color = "#00ff82" if st.session_state.is_real_data else "#ff2d78"
         st.markdown(f"""<div style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.05); border-radius:12px; padding:15px; text-align:center; margin-top:20px;"><div style="font-size:0.8rem; color:#64748b; margin-bottom:6px; font-weight:700;">حالة الاتصال المركزية</div><div style="color:{status_color}; font-weight:900; font-size:0.9rem; display:flex; align-items:center; justify-content:center;"><div class="status-dot" style="color:{status_color}; background:{status_color}; margin-left:8px;"></div>{'متصل بـ Odoo الحقيقي' if st.session_state.is_real_data else 'غير متصل (البيانات فارغة)'}</div></div>""", unsafe_allow_html=True)
 
-# --- Clean Data Helpers ---
 def map_state_ar(state_val):
     val = str(state_val).lower()
     if val in ['sale', 'done']: return 'موافق عليه'
@@ -866,7 +830,6 @@ def style_dataframe(df, target_col):
         styler = df.style.background_gradient(subset=[target_col], cmap='RdYlGn')
         return styler.format(format_dict) if format_dict else styler
     except ImportError:
-        # حماية إضافية: في حالة عدم وجود مكتبة matplotlib في السيرفر، يتم عرض الجدول بدون تلوين الخلفية بدلاً من انهيار النظام
         styler = df.style
         return styler.format(format_dict) if format_dict else styler
 
@@ -880,35 +843,109 @@ def build_infographic_html(data: dict) -> str:
     return f"""<div style="font-family:'Cairo',sans-serif;direction:rtl;color:#e2e8f0;"><p style="color:#94a3b8;font-size:1rem;margin:0 0 1.5rem;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:15px;">{data.get('subtitle', '')}</p><div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:2rem;">{kpi_html}</div>{f'<div style="font-weight:900;font-size:1rem;color:#64748b;text-transform:uppercase;margin:1.5rem 0 1rem;">{get_icon("chart",18)} المؤشرات الحيوية</div>{bar_html}' if bar_html else ''}{f'<div style="font-weight:900;font-size:1rem;color:#64748b;text-transform:uppercase;margin:2rem 0 1rem;">{get_icon("check",18)} التصنيفات الاستراتيجية</div><div>{badge_html}</div>' if badge_html else ''}</div>"""
 
 # ============================================================
-# 5. التقرير المنبثق المحمي (Native Safe Dialog)
+# 5. نظام التصدير الموحد (Export System - Word/PDF)
 # ============================================================
+def create_export_buttons(title, df_dict):
+    html_content = f"""<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+    <head><meta charset='utf-8'><title>{title}</title>
+    <style>
+        body{{font-family: Arial, sans-serif; direction: rtl; text-align: right; background-color: #ffffff; color: #000000;}} 
+        table{{border-collapse: collapse; width: 100%; margin-bottom: 25px; font-size: 14px;}} 
+        th, td{{border: 1px solid #aaaaaa; padding: 10px; text-align: center;}} 
+        th{{background-color: #00f2ff; color: #000000; font-weight: bold;}} 
+        h1{{color: #7000ff; text-align: center; border-bottom: 2px solid #00f2ff; padding-bottom: 10px;}}
+        h3{{color: #333333; margin-top: 30px; background-color: #f4f4f4; padding: 8px; border-radius: 5px;}}
+        .footer{{text-align: center; color: #666666; margin-top: 40px; font-size: 12px;}}
+    </style>
+    </head>
+    <body>
+        <h1>{title}</h1>
+        <p style='text-align: center; font-weight: bold;'>تاريخ الاستخراج: {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
+    """
+    has_data = False
+    for section, df_val in df_dict.items():
+        df = df_val.data if hasattr(df_val, 'data') else df_val
+        if df is not None and not df.empty:
+            has_data = True
+            html_content += f"<h3>{section}</h3>"
+            html_content += df.to_html(index=False)
+    
+    if not has_data:
+        html_content += "<p style='text-align: center; color: red;'>لا توجد بيانات متاحة للتصدير في هذه الفترة.</p>"
+        
+    html_content += "<div class='footer'>تم استخراج هذا التقرير تلقائياً من نظام MUDIR OS</div>"
+    html_content += "</body></html>"
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        st.download_button(
+            label="📄 حفظ التقرير كملف Word",
+            data=html_content.encode('utf-8-sig'),
+            file_name=f"Report_{title}.doc",
+            mime="application/msword",
+            use_container_width=True
+        )
+    with c2:
+        st.download_button(
+            label="📑 حفظ التقرير كملف PDF",
+            data=html_content.encode('utf-8-sig'),
+            file_name=f"Report_{title}.html",
+            mime="text/html",
+            help="افتح الملف المحمل في متصفحك واضغط Ctrl+P لاختيار 'Save as PDF'",
+            use_container_width=True
+        )
+
+@st.dialog("معاينة وتصدير التقرير الشامل", width="large")
+def show_main_export_dialog(title, df_dict):
+    st.markdown(f"<h3 style='color:var(--c-primary); text-align:center; margin-bottom:20px;'>نافذة التصدير: {title}</h3>", unsafe_allow_html=True)
+    
+    st.info("💡 يمكنك الآن حفظ كافة البيانات الموجودة في هذه الشاشة بضغطة زر. اختر الصيغة المناسبة لك:")
+    create_export_buttons(title, df_dict)
+    
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.1); margin: 25px 0;'>", unsafe_allow_html=True)
+    st.markdown(f"<h4 style='color:var(--c-dim);'>{get_icon('eye', 20)} معاينة سريعة للبيانات التي سيتم تصديرها:</h4>", unsafe_allow_html=True)
+    
+    tabs = st.tabs(list(df_dict.keys()))
+    for i, (name, df_val) in enumerate(df_dict.items()):
+        with tabs[i]:
+            df = df_val.data if hasattr(df_val, 'data') else df_val
+            if df is not None and not df.empty:
+                st.dataframe(df, use_container_width=True, hide_index=True)
+            else:
+                st.warning("الجدول فارغ ولا يوجد به بيانات للفترة المحددة.")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("إغلاق النافذة", use_container_width=True):
+        st.rerun()
+
 @st.dialog("التحليل الاستراتيجي التفصيلي", width="large")
 def show_detailed_report(title: str, data: dict):
-    st.markdown(f"""
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 style='color:var(--c-primary); margin-top:0;'>{title}</h3>
-            <div class="print-btn-wrapper">
-                <a href="javascript:window.print()">{get_icon('print', 18)} طباعة التقرير</a>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f"<h3 style='color:var(--c-primary); margin-top:0; margin-bottom: 20px;'>{title}</h3>", unsafe_allow_html=True)
+    
+    # Export buttons for the specific detailed report
+    df_dict = {}
+    if 'df' in data and data['df'] is not None:
+        if isinstance(data['df'], dict):
+            df_dict = data['df']
+        else:
+            df_dict = {"البيانات التفصيلية": data['df']}
+            
+    if df_dict:
+        create_export_buttons(title, df_dict)
+        st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 20px 0;'>", unsafe_allow_html=True)
+
     st.markdown(build_infographic_html(data), unsafe_allow_html=True)
     
-    if 'df' in data and data['df'] is not None:
+    if df_dict:
         st.markdown(f"""<div style="margin-top:25px; margin-bottom:15px; font-weight:900; font-size:1.1rem; color:var(--c-primary); display:flex; align-items:center; gap:8px;">{get_icon('table', 20)} البيانات التفصيلية المباشرة (Live Odoo Data)</div>""", unsafe_allow_html=True)
-        if isinstance(data['df'], dict):
-            tabs = st.tabs(list(data['df'].keys()))
-            for i, (tab_name, df_val) in enumerate(data['df'].items()):
-                with tabs[i]:
-                    df_to_check = df_val.data if hasattr(df_val, 'data') else df_val
-                    if not df_to_check.empty:
-                        st.dataframe(df_val, use_container_width=True, hide_index=True)
-                    else:
-                        st.info("لا توجد بيانات متاحة في هذا التصنيف.")
-        else:
-            df_to_check = data['df'].data if hasattr(data['df'], 'data') else data['df']
-            if not df_to_check.empty:
-                st.dataframe(data['df'], use_container_width=True, hide_index=True)
+        tabs = st.tabs(list(df_dict.keys()))
+        for i, (tab_name, df_val) in enumerate(df_dict.items()):
+            with tabs[i]:
+                df_to_check = df_val.data if hasattr(df_val, 'data') else df_val
+                if not df_to_check.empty:
+                    st.dataframe(df_val, use_container_width=True, hide_index=True)
+                else:
+                    st.info("لا توجد بيانات متاحة في هذا التصنيف.")
 
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("إغلاق التقرير", type="primary", use_container_width=True):
@@ -929,13 +966,23 @@ def render_dashboard():
                 <div class="ph-sub">إصدار QUANTUM: استخراج ذكي يفصل بين العميل/المورد والمشروع/المنتج بدقة مطلقة.</div>
             </div>
         </div>
-        <div class="print-btn-wrapper" style="z-index: 99;">
-            <a href="javascript:window.print()">{get_icon('print', 20)} طباعة التقرير</a>
-        </div>
     </div>
     """, unsafe_allow_html=True)
+    
+    if st.button(f"📥 نافذة المعاينة وتصدير التقرير الشامل (Word / PDF)", use_container_width=True):
+        export_data = {}
+        if 'df_s' in st.session_state and not st.session_state.df_s.empty:
+            export_data["جميع العروض والطلبات"] = st.session_state.df_s
+        if 'df_po' in st.session_state and not st.session_state.df_po.empty:
+            export_data["أوامر الشراء"] = st.session_state.df_po
+        if 'df_p' in st.session_state and not st.session_state.df_p.empty:
+            export_data["قاعدة العملاء"] = st.session_state.df_p
+        if 'df_i' in st.session_state and not st.session_state.df_i.empty:
+            export_data["المنتجات والمخزون"] = st.session_state.df_i
+            
+        show_main_export_dialog("التقرير الشامل للوحة القيادة المركزية", export_data)
 
-    st.markdown("<div class='g-card' style='padding: 1.5rem; margin-bottom: 2rem;'>", unsafe_allow_html=True)
+    st.markdown("<div class='g-card' style='padding: 1.5rem; margin-bottom: 2rem; margin-top: 1rem;'>", unsafe_allow_html=True)
     start_dt, end_dt, prev_start_dt, prev_end_dt = get_smart_filter_dates("dash")
     st.markdown("</div>", unsafe_allow_html=True)
     
@@ -1149,7 +1196,7 @@ def render_dashboard():
     for i, (label, val, suf, icn, delta_html, mdata) in enumerate(metrics):
         with cols[i]:
             st.markdown(f"""<div class="custom-metric"><div class="cm-top"><span class="cm-label">{label}</span>{get_icon(icn, 20, "var(--c-primary)")}</div><div class="cm-val" style="font-size:1.6rem;">{val}<span style="font-size:0.7rem;color:var(--c-dim);margin-right:4px;">{suf}</span> {delta_html}</div></div>""", unsafe_allow_html=True)
-            if st.button("تحليل", key=f"btn_m_{i}", use_container_width=True):
+            if st.button("تحليل وتصدير", key=f"btn_m_{i}", use_container_width=True):
                 show_detailed_report(label, mdata)
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1209,15 +1256,10 @@ def render_departments():
                 <div class="ph-sub">بيان تفصيلي للأقسام الأقوى والأضعف بناءً على الإيرادات والمصروفات وصافي الربح</div>
             </div>
         </div>
-        <div class="print-btn-wrapper" style="z-index: 99;">
-            <a href="javascript:window.print()">{get_icon('print', 20)} طباعة التقرير</a>
-        </div>
     </div>
     """, unsafe_allow_html=True)
-
-    st.markdown("<div class='g-card' style='padding: 1.5rem; margin-bottom: 2rem;'>", unsafe_allow_html=True)
+    
     start_dt, end_dt, _, _ = get_smart_filter_dates("dept")
-    st.markdown("</div>", unsafe_allow_html=True)
 
     t_df = df_s_master.copy()
     if start_dt and end_dt and not t_df.empty and 'date_order' in t_df.columns:
@@ -1250,6 +1292,22 @@ def render_departments():
 
     dept_summary['هامش الربح %'] = (dept_summary['صافي_الربح'] / dept_summary['الإيرادات'] * 100).fillna(0)
     
+    summ_df_all = t_df.groupby('القسم').agg(
+        إجمالي_الطلبات=('name', 'count'),
+        إيرادات_معتمدة=('amount_total', lambda x: x[t_df.loc[x.index, 'الحالة (عربي)'] == 'موافق عليه'].sum()),
+        إيرادات_مسودة=('amount_total', lambda x: x[t_df.loc[x.index, 'الحالة (عربي)'] == 'مسودة'].sum()),
+        إيرادات_ملغاة=('amount_total', lambda x: x[t_df.loc[x.index, 'الحالة (عربي)'] == 'ملغي'].sum())
+    ).reset_index()
+
+    final_table = pd.merge(summ_df_all, dept_summary[['القسم', 'المصروفات', 'صافي_الربح', 'هامش الربح %']], on='القسم', how='left').fillna(0)
+    final_table = final_table.rename(columns={'إيرادات_معتمدة': 'الإيرادات', 'صافي_الربح': 'صافي الربح'}).sort_values('صافي الربح', ascending=False)
+
+    if st.button(f"📥 نافذة المعاينة وتصدير تقرير الأقسام (Word / PDF)", use_container_width=True):
+        export_data = {"الجدول التحليلي الشامل لأداء الأقسام": final_table}
+        show_main_export_dialog("التحليل الاستراتيجي للأقسام", export_data)
+        
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin-bottom: 20px;'>", unsafe_allow_html=True)
+
     if not dept_summary.empty:
         strongest_row = dept_summary.loc[dept_summary['صافي_الربح'].idxmax()]
         weakest_row = dept_summary.loc[dept_summary['صافي_الربح'].idxmin()]
@@ -1298,17 +1356,6 @@ def render_departments():
         st.info("لا توجد بيانات ربحية لعرضها في هذه الفترة.")
 
     st.markdown(f"<div class='g-card-title' style='margin-top:20px;'>{get_icon('table', 22)} الجدول التحليلي الشامل لأداء الأقسام</div>", unsafe_allow_html=True)
-    
-    summ_df_all = t_df.groupby('القسم').agg(
-        إجمالي_الطلبات=('name', 'count'),
-        إيرادات_معتمدة=('amount_total', lambda x: x[t_df.loc[x.index, 'الحالة (عربي)'] == 'موافق عليه'].sum()),
-        إيرادات_مسودة=('amount_total', lambda x: x[t_df.loc[x.index, 'الحالة (عربي)'] == 'مسودة'].sum()),
-        إيرادات_ملغاة=('amount_total', lambda x: x[t_df.loc[x.index, 'الحالة (عربي)'] == 'ملغي'].sum())
-    ).reset_index()
-
-    final_table = pd.merge(summ_df_all, dept_summary[['القسم', 'المصروفات', 'صافي_الربح', 'هامش الربح %']], on='القسم', how='left').fillna(0)
-    final_table = final_table.rename(columns={'إيرادات_معتمدة': 'الإيرادات', 'صافي_الربح': 'صافي الربح'}).sort_values('صافي الربح', ascending=False)
-    
     st.dataframe(style_dataframe(final_table, 'صافي الربح'), use_container_width=True, hide_index=True)
 
 
@@ -1324,9 +1371,6 @@ def render_forecast():
                 <div class="ph-title">التنبؤ المستقبلي (الكرة البلورية)</div>
                 <div class="ph-sub">نظام إحصائي ذكي يتنبأ بالإيرادات القادمة للشركة بناءً على الأداء التاريخي الفعلي.</div>
             </div>
-        </div>
-        <div class="print-btn-wrapper" style="z-index: 99;">
-            <a href="javascript:window.print()">{get_icon('print', 20)} طباعة التقرير</a>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -1360,6 +1404,12 @@ def render_forecast():
     future_y = np.maximum(future_y, 0) 
 
     pred_df = pd.DataFrame({'Month': future_months, 'amount_total': future_y})
+    
+    if st.button(f"📥 نافذة المعاينة وتصدير تقرير التنبؤ (Word / PDF)", use_container_width=True):
+        export_data = {"الأداء التاريخي (فعلي)": monthly, "الأرقام المتوقعة": pred_df}
+        show_main_export_dialog("تقرير التنبؤ المستقبلي", export_data)
+        
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin-bottom: 20px;'>", unsafe_allow_html=True)
     
     st.markdown("<h4 style='color:var(--c-primary); margin-bottom: 20px;'>الأرقام المتوقعة للأشهر الثلاثة القادمة:</h4>", unsafe_allow_html=True)
     cols = st.columns(3)
@@ -1684,9 +1734,6 @@ def render_fusion():
                 <div class="ph-sub">اربط بياناتك الخارجية مع بيانات النواة لاستنتاج الفرص</div>
             </div>
         </div>
-        <div class="print-btn-wrapper" style="z-index: 99;">
-            <a href="javascript:window.print()">{get_icon('print', 20)} طباعة التقرير</a>
-        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1700,8 +1747,13 @@ def render_fusion():
     if file_up:
         try:
             ext_df = pd.read_excel(file_up) if file_up.name.endswith('.xlsx') else pd.read_csv(file_up)
-            with st.container():
+            
+            if st.button(f"📥 نافذة المعاينة وتصدير البيانات المدخلة (Word / PDF)", use_container_width=True):
+                show_main_export_dialog("البيانات الخارجية", {"البيانات المدرجة": ext_df})
                 
+            st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin-bottom: 20px;'>", unsafe_allow_html=True)
+
+            with st.container():
                 # مسح إحصائي تلقائي (Auto-Data Scan)
                 st.markdown(f"<div class='g-card-title' style='margin-top:20px; color:var(--c-gold);'>{get_icon('activity', 22)} المسح الإحصائي المبدئي للبيانات</div>", unsafe_allow_html=True)
                 cols_num = ext_df.select_dtypes(include=[np.number]).columns
@@ -1750,15 +1802,10 @@ def render_territories():
                 <div class="ph-sub">خريطة حرارية لتمركز الإيرادات وتوزيعها (مفلترة زمنياً)</div>
             </div>
         </div>
-        <div class="print-btn-wrapper" style="z-index: 99;">
-            <a href="javascript:window.print()">{get_icon('print', 20)} طباعة التقرير</a>
-        </div>
     </div>
     """, unsafe_allow_html=True)
-
-    st.markdown("<div class='g-card' style='padding: 1.5rem; margin-bottom: 2rem;'>", unsafe_allow_html=True)
+    
     start_dt, end_dt, _, _ = get_smart_filter_dates("terr")
-    st.markdown("</div>", unsafe_allow_html=True)
 
     t_df = df_s_master.copy()
     if start_dt and end_dt and not t_df.empty and 'date_order' in t_df.columns:
@@ -1778,9 +1825,19 @@ def render_territories():
     city_df = df_s_appr.groupby('المدينة')['amount_total'].sum().reset_index()
     city_df = city_df.rename(columns={'amount_total': 'total_invoiced'})
     
+    city_details = df_s_appr.groupby('المدينة').agg(
+        عدد_العملاء=('اسم العميل', 'nunique'),
+        إجمالي_الفواتير=('amount_total', 'sum')
+    ).reset_index().sort_values('إجمالي_الفواتير', ascending=False)
+    
+    if st.button(f"📥 نافذة المعاينة وتصدير التقرير الجغرافي (Word / PDF)", use_container_width=True):
+        export_data = {"المدن والتمركز الجغرافي": city_details}
+        show_main_export_dialog("التحليل الجغرافي للاستحواذ", export_data)
+        
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin-bottom: 20px;'>", unsafe_allow_html=True)
+    
     st.markdown(f"<div class='g-card-title'>{get_icon('globe', 22)} الخريطة الحرارية للاستحواذ المالي بالمدن</div>", unsafe_allow_html=True)
     if not city_df.empty:
-        # Treemap instead of Pie chart for a more executive look
         fig = px.treemap(city_df, path=[px.Constant("إجمالي الإيرادات"), 'المدينة'], values='total_invoiced',
                          color='total_invoiced', color_continuous_scale=['#1f2c34', '#7000ff', '#00f2ff'],
                          template='plotly_dark')
@@ -1789,12 +1846,6 @@ def render_territories():
         st.plotly_chart(fig, use_container_width=True)
 
     st.markdown(f"<br><div class='g-card-title'>{get_icon('table', 22)} تفاصيل التمركز الجغرافي وقوة المدن</div>", unsafe_allow_html=True)
-    
-    city_details = df_s_appr.groupby('المدينة').agg(
-        عدد_العملاء=('اسم العميل', 'nunique'),
-        إجمالي_الفواتير=('amount_total', 'sum')
-    ).reset_index().sort_values('إجمالي_الفواتير', ascending=False)
-    
     st.dataframe(style_dataframe(city_details, 'إجمالي_الفواتير'), use_container_width=True, hide_index=True)
 
 
