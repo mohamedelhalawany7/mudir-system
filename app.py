@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v39.1 (LIVE FILTERING & EXPORT)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v39.2 (ROUTER FIXED)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -600,7 +600,7 @@ def render_login():
 # ============================================================
 init_state()
 
-if st.session_state.get('view') != 'workspace_login' and st.session_state.current_user is not None:
+if st.session_state.get('view') not in ['workspace_login', 'login'] and st.session_state.current_user is not None:
     CFG = st.session_state.app_config
     if not st.session_state.data_loaded:
         with st.spinner('جاري تهيئة النواة وربط الخوادم لاستخراج بيانات Odoo...'):
@@ -623,7 +623,7 @@ if st.session_state.get('view') != 'workspace_login' and st.session_state.curren
     df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v39.1</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v39.2</div></div>""", unsafe_allow_html=True)
         
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
@@ -864,7 +864,6 @@ def show_detailed_report(title: str, data: dict):
 # 7.1 لوحة القيادة (Dashboard)
 # ────────────────────────────────────────────────────────────
 def render_dashboard():
-    render_live_ticker(st.session_state.df_s, st.session_state.df_p)
     
     st.markdown(f"""
     <div class="page-header" style="justify-content: space-between;">
@@ -996,7 +995,6 @@ def render_dashboard():
     s_draft = style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'مسودة'].sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s, 'القيمة (ج.م)')
     s_canc = style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'ملغي'].sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s, 'القيمة (ج.م)')
 
-    # تم إضافة "السجل الشامل" ليظهر في نافذة المعاينة المفلترة
     split_sales_dict = {"السجل الشامل للعروض والطلبات": clean_s, "موافق عليه": s_appr, "مسودة": s_draft, "ملغي": s_canc}
 
     po_all = style_dataframe(clean_po.sort_values('القيمة (ج.م)', ascending=False) if not clean_po.empty else clean_po, 'القيمة (ج.م)')
@@ -1054,6 +1052,8 @@ def render_dashboard():
         }
     else:
         split_stock = {"الكل": clean_i}
+
+    render_live_ticker(st.session_state.df_s, st.session_state.df_p)
 
     metrics = [
         ("الإيرادات (المعتمدة)", f"{t_sales_appr:,.0f}", "ج", "money", get_delta_html(t_sales_appr, t_sales_appr_prev), {
@@ -1910,7 +1910,8 @@ def render_settings():
 # محول العرض (Router)
 # ────────────────────────────────────────────────────────────
 view = st.session_state.get('view', 'login')
-if view == "login": render_login()
+if view == "workspace_login": render_workspace_login()
+elif view == "login": render_login()
 elif view == "dashboard": render_dashboard()
 elif view == "departments": render_departments()
 elif view == "forecast": render_forecast()
