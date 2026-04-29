@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v41.0 (WHATSAPP UI & SAAS FIXED)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v41.1 (SUPER ADMIN PIN CONTROL)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -42,9 +42,9 @@ DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري
 6. التحكم في النظام: لو شفت إن في ضرورة ماسة لإنشاء مسودة عرض سعر لعميل لإنقاذ الموقف، أضف هذا الكود في نهاية رسالتك بالضبط:
 $$ACTION: CREATE_SO | العميل: [اسم العميل] | القيمة: [مبلغ تقديري]$$"""
 
-def get_workspace_file():
-    ws_id = st.session_state.get('workspace_id', 'default')
-    safe_id = "".join(c for c in str(ws_id) if c.isalnum() or c in ('_', '-'))
+def get_workspace_file(ws_id=None):
+    target_id = ws_id if ws_id else st.session_state.get('workspace_id', 'default')
+    safe_id = "".join(c for c in str(target_id) if c.isalnum() or c in ('_', '-'))
     return f"mudir_workspace_{safe_id}.json"
 
 def load_config():
@@ -1582,10 +1582,10 @@ def render_ai():
                             
                             c1, c2, c3, c4 = st.columns([6, 1.5, 1.5, 0.1])
                             with c2:
-                                if st.button("✏️ تعديل", key=f"gm_ed_{sel_emp}_{idx}", use_container_width=True):
+                                if st.button("تعديل", key=f"gm_ed_{sel_emp}_{idx}", use_container_width=True):
                                     edit_message_dialog(sel_emp, idx, m['content'])
                             with c3:
-                                if st.button("🗑️ حذف", key=f"gm_dl_{sel_emp}_{idx}", use_container_width=True):
+                                if st.button("حذف", key=f"gm_dl_{sel_emp}_{idx}", use_container_width=True):
                                     st.session_state.all_chats[sel_emp].pop(idx)
                                     save_chats()
                                     st.rerun()
@@ -1602,10 +1602,10 @@ def render_ai():
                         
                         c1, c2, c3, c4 = st.columns([6, 1.5, 1.5, 0.1])
                         with c2:
-                            if st.button("✏️ تعديل", key=f"ed_{curr_user}_{idx}", use_container_width=True):
+                            if st.button("تعديل", key=f"ed_{curr_user}_{idx}", use_container_width=True):
                                 edit_message_dialog(curr_user, idx, msg['content'])
                         with c3:
-                            if st.button("🗑️ حذف", key=f"dl_{curr_user}_{idx}", use_container_width=True):
+                            if st.button("حذف", key=f"dl_{curr_user}_{idx}", use_container_width=True):
                                 st.session_state.all_chats[curr_user].pop(idx)
                                 save_chats()
                                 st.rerun()
@@ -1622,10 +1622,10 @@ def render_ai():
                     
                     c1, c2, c3, c4 = st.columns([6, 1.5, 1.5, 0.1])
                     with c2:
-                        if st.button("✏️ تعديل", key=f"ed_{curr_user}_{idx}", use_container_width=True):
+                        if st.button("تعديل", key=f"ed_{curr_user}_{idx}", use_container_width=True):
                             edit_message_dialog(curr_user, idx, msg['content'])
                     with c3:
-                        if st.button("🗑️ حذف", key=f"dl_{curr_user}_{idx}", use_container_width=True):
+                        if st.button("حذف", key=f"dl_{curr_user}_{idx}", use_container_width=True):
                             st.session_state.all_chats[curr_user].pop(idx)
                             save_chats()
                             st.rerun()
@@ -1859,7 +1859,7 @@ def render_settings():
 
     # --- 1. إعدادات الأمان (المدير العام) ---
     st.markdown(f"<div class='g-card-title'>{get_icon('check', 22)} إعدادات الأمان للمدير العام</div>", unsafe_allow_html=True)
-    m_pin = st.text_input("رمز الدخول السري للمدير (PIN)", value=CFG.get('MANAGER_PIN', '0000'), type="password")
+    m_pin = st.text_input("رمز الدخول السري للمدير (PIN)", value=CFG.get('MANAGER_PIN', '0000'), type="password", disabled=True, help="لا يمكن تغيير الرقم السري إلا من قبل الإدارة العليا (Super Admin).")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -2010,16 +2010,51 @@ def render_settings():
         
     st.markdown("<div style='text-align: center; color: var(--c-dim); font-size: 0.9rem; margin-top: 50px; font-weight: bold;'>Powered by محمد الحلواني</div>", unsafe_allow_html=True)
 
+
 # ────────────────────────────────────────────────────────────
 # 8. لوحة التحكم الخفية للإدارة العليا (Super Admin)
 # ────────────────────────────────────────────────────────────
+
+@st.dialog("إعدادات رخصة الشركة")
+def change_workspace_pin_dialog(ws_id):
+    st.markdown(f"**تغيير الرقم السري لمدير شركة:** `{ws_id}`")
+    ws_file = f"mudir_workspace_{ws_id}.json"
+    
+    ws_cfg = {
+        'ODOO_URL': '', 'ODOO_DB': '', 'ODOO_USER': '', 'ODOO_PASS': '',
+        'AI_PROVIDER_URL': 'https://api.openai.com/v1', 'AI_API_KEY': '',
+        'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
+        'MANAGER_PIN': '0000', 'EMPLOYEES': [], 'EVALUATIONS': {}, 'ALL_CHATS': {} 
+    }
+    
+    if os.path.exists(ws_file):
+        try:
+            with open(ws_file, 'r', encoding='utf-8') as f:
+                saved_config = json.load(f)
+                ws_cfg.update(saved_config)
+        except: pass
+        
+    current_pin = ws_cfg.get('MANAGER_PIN', '0000')
+    new_pin = st.text_input("الرقم السري (PIN) الجديد:", value=current_pin)
+    
+    if st.button("حفظ التغيير", type="primary", use_container_width=True):
+        ws_cfg['MANAGER_PIN'] = new_pin
+        try:
+            with open(ws_file, 'w', encoding='utf-8') as f:
+                json.dump(ws_cfg, f, ensure_ascii=False, indent=4)
+            st.success("تم تغيير الرمز السري بنجاح!")
+            time.sleep(1)
+            st.rerun()
+        except Exception as e:
+            st.error("حدث خطأ أثناء الحفظ.")
+
 def render_super_admin():
     st.markdown(f"""
     <div class="page-header" style="justify-content: space-between; background: linear-gradient(135deg, #1a0b2e, #050508);">
         <div style="display: flex; align-items: center; gap: 24px;">
             <div class="ph-icon-wrap" style="background:rgba(112,0,255,0.1); border-color:#7000ff;">{get_icon("check", 46, "#7000ff")}</div>
             <div>
-                <div class="ph-title" style="color:#e2e8f0;">مركز القيادة والتراخيص (Super Admin)</div>
+                <div class="ph-title" style="color:#e2e8f0;">مركز القيادة والتراخيص (SaaS Admin)</div>
                 <div class="ph-sub" style="color:#b490ff;">إدارة اشتراكات الشركات، توليد الأكواد، وتحديد المستخدمين.</div>
             </div>
         </div>
@@ -2036,11 +2071,12 @@ def render_super_admin():
     st.markdown("<div class='g-card'>", unsafe_allow_html=True)
     st.markdown(f"<div class='g-card-title' style='color:var(--c-gold);'>{get_icon('rocket', 22)} إصدار ترخيص لشركة جديدة</div>", unsafe_allow_html=True)
     
-    c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
+    c1, c2, c3, c4, c5 = st.columns([2.5, 2, 2, 2, 2])
     with c1: new_ws_id = st.text_input("كود الشركة (بالإنجليزية):", placeholder="مثال: Ghareeb2026")
     with c2: duration = st.selectbox("مدة الاشتراك:", ["شهر واحد", "3 شهور", "6 شهور", "سنة كاملة"])
-    with c3: max_dev = st.number_input("الحد الأقصى للمستخدمين:", min_value=1, max_value=1000, value=5)
-    with c4: st.markdown("<br>", unsafe_allow_html=True); add_btn = st.button("تفعيل المساحة", use_container_width=True, type="primary")
+    with c3: max_dev = st.number_input("أقصى عدد للمستخدمين:", min_value=1, max_value=1000, value=5)
+    with c4: new_m_pin = st.text_input("رقم دخول المدير (PIN):", value="0000")
+    with c5: st.markdown("<br>", unsafe_allow_html=True); add_btn = st.button("تفعيل المساحة", use_container_width=True, type="primary")
 
     if add_btn:
         safe_id = "".join(c for c in str(new_ws_id) if c.isalnum() or c in ('_', '-'))
@@ -2051,6 +2087,8 @@ def render_super_admin():
         else:
             days = 30 if duration == "شهر واحد" else 90 if duration == "3 شهور" else 180 if duration == "6 شهور" else 365
             expiry = (datetime.now() + timedelta(days=days)).strftime("%Y-%m-%d")
+            
+            # 1. إنشاء الترخيص
             licenses['workspaces'][safe_id] = {
                 "status": "active",
                 "expiry_date": expiry,
@@ -2058,7 +2096,22 @@ def render_super_admin():
                 "max_devices": int(max_dev)
             }
             save_licenses(licenses)
-            st.success(f"تم إنشاء ترخيص الشركة بنجاح! الأجهزة: {max_dev} | الانتهاء: {expiry}")
+            
+            # 2. إنشاء ملف الإعدادات للشركة برقم المدير المخصص
+            ws_file = f"mudir_workspace_{safe_id}.json"
+            initial_config = {
+                'ODOO_URL': '', 'ODOO_DB': '', 'ODOO_USER': '', 'ODOO_PASS': '',
+                'AI_PROVIDER_URL': 'https://api.openai.com/v1', 'AI_API_KEY': '',
+                'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
+                'MANAGER_PIN': new_m_pin, 
+                'EMPLOYEES': [], 'EVALUATIONS': {}, 'ALL_CHATS': {} 
+            }
+            try:
+                with open(ws_file, 'w', encoding='utf-8') as f:
+                    json.dump(initial_config, f, ensure_ascii=False, indent=4)
+            except: pass
+            
+            st.success(f"تم إنشاء ترخيص الشركة بنجاح! المستخدمين: {max_dev} | الانتهاء: {expiry}")
             time.sleep(1)
             st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
@@ -2078,13 +2131,17 @@ def render_super_admin():
             max_d = ws_info.get('max_devices', 1)
             
             with st.container():
-                rc1, rc2, rc3, rc4, rc5 = st.columns([2, 1.5, 1.5, 1.5, 2])
+                rc1, rc2, rc3, rc4, rc5, rc6 = st.columns([1.5, 1.5, 1.2, 1.5, 1.5, 2.5])
                 rc1.markdown(f"**الشركة:** `{ws_id}`")
                 rc2.markdown(f"**الحالة:** {status_html}", unsafe_allow_html=True)
                 rc3.markdown(f"**مستخدمين:** {max_d}")
                 rc4.markdown(f"**الانتهاء:** {ws_info['expiry_date']}")
                 
                 with rc5:
+                    if st.button("تغيير PIN", key=f"btn_pin_{ws_id}", use_container_width=True):
+                        change_workspace_pin_dialog(ws_id)
+                        
+                with rc6:
                     action_opts = ["اختر إجراء...", "تجديد +شهر", "تجديد +سنة", "زيادة مستخدمين (+5)", "إيقاف (تعليق)", "تفعيل"]
                     action = st.selectbox("الإجراء", action_opts, key=f"act_{ws_id}", label_visibility="collapsed")
                     if action != "اختر إجراء...":
