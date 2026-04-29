@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v38.5 (PRO EXPORT & FILTERS)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v38.6 (STABLE + FILTERS)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -140,14 +140,8 @@ footer {visibility: hidden !important; display: none !important;}
 header {visibility: hidden !important; display: none !important;}
 [data-testid="stHeader"] {display: none !important;}
 [data-testid="stToolbar"] {display: none !important;}
-.stAppDeployButton {display: none !important;}
-.stDeployButton {display: none !important;}
-#st-deploy-button {display: none !important;}
-.viewerBadge_container__1QSob {display: none !important;}
-.viewerBadge_link__1S137 {display: none !important;}
 [data-testid="manage-app-button"] {display: none !important;}
-[data-testid="stStatusWidget"] {display: none !important;}
-iframe[title="streamlitApp"] {border: none !important;}
+.viewerBadge_container__1QSob {display: none !important;}
 
 :root {
     --c-primary:   #00f2ff;
@@ -439,7 +433,7 @@ def get_delta_html(current_val, previous_val):
         return "<span class='delta-neu'>--</span>"
     delta_pct = ((current_val - previous_val) / previous_val) * 100
     if delta_pct > 0:
-        return f"<span class='delta-pos'>▲ +{delta_pct:.1f}%</span>"
+        return f"<span class='delta-pos'>▲ +{delta_pct}%</span>"
     elif delta_pct < 0:
         return f"<span class='delta-neg'>▼ {delta_pct:.1f}%</span>"
     return "<span class='delta-neu'>--</span>"
@@ -618,7 +612,7 @@ if st.session_state.current_user is not None:
     df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v38.5 APEX</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v38.6 APEX</div></div>""", unsafe_allow_html=True)
         
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
@@ -694,7 +688,7 @@ def build_infographic_html(data: dict) -> str:
 # ============================================================
 
 def make_safe_df(df_val):
-    """دالة حماية لضمان تحويل البيانات لنصوص آمنة وعدم انهيار PyArrow"""
+    """دالة حماية لضمان تحويل البيانات المتشابكة لنصوص آمنة وعدم انهيار PyArrow"""
     if hasattr(df_val, 'data'):
         df = df_val.data.copy()
     else:
@@ -703,7 +697,10 @@ def make_safe_df(df_val):
     if df is None or df.empty: 
         return pd.DataFrame()
         
-    return df.astype(str)
+    for col in df.select_dtypes(include=['object']).columns:
+        df[col] = df[col].astype(str)
+        
+    return df
 
 def create_export_buttons(title, df_dict):
     html_content = f"""<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
@@ -787,17 +784,14 @@ def show_main_export_dialog(title, df_dict):
         df = df_val.data.copy() if hasattr(df_val, 'data') else df_val.copy()
         
         if not df.empty:
-            # 1. State filter
             if selected_state != 'الكل':
                 if 'state' in df.columns:
-                    temp_state = df['state'].apply(map_state_ar)
-                    df = df[temp_state == selected_state]
+                    df = df[df['state'].apply(map_state_ar) == selected_state]
                 elif 'الحالة' in df.columns:
                     df = df[df['الحالة'] == selected_state]
                 elif 'الحالة (عربي)' in df.columns:
                     df = df[df['الحالة (عربي)'] == selected_state]
             
-            # 2. Client filter
             if selected_client != 'الكل':
                 if 'partner_id' in df.columns:
                     df = df[df['partner_id'].apply(clean_odoo_m2o) == selected_client]
@@ -806,7 +800,6 @@ def show_main_export_dialog(title, df_dict):
                 elif 'العميل' in df.columns:
                     df = df[df['العميل'] == selected_client]
                     
-            # 3. Date filter
             if len(date_filter) == 2:
                 start_date, end_date = date_filter
                 start_dt = pd.to_datetime(start_date)
@@ -827,7 +820,7 @@ def show_main_export_dialog(title, df_dict):
     st.markdown("<hr style='border-color: rgba(255,255,255,0.1); margin: 25px 0;'>", unsafe_allow_html=True)
     st.info("💡 تم تطبيق الفلاتر بنجاح. يمكنك الآن حفظ التقرير بالصيغة المناسبة لك:")
     
-    # لا نقوم هنا بطباعة الجداول الكبيرة في الشاشة، فقط نعرض الأزرار
+    # تم إخفاء المعاينة الكبيرة كما طلبت
     create_export_buttons(title, filtered_dict)
     
     st.markdown("<br>", unsafe_allow_html=True)
@@ -851,8 +844,6 @@ def show_detailed_report(title: str, data: dict):
 
     st.markdown(build_infographic_html(data), unsafe_allow_html=True)
     
-    # تم إزالة الجداول الكبيرة (المعاينة) من هذه النافذة أيضاً لتسريع الأداء وجعلها نافذة تحليل وتصدير فقط
-
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("إغلاق التقرير", type="primary", use_container_width=True):
         st.rerun()
