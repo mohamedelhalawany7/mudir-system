@@ -708,11 +708,11 @@ def render_live_ticker(df_s, df_p):
     clients = len(df_p) if df_p is not None else 0
     
     ticker_text = f"""
-    <div class="ticker-item"><span>🚀</span> إجمالي المبيعات المعتمدة: <span>{appr:,.0f} ج.م</span></div>
-    <div class="ticker-item"><span>⏳</span> عروض قيد الانتظار: <span>{draft:,.0f} ج.م</span></div>
-    <div class="ticker-item"><span>⚠️</span> نزيف مالي (ملغي): <span>{canc:,.0f} ج.م</span></div>
-    <div class="ticker-item"><span>👥</span> إجمالي العملاء: <span>{clients} عميل</span></div>
-    <div class="ticker-item"><span>💡</span> النظام يعمل بأقصى طاقة استيعابية...</div>
+    <div class="ticker-item"><span style="display:inline-block; vertical-align:middle; margin-left:5px;">{get_icon("rocket", 18, "#00ff82")}</span> إجمالي المبيعات المعتمدة: <span>{appr:,.0f} ج.م</span></div>
+    <div class="ticker-item"><span style="display:inline-block; vertical-align:middle; margin-left:5px;">{get_icon("orders", 18, "#ffd700")}</span> عروض قيد الانتظار: <span>{draft:,.0f} ج.م</span></div>
+    <div class="ticker-item"><span style="display:inline-block; vertical-align:middle; margin-left:5px;">{get_icon("bell", 18, "#ff2d78")}</span> نزيف مالي (ملغي): <span>{canc:,.0f} ج.م</span></div>
+    <div class="ticker-item"><span style="display:inline-block; vertical-align:middle; margin-left:5px;">{get_icon("users", 18, "#00f2ff")}</span> إجمالي العملاء: <span>{clients} عميل</span></div>
+    <div class="ticker-item"><span style="display:inline-block; vertical-align:middle; margin-left:5px;">{get_icon("bulb", 18, "#ffd700")}</span> النظام يعمل بأقصى طاقة استيعابية...</div>
     """
     # Repeat to make it seamless
     st.markdown(f'<div class="ticker-wrap"><div class="ticker-move">{ticker_text}{ticker_text}</div></div>', unsafe_allow_html=True)
@@ -854,14 +854,21 @@ def map_po_state_ar(state_val):
 
 def style_dataframe(df, target_col):
     if df.empty or target_col not in df.columns: return df
-    styler = df.style.background_gradient(subset=[target_col], cmap='RdYlGn')
+    
     format_dict = {}
     for col in ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح']:
         if col in df.columns: format_dict[col] = "{:,.0f} ج.م"
     for col in ['الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة']:
         if col in df.columns: format_dict[col] = "{:,.0f}"
     if 'هامش الربح %' in df.columns: format_dict['هامش الربح %'] = "{:.1f}%"
-    return styler.format(format_dict) if format_dict else styler
+    
+    try:
+        styler = df.style.background_gradient(subset=[target_col], cmap='RdYlGn')
+        return styler.format(format_dict) if format_dict else styler
+    except ImportError:
+        # حماية إضافية: في حالة عدم وجود مكتبة matplotlib في السيرفر، يتم عرض الجدول بدون تلوين الخلفية بدلاً من انهيار النظام
+        styler = df.style
+        return styler.format(format_dict) if format_dict else styler
 
 def build_infographic_html(data: dict) -> str:
     kpis = data.get('kpis', [])
