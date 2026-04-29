@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v38.1 (CLOUD APEX FIXED)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v38.2 (CLOUD APEX FULLY FIXED)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -806,7 +806,7 @@ if st.session_state.current_user is not None:
     df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v38.1 APEX</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v38.2 APEX</div></div>""", unsafe_allow_html=True)
         
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
@@ -836,6 +836,21 @@ if st.session_state.current_user is not None:
             
         status_color = "#00ff82" if st.session_state.is_real_data else "#ff2d78"
         st.markdown(f"""<div style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.05); border-radius:12px; padding:15px; text-align:center; margin-top:20px;"><div style="font-size:0.8rem; color:#64748b; margin-bottom:6px; font-weight:700;">حالة الاتصال المركزية</div><div style="color:{status_color}; font-weight:900; font-size:0.9rem; display:flex; align-items:center; justify-content:center;"><div class="status-dot" style="color:{status_color}; background:{status_color}; margin-left:8px;"></div>{'متصل بـ Odoo الحقيقي' if st.session_state.is_real_data else 'غير متصل (البيانات فارغة)'}</div></div>""", unsafe_allow_html=True)
+
+# --- Clean Data Helpers ---
+def map_state_ar(state_val):
+    val = str(state_val).lower()
+    if val in ['sale', 'done']: return 'موافق عليه'
+    if val in ['draft', 'sent']: return 'مسودة'
+    if val in ['cancel']: return 'ملغي'
+    return val
+
+def map_po_state_ar(state_val):
+    val = str(state_val).lower()
+    if val in ['purchase', 'done']: return 'معتمد'
+    if val in ['draft', 'sent', 'to approve']: return 'مسودة / قيد الانتظار'
+    if val in ['cancel']: return 'ملغي'
+    return val
 
 def style_dataframe(df, target_col):
     if df.empty or target_col not in df.columns: return df
