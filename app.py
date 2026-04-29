@@ -857,7 +857,7 @@ def build_infographic_html(data: dict) -> str:
 # ============================================================
 
 def make_safe_df(df_val):
-    """دالة حماية قصوى: تقوم بتحويل أي جداول بها مصفوفات أو بيانات غير متوافقة إلى نصوص صريحة لمنع انهيار PyArrow"""
+    """دالة حماية لضمان تحويل البيانات المتشابكة لنصوص آمنة وعدم انهيار PyArrow"""
     if hasattr(df_val, 'data'):
         df = df_val.data.copy()
     else:
@@ -866,7 +866,10 @@ def make_safe_df(df_val):
     if df is None or df.empty: 
         return pd.DataFrame()
         
-    return df.astype(str)
+    for col in df.select_dtypes(include=['object']).columns:
+        df[col] = df[col].astype(str)
+        
+    return df
 
 def create_export_buttons(title, df_dict):
     html_content = f"""<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
@@ -918,29 +921,6 @@ def create_export_buttons(title, df_dict):
             use_container_width=True
         )
 
-@st.dialog("معاينة وتصدير التقرير الشامل", width="large")
-def show_main_export_dialog(title, df_dict):
-    st.markdown(f"<h3 style='color:var(--c-primary); text-align:center; margin-bottom:20px;'>نافذة التصدير: {title}</h3>", unsafe_allow_html=True)
-    
-    st.info("💡 يمكنك الآن حفظ كافة البيانات الموجودة في هذه الشاشة بضغطة زر. اختر الصيغة المناسبة لك:")
-    create_export_buttons(title, df_dict)
-    
-    st.markdown("<hr style='border-color: rgba(255,255,255,0.1); margin: 25px 0;'>", unsafe_allow_html=True)
-    st.markdown(f"<h4 style='color:var(--c-dim);'>{get_icon('eye', 20)} معاينة سريعة للبيانات التي سيتم تصديرها:</h4>", unsafe_allow_html=True)
-    
-    tabs = st.tabs(list(df_dict.keys()))
-    for i, (name, df_val) in enumerate(df_dict.items()):
-        with tabs[i]:
-            df_safe = make_safe_df(df_val)
-            if not df_safe.empty:
-                st.dataframe(df_safe, use_container_width=True, hide_index=True)
-            else:
-                st.warning("الجدول فارغ ولا يوجد به بيانات للفترة المحددة.")
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("إغلاق النافذة", use_container_width=True):
-        st.rerun()
-
 @st.dialog("التحليل الاستراتيجي التفصيلي", width="large")
 def show_detailed_report(title: str, data: dict):
     st.markdown(f"<h3 style='color:var(--c-primary); margin-top:0; margin-bottom: 20px;'>{title}</h3>", unsafe_allow_html=True)
@@ -991,19 +971,6 @@ def render_dashboard():
         </div>
     </div>
     """, unsafe_allow_html=True)
-    
-    if st.button(f"📥 نافذة المعاينة وتصدير التقرير الشامل (Word / PDF)", use_container_width=True):
-        export_data = {}
-        if 'df_s' in st.session_state and not st.session_state.df_s.empty:
-            export_data["جميع العروض والطلبات"] = st.session_state.df_s
-        if 'df_po' in st.session_state and not st.session_state.df_po.empty:
-            export_data["أوامر الشراء"] = st.session_state.df_po
-        if 'df_p' in st.session_state and not st.session_state.df_p.empty:
-            export_data["قاعدة العملاء"] = st.session_state.df_p
-        if 'df_i' in st.session_state and not st.session_state.df_i.empty:
-            export_data["المنتجات والمخزون"] = st.session_state.df_i
-            
-        show_main_export_dialog("التقرير الشامل للوحة القيادة المركزية", export_data)
 
     st.markdown("<div class='g-card' style='padding: 1.5rem; margin-bottom: 2rem; margin-top: 1rem;'>", unsafe_allow_html=True)
     start_dt, end_dt, prev_start_dt, prev_end_dt = get_smart_filter_dates("dash")
@@ -1324,10 +1291,6 @@ def render_departments():
 
     final_table = pd.merge(summ_df_all, dept_summary[['القسم', 'المصروفات', 'صافي_الربح', 'هامش الربح %']], on='القسم', how='left').fillna(0)
     final_table = final_table.rename(columns={'إيرادات_معتمدة': 'الإيرادات', 'صافي_الربح': 'صافي الربح'}).sort_values('صافي الربح', ascending=False)
-
-    if st.button(f"📥 نافذة المعاينة وتصدير تقرير الأقسام (Word / PDF)", use_container_width=True):
-        export_data = {"الجدول التحليلي الشامل لأداء الأقسام": final_table}
-        show_main_export_dialog("التحليل الاستراتيجي للأقسام", export_data)
         
     st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin-bottom: 20px;'>", unsafe_allow_html=True)
 
@@ -1427,10 +1390,6 @@ def render_forecast():
     future_y = np.maximum(future_y, 0) 
 
     pred_df = pd.DataFrame({'Month': future_months, 'amount_total': future_y})
-    
-    if st.button(f"📥 نافذة المعاينة وتصدير تقرير التنبؤ (Word / PDF)", use_container_width=True):
-        export_data = {"الأداء التاريخي (فعلي)": monthly, "الأرقام المتوقعة": pred_df}
-        show_main_export_dialog("تقرير التنبؤ المستقبلي", export_data)
         
     st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin-bottom: 20px;'>", unsafe_allow_html=True)
     
@@ -1771,11 +1730,6 @@ def render_fusion():
         try:
             ext_df = pd.read_excel(file_up) if file_up.name.endswith('.xlsx') else pd.read_csv(file_up)
             
-            if st.button(f"📥 نافذة المعاينة وتصدير البيانات المدخلة (Word / PDF)", use_container_width=True):
-                show_main_export_dialog("البيانات الخارجية", {"البيانات المدرجة": ext_df})
-                
-            st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin-bottom: 20px;'>", unsafe_allow_html=True)
-
             with st.container():
                 # مسح إحصائي تلقائي (Auto-Data Scan)
                 st.markdown(f"<div class='g-card-title' style='margin-top:20px; color:var(--c-gold);'>{get_icon('activity', 22)} المسح الإحصائي المبدئي للبيانات</div>", unsafe_allow_html=True)
@@ -1852,12 +1806,6 @@ def render_territories():
         عدد_العملاء=('اسم العميل', 'nunique'),
         إجمالي_الفواتير=('amount_total', 'sum')
     ).reset_index().sort_values('إجمالي_الفواتير', ascending=False)
-    
-    if st.button(f"📥 نافذة المعاينة وتصدير التقرير الجغرافي (Word / PDF)", use_container_width=True):
-        export_data = {"المدن والتمركز الجغرافي": city_details}
-        show_main_export_dialog("التحليل الجغرافي للاستحواذ", export_data)
-        
-    st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin-bottom: 20px;'>", unsafe_allow_html=True)
     
     st.markdown(f"<div class='g-card-title'>{get_icon('globe', 22)} الخريطة الحرارية للاستحواذ المالي بالمدن</div>", unsafe_allow_html=True)
     if not city_df.empty:
