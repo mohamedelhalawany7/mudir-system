@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v48.3 (WHATSAPP PERFECT TYPOGRAPHY)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v48.5 (SMART EXECUTIVE REPORTS)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -37,7 +37,7 @@ DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري
 1. لو الموظف بيطلب خطة، اديله تكليف محدد بناء على المسمى الوظيفي بتاعه واسأله (هتخلص ده في قد إيه؟).
 2. إذا كان دوره "مبيعات": كلفه بصرامة إنه يتابع (عروض الأسعار المعلقة) واطلب منه يجيبلك الخلاصة ويقفل البيعة.
 3. إذا كان "تسويق" أو "تطوير أعمال": اقترح عليه أسماء شركات واقعية في مصر أو الخليج لفتح أسواق معاها.
-4. تابعه واسأله عن الوقت اللي خده، لو اتأخر أو مفيش نتيجة، كن حازم ووبخه بشياكة كمدير. لو شاطر شجعه بكلمة (عاش يا بطل).
+4. تابعه واسأله عن الوقت خده، لو اتأخر أو مفيش نتيجة، كن حازم ووبخه بشياكة كمدير. لو شاطر شجعه بكلمة (عاش يا بطل).
 5. تجنب استخدام الرموز التعبيرية تماماً عشان تحافظ على هيبتك كمدير. استخدم التنسيق الواضح بالماركداون (عناوين، نقاط، أرقام).
 6. التحكم في النظام: لو شفت إن في ضرورة ماسة لإنشاء مسودة عرض سعر لعميل لإنقاذ الموقف، أضف هذا الكود في نهاية رسالتك بالضبط:
 $$ACTION: CREATE_SO | العميل: [اسم العميل] | القيمة: [مبلغ تقديري]$$"""
@@ -699,8 +699,8 @@ html, body, [class*="css"] {
 .chat-bubble { 
     padding: 8px 12px !important; /* WhatsApp precise padding */
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Cairo", Helvetica, Arial, sans-serif !important; 
-    font-size: 15px !important; /* Standard readable size */
-    line-height: 20px !important; /* Smooth line height */
+    font-size: 14.2px !important; /* Standard readable size */
+    line-height: 19px !important; /* Smooth line height */
     word-wrap: break-word !important; 
     white-space: pre-wrap !important; 
     text-align: right !important; 
@@ -710,10 +710,12 @@ html, body, [class*="css"] {
     box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important; 
     margin-bottom: 2px !important; 
 }
-.chat-bubble p { margin: 0 !important; color: #e9edef !important; font-size: 15px !important; line-height: 20px !important;}
+/* shrink wrap fix for streamlit markdown */
+.chat-bubble [data-testid="stMarkdownContainer"] { width: fit-content !important; }
+.chat-bubble p { display: inline-block !important; width: fit-content !important; margin: 0 !important; padding: 0 !important; color: #e9edef !important; font-size: 14.2px !important; line-height: 19px !important;}
 .chat-bubble h1, .chat-bubble h2, .chat-bubble h3 { margin-top: 5px !important; margin-bottom: 5px !important; color: #fff !important; font-size: 1.1rem !important;}
 .chat-bubble ul, .chat-bubble ol { margin-right: 20px !important; padding-right: 15px !important; margin-bottom: 0 !important;}
-.chat-bubble li { font-size: 15px !important; line-height: 20px !important; margin-bottom: 4px !important; }
+.chat-bubble li { font-size: 14.2px !important; line-height: 19px !important; margin-bottom: 4px !important; }
 
 /* User Message (Right Side in RTL) */
 [data-testid="stChatMessage"]:has(.msg-user) [data-testid="stChatMessageContent"] { 
@@ -783,7 +785,7 @@ html, body, [class*="css"] {
 }
 
 .stMarkdown div[dir="rtl"] strong { color: #00f2ff !important; }
-.stMarkdown div[dir="rtl"] p, .stMarkdown div[dir="rtl"] li { font-size: 15px !important; line-height: 20px !important; color: #e9edef !important; margin-bottom: 0 !important; }
+.stMarkdown div[dir="rtl"] p, .stMarkdown div[dir="rtl"] li { font-size: 14.2px !important; line-height: 19px !important; color: #e9edef !important; margin-bottom: 0 !important; }
 
 .page-header { padding: 2.5rem 3rem; margin-bottom: 1rem; border-radius: var(--r); background: linear-gradient(135deg, #090912, #050508); border: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
 .ph-icon-wrap { background: rgba(0,242,255,0.05); border-radius: 16px; padding: 18px; border: 1px solid rgba(0,242,255,0.2); }
@@ -849,7 +851,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v48.3</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v48.5</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         allowed_navs = []
@@ -1719,66 +1721,130 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
         {chats_str if chats_str else 'لا يوجد'}
 
         المطلوب:
-        اكتب تقرير إداري مكثف ومنظم بصيغة Markdown، يكون مناسب للطباعة في صفحة واحدة، ويتضمن:
-        1. ملخص تنفيذي لأداء الموظف.
-        2. مدى التزامه بالتوجيهات اليومية وإعداد التقارير.
-        3. نقاط القوة، ونقاط الضعف أو فرص التحسين.
-        4. التقييم النهائي العام (من 10).
+        اكتب تقرير إداري مكثف ومنظم بصيغة HTML (بدون استخدام Markdown)، ليكون مناسباً للطباعة فوراً.
+        استخدم العناوين (h2, h3) والفقرات (p) والقوائم (ul, li). 
+        قسم التقرير إلى:
+        1. الخلاصة التنفيذية.
+        2. تقييم أداء المبيعات/المهام.
+        3. التزام الموظف والتفاعلات.
+        4. نقاط القوة ومجالات التحسين.
+        5. التقييم النهائي العام (من 10) في شكل بارز.
 
-        تجنب الإطالة نهائياً، استخدم نقاط واضحة، لغة احترافية، بدون رموز تعبيرية (Emojis).
+        يجب أن يكون الكود HTML نظيف فقط وبدون Emojis.
         """
         try:
-            smart_report_md = call_universal_ai([{"role": "user", "content": report_prompt}])
+            smart_report_html = call_universal_ai([{"role": "user", "content": report_prompt}])
+            # Clean up if AI wrapped it in ```html
+            smart_report_html = smart_report_html.replace('```html', '').replace('```', '').strip()
         except Exception:
-            smart_report_md = "حدث خطأ أثناء توليد التقرير الذكي من الخادم. يرجى المحاولة لاحقاً."
+            smart_report_html = "<p>حدث خطأ أثناء توليد التقرير الذكي من الخادم. يرجى المحاولة لاحقاً.</p>"
 
-    # Convert markdown to basic HTML for export
-    html_friendly_report = smart_report_md.replace("\n", "<br>").replace("**", "")
-
+    # --- Build HTML for Export (Word / PDF) with elegant fonts and styling ---
     html_export = f"""
+    <!DOCTYPE html>
     <html dir="rtl" lang="ar">
     <head>
         <meta charset="utf-8">
+        <link href="[https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap](https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap)" rel="stylesheet">
         <style>
-            body {{ font-family: 'Arial', sans-serif; padding: 20px; color: #333; direction: rtl; text-align: right; line-height: 1.6; }}
-            h1 {{ color: #005c4b; text-align: center; border-bottom: 2px solid #005c4b; padding-bottom: 10px; margin-bottom: 30px; }}
-            .metric-box {{ border: 1px solid #ccc; padding: 15px; border-radius: 8px; width: 30%; background: #fafafa; display: inline-block; text-align: center; margin: 1%; }}
-            .metric-val {{ font-size: 24px; font-weight: bold; color: #005c4b; margin-top: 5px; }}
+            body {{ font-family: 'Cairo', sans-serif; background-color: #f8fafc; padding: 40px; color: #1e293b; direction: rtl; text-align: right; line-height: 1.8; }}
+            .report-container {{ max-width: 800px; margin: auto; background: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border-top: 8px solid #005c4b; }}
+            .header {{ text-align: center; padding-bottom: 20px; border-bottom: 2px solid #e2e8f0; margin-bottom: 30px; }}
+            .header h1 {{ color: #005c4b; font-size: 32px; font-weight: 800; margin: 0 0 10px 0; }}
+            .info-box {{ background: #f1f5f9; padding: 15px 25px; border-radius: 12px; margin-bottom: 30px; font-size: 16px; color: #334155; display: flex; justify-content: space-between; font-weight: 600; border: 1px solid #cbd5e1;}}
+            .metrics-table {{ width: 100%; border-collapse: separate; border-spacing: 15px; margin-bottom: 30px; }}
+            .metrics-table td {{ background: #ffffff; padding: 20px; border-radius: 12px; text-align: center; border: 1px solid #e2e8f0; width: 33.33%; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }}
+            .m-title {{ font-size: 14px; color: #64748b; font-weight: 600; margin-bottom: 5px; text-transform: uppercase; }}
+            .m-val {{ font-size: 26px; font-weight: 800; color: #005c4b; }}
+            .report-content {{ background: #f8fafc; padding: 30px; border-radius: 12px; border-right: 4px solid #005c4b; color: #334155; }}
+            .report-content h2 {{ color: #0f172a; margin-top: 0; font-size: 22px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px; }}
+            .report-content h3 {{ color: #005c4b; font-size: 18px; margin-top: 25px; }}
+            .report-content p {{ font-size: 16px; margin-bottom: 15px; }}
+            .report-content ul {{ padding-right: 20px; margin-bottom: 20px; }}
+            .report-content li {{ margin-bottom: 8px; font-size: 16px; }}
+            .footer {{ text-align: center; margin-top: 40px; color: #94a3b8; font-size: 13px; border-top: 1px solid #e2e8f0; padding-top: 20px; }}
         </style>
     </head>
     <body>
-        <h1>تقرير الأداء والتقييم الشامل</h1>
-        <p><strong>اسم الموظف:</strong> {emp_short} &nbsp;&nbsp; | &nbsp;&nbsp; <strong>الوظيفة:</strong> {emp_role}</p>
-        <p><strong>فترة التقرير:</strong> من {start_date} إلى {end_date}</p>
+        <div class="report-container">
+            <div class="header">
+                <h1>تقرير الأداء والتقييم الشامل</h1>
+                <div style="color: #64748b; font-size: 15px;">نظام MUDIR OS الاستراتيجي</div>
+            </div>
+            
+            <table width="100%" style="margin-bottom: 20px; background: #f1f5f9; border-radius: 12px; border: 1px solid #cbd5e1; padding: 15px;">
+                <tr>
+                    <td style="text-align: right; font-size: 16px; color: #334155; width: 33%;"><strong>الموظف:</strong> {emp_short}</td>
+                    <td style="text-align: center; font-size: 16px; color: #334155; width: 33%;"><strong>الوظيفة:</strong> {emp_role}</td>
+                    <td style="text-align: left; font-size: 16px; color: #334155; width: 33%; direction: rtl;"><strong>الفترة:</strong> {start_date} / {end_date}</td>
+                </tr>
+            </table>
 
-        <div style="text-align: center; margin-bottom: 30px;">
-            <div class="metric-box"><div>مبيعات معتمدة</div><div class="metric-val">{appr_sales:,.0f} ج</div></div>
-            <div class="metric-box"><div>عروض مسودة</div><div class="metric-val">{draft_sales:,.0f} ج</div></div>
-            <div class="metric-box"><div>طلبات ناجحة</div><div class="metric-val">{orders_count}</div></div>
-        </div>
+            <table class="metrics-table">
+                <tr>
+                    <td>
+                        <div class="m-title">مبيعات معتمدة</div>
+                        <div class="m-val" style="color: #059669;">{appr_sales:,.0f} ج.م</div>
+                    </td>
+                    <td>
+                        <div class="m-title">عروض مسودة</div>
+                        <div class="m-val" style="color: #d97706;">{draft_sales:,.0f} ج.م</div>
+                    </td>
+                    <td>
+                        <div class="m-title">طلبات ناجحة</div>
+                        <div class="m-val" style="color: #2563eb;">{orders_count}</div>
+                    </td>
+                </tr>
+            </table>
 
-        <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; border-right: 4px solid #005c4b;">
-            {html_friendly_report}
+            <div class="report-content">
+                {smart_report_html}
+            </div>
+
+            <div class="footer">
+                تم استخراج هذا التقرير آلياً بواسطة محرك الذكاء الاصطناعي - MUDIR OS<br>
+                تاريخ الاستخراج: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+            </div>
         </div>
     </body></html>
     """
 
-    # Display in UI
-    st.markdown(f"<div style='text-align:center; font-size:1.2rem; margin-bottom: 20px;'><strong>{emp_short}</strong> | {emp_role}</div>", unsafe_allow_html=True)
-    m1, m2, m3 = st.columns(3)
-    m1.metric("مبيعات معتمدة", f"{appr_sales:,.0f} ج.م")
-    m2.metric("عروض مسودة", f"{draft_sales:,.0f} ج.م")
-    m3.metric("الطلبات الناجحة", str(orders_count))
-    
-    st.markdown("<hr style='border-color: rgba(255,255,255,0.1);'>", unsafe_allow_html=True)
-    st.markdown(smart_report_md)
-    st.markdown("<hr style='border-color: rgba(255,255,255,0.1);'>", unsafe_allow_html=True)
+    # --- Streamlit UI Display ---
+    st.markdown(f"""
+    <div style="background-color: #111b21; border-radius: 16px; padding: 30px; border: 1px solid #202c33; box-shadow: 0 8px 32px rgba(0,0,0,0.4); direction: rtl; font-family: 'Cairo', sans-serif;">
+        <div style="text-align: center; border-bottom: 2px solid #202c33; padding-bottom: 20px; margin-bottom: 30px;">
+            <h2 style="color: #00a884; font-weight: 800; font-size: 2rem; margin: 0 0 10px 0;">التقرير الإداري الشامل</h2>
+            <div style="color: #e9edef; font-size: 1.2rem;"><strong>{emp_short}</strong> <span style="color:#8696a0;">| {emp_role}</span></div>
+            <div style="color: #8696a0; font-size: 0.9rem; margin-top: 5px;">الفترة المحددة: {start_date} إلى {end_date}</div>
+        </div>
+        
+        <div style="display: flex; gap: 15px; margin-bottom: 30px;">
+            <div style="flex: 1; background: #202c33; padding: 20px; border-radius: 12px; text-align: center;">
+                <div style="color: #8696a0; font-size: 0.9rem; font-weight: 600; margin-bottom: 5px;">مبيعات معتمدة</div>
+                <div style="color: #00a884; font-size: 1.8rem; font-weight: 800;">{appr_sales:,.0f} <span style="font-size: 1rem;">ج.م</span></div>
+            </div>
+            <div style="flex: 1; background: #202c33; padding: 20px; border-radius: 12px; text-align: center;">
+                <div style="color: #8696a0; font-size: 0.9rem; font-weight: 600; margin-bottom: 5px;">عروض مسودة</div>
+                <div style="color: #ffd700; font-size: 1.8rem; font-weight: 800;">{draft_sales:,.0f} <span style="font-size: 1rem;">ج.م</span></div>
+            </div>
+            <div style="flex: 1; background: #202c33; padding: 20px; border-radius: 12px; text-align: center;">
+                <div style="color: #8696a0; font-size: 0.9rem; font-weight: 600; margin-bottom: 5px;">الطلبات الناجحة</div>
+                <div style="color: #00f2ff; font-size: 1.8rem; font-weight: 800;">{orders_count}</div>
+            </div>
+        </div>
+
+        <div style="background: #0b141a; padding: 30px; border-radius: 12px; border-right: 4px solid #00a884; color: #e9edef; font-size: 1.05rem; line-height: 1.8;">
+            {smart_report_html.replace('h2>', 'h3 style="color:#00a884; font-weight:700; margin-top:1.5rem; border-bottom:1px solid #202c33; padding-bottom:10px;">').replace('h3>', 'h4 style="color:#00f2ff; font-weight:600; margin-top:1rem;">')}
+        </div>
+    </div>
+    <br>
+    """, unsafe_allow_html=True)
 
     c1, c2 = st.columns(2)
     with c1:
-        st.download_button("📥 تحميل التقرير (Word)", data=html_export.encode('utf-8-sig'), file_name=f"Evaluation_{emp_short}.doc", mime="application/msword", use_container_width=True)
+        st.download_button("📥 حفظ التقرير (Word)", data=html_export.encode('utf-8-sig'), file_name=f"Performance_Report_{emp_short}.doc", mime="application/msword", use_container_width=True)
     with c2:
-        st.download_button("🖨️ استخراج للطباعة (PDF)", data=(html_export + "<script>window.print();</script>").encode('utf-8-sig'), file_name=f"Evaluation_{emp_short}.html", mime="text/html", use_container_width=True)
+        st.download_button("🖨️ استخراج للطباعة (PDF)", data=(html_export + "<script>window.print();</script>").encode('utf-8-sig'), file_name=f"Performance_Report_{emp_short}.html", mime="text/html", use_container_width=True)
 
 def render_ai():
     # ── ميزة تصدير المحادثة (Chat Export) ──
@@ -2335,7 +2401,7 @@ def render_settings():
         """)
         
     saved_url = CFG.get('AI_PROVIDER_URL', '')
-    url_presets = ["https://openrouter.ai/api/v1", "https://api.openai.com/v1", "https://api.x.ai/v1", "https://generativelanguage.googleapis.com/v1beta/openai/", ""]
+    url_presets = ["[https://openrouter.ai/api/v1](https://openrouter.ai/api/v1)", "[https://api.openai.com/v1](https://api.openai.com/v1)", "[https://api.x.ai/v1](https://api.x.ai/v1)", "[https://generativelanguage.googleapis.com/v1beta/openai/](https://generativelanguage.googleapis.com/v1beta/openai/)", ""]
     if saved_url not in url_presets: url_presets.insert(0, saved_url)
     url_options = list(dict.fromkeys(url_presets)) + ["مخصص (كتابة يدوية)..."]
     
@@ -2426,7 +2492,7 @@ def change_workspace_pin_dialog(ws_id):
     
     ws_cfg = {
         'ODOO_URL': '', 'ODOO_DB': '', 'ODOO_USER': '', 'ODOO_PASS': '',
-        'AI_PROVIDER_URL': 'https://api.openai.com/v1', 'AI_API_KEY': '',
+        'AI_PROVIDER_URL': '[https://api.openai.com/v1](https://api.openai.com/v1)', 'AI_API_KEY': '',
         'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
         'MANAGER_PIN': '0000', 'EMPLOYEES': [], 'EVALUATIONS': {}, 'ALL_CHATS': {} 
     }
@@ -2455,7 +2521,7 @@ def change_workspace_pin_dialog(ws_id):
 def render_super_admin():
     # تم حل مشكلة تسجيل الخروج بإضافة Sidebar للتحكم الآمن
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v48.1</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v48.5</div></div>""", unsafe_allow_html=True)
         st.markdown("---")
         if st.button("🔴 تسجيل الخروج وإغلاق", use_container_width=True, type="primary"):
             st.query_params.clear()
@@ -2559,7 +2625,7 @@ def render_super_admin():
             ws_file = f"mudir_workspace_{safe_id}.json"
             initial_config = {
                 'ODOO_URL': '', 'ODOO_DB': '', 'ODOO_USER': '', 'ODOO_PASS': '',
-                'AI_PROVIDER_URL': 'https://api.openai.com/v1', 'AI_API_KEY': '',
+                'AI_PROVIDER_URL': '[https://api.openai.com/v1](https://api.openai.com/v1)', 'AI_API_KEY': '',
                 'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
                 'MANAGER_PIN': new_m_pin, 
                 'EMPLOYEES': [], 'EVALUATIONS': {}, 'ALL_CHATS': {}, 'AUDIT_LOG': {} 
