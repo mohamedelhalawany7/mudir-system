@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v43.0 (ULTIMATE HEATMAPS & KPI AI)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v43.1 (STABLE RELEASE - FINAL FIX)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -263,49 +263,63 @@ def extract_department_from_row(row):
 # ────────────────────────────────────────────────────────────
 def style_dataframe(df):
     if df is None: return pd.DataFrame()
-    if hasattr(df, 'data') and df.data.empty: return df
-    if not hasattr(df, 'data') and df.empty: return df
     
-    df_safe = df.data.copy() if hasattr(df, 'data') else df.copy()
-    
-    numeric_cols = ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة', 'هامش الربح %', 'إجمالي العروض']
-    
-    # 1. التنظيف الصارم للأرقام (إزالة الفواصل والنصوص)
-    for col in numeric_cols:
-        if col in df_safe.columns:
-            if df_safe[col].dtype == 'object':
-                df_safe[col] = df_safe[col].astype(str).str.replace(r'[^\d.-]', '', regex=True)
-            df_safe[col] = pd.to_numeric(df_safe[col], errors='coerce').fillna(0)
+    # الحصول على البيانات كـ DataFrame نظيف
+    if hasattr(df, 'data'):
+        df_raw = df.data.copy()
+    else:
+        df_raw = df.copy()
 
-    # 2. تحديد العمود المستهدف للترتيب والتلوين
-    target_cols = ['صافي الربح', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الكمية المطلوبة', 'الإيرادات', 'إجمالي العروض']
-    target_col = next((c for c in target_cols if c in df_safe.columns), None)
-    
-    # 3. الترتيب التنازلي التلقائي بناءً على الأرقام الصافية
-    if target_col:
-        df_safe = df_safe.sort_values(by=target_col, ascending=False).reset_index(drop=True)
+    if df_raw.empty: return df_raw
 
-    # 4. تجهيز التنسيقات (إضافة العملة وعلامة النسبة)
-    format_dict = {}
-    for col in ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح']:
-        if col in df_safe.columns: format_dict[col] = "{:,.0f} ج.م"
-            
-    for col in ['الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة', 'إجمالي العروض']:
-        if col in df_safe.columns: format_dict[col] = "{:,.0f}"
-            
-    if 'هامش الربح %' in df_safe.columns:
-        format_dict['هامش الربح %'] = "{:.1f}%"
+    # تعريف الأعمدة التي يجب أن تكون أرقاماً
+    currency_cols = ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'صاف الربح']
+    number_cols = ['الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة', 'إجمالي العروض', 'إجمالي الطلبات']
+    pct_cols = ['هامش الربح %']
     
-    # 5. التلوين والتنسيق الآمن لمنع انهيار Streamlit
+    all_numeric = currency_cols + number_cols + pct_cols
+
+    # 1. التنظيف الصارم للأرقام (إزالة الفواصل والنصوص مثل ج.م و %) قبل أي ترتيب أو تلوين
+    for col in all_numeric:
+        if col in df_raw.columns:
+            if df_raw[col].dtype == object:
+                # مسح كل شيء عدا الأرقام، السالب، والنقطة العشرية
+                df_raw[col] = df_raw[col].astype(str).str.replace(r'[^\d.-]', '', regex=True)
+            # تحويل إلى رقم فعلي
+            df_raw[col] = pd.to_numeric(df_raw[col], errors='coerce').fillna(0)
+
+    # تحديد العمود المستهدف للخريطة الحرارية (أهم عمود موجود في الجدول)
+    target_cols_priority = ['صافي الربح', 'صاف الربح', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الكمية المطلوبة', 'الإيرادات', 'إجمالي العروض', 'إجمالي الطلبات']
+    active_target = None
+    for col in target_cols_priority:
+        if col in df_raw.columns:
+            active_target = col
+            break
+
+    # 2. الترتيب التنازلي التلقائي بناءً على الأرقام الصافية (إذا وجد عمود مستهدف)
+    if active_target:
+        df_raw = df_raw.sort_values(by=active_target, ascending=False).reset_index(drop=True)
+
+    # 3. تجهيز قاموس التنسيقات ليظهر الـ ج.م والـ % بـعـد التلوين
+    fmt = {}
+    for c in currency_cols:
+        if c in df_raw.columns: fmt[c] = "{:,.0f} ج.م"
+    for c in number_cols:
+        if c in df_raw.columns: fmt[c] = "{:,.0f}"
+    for c in pct_cols:
+        if c in df_raw.columns: fmt[c] = "{:.1f}%"
+
+    # 4. التلوين والتنسيق الآمن لمنع انهيار Streamlit
     try:
-        styler = df_safe.style
-        if target_col:
-            styler = styler.background_gradient(subset=[target_col], cmap='RdYlGn')
-        if format_dict:
-            styler = styler.format(format_dict)
+        styler = df_raw.style
+        if active_target:
+            styler = styler.background_gradient(subset=[active_target], cmap='RdYlGn')
+        if fmt:
+            styler = styler.format(fmt)
         return styler
-    except Exception:
-        return df_safe
+    except Exception as e:
+        # في أسوأ الظروف، إذا فشل التلوين، يرجع الجدول مرتباً ونظيفاً بدلاً من الانهيار
+        return df_raw
 
 @st.cache_data(ttl=600, show_spinner=False)
 def fetch_master_data(url, db, user, pswd):
@@ -546,6 +560,7 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Orbitron:wght@400;700;900&display=swap');
 
+/* التدمير الشامل لقوائم وأزرار Streamlit Cloud و Manage app */
 #MainMenu {visibility: hidden !important; display: none !important;}
 footer {visibility: hidden !important; display: none !important;}
 header {visibility: hidden !important; display: none !important;}
@@ -572,6 +587,7 @@ html, body, [class*="css"] {
     direction: rtl; background: var(--c-bg) !important; color: #e2e8f0;
 }
 ::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--c-dim); border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--c-primary); }
 
@@ -581,6 +597,12 @@ html, body, [class*="css"] {
 }
 .g-card, .custom-metric, .page-header, [data-testid="stTabs"] {
     animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+[data-testid="stAppViewBlockContainer"] {
+    max-width: 100% !important;
+    padding: 1rem 2rem !important;
+    overflow-x: hidden !important;
 }
 
 [data-testid="stSidebar"] {
@@ -1775,54 +1797,71 @@ def render_settings():
     current_emps = CFG.get('EMPLOYEES', [])
     st.info(f"تم استهلاك {len(current_emps)} من أصل {max_devices} مستخدم مسموح به في رخصة شركتك.")
     
-    c_emp1, c_emp2, c_emp3 = st.columns([2, 2, 2])
-    with c_emp1: new_emp_name = st.text_input("اسم الموظف", placeholder="مثال: أحمد محمود")
-    with c_emp2: new_emp_role = st.text_input("الوظيفة / القسم", placeholder="مثال: مبيعات هاتفية")
-    with c_emp3: new_emp_pin = st.text_input("الرمز السري للموظف (PIN)", placeholder="مثال: 1234")
-    
-    new_emp_desc = st.text_area("الوصف الوظيفي والأهداف (KPIs)", placeholder="اكتب هنا مهام الموظف وما تتوقعه منه، ليقوم الذكاء الاصطناعي بمتابعته بناءً عليها...")
-    
-    view_options = {i[2]: i[0] for i in ALL_NAV_ITEMS if i[0] not in ['settings']}
-    new_emp_views = st.multiselect("الشاشات المسموحة", list(view_options.keys()), default=["مكتب المدير"])
+    with st.container():
+        st.markdown("<div style='background:rgba(255,255,255,0.02); padding:20px; border-radius:12px; border:1px solid rgba(255,255,255,0.05); margin-bottom:20px;'>", unsafe_allow_html=True)
+        st.markdown("**➕ إضافة موظف جديد:**")
+        c_emp1, c_emp2, c_emp3 = st.columns([2, 2, 2])
+        with c_emp1: new_emp_name = st.text_input("اسم الموظف", placeholder="مثال: أحمد محمود")
+        with c_emp2: new_emp_role = st.text_input("الوظيفة / القسم", placeholder="مثال: مبيعات هاتفية")
+        with c_emp3: new_emp_pin = st.text_input("الرقم السري للموظف (PIN)", placeholder="مثال: 1234")
+        
+        new_emp_desc = st.text_area("الوصف الوظيفي والأهداف (KPIs)", placeholder="اكتب هنا مهام الموظف وما تتوقعه منه، ليقوم الذكاء الاصطناعي بمتابعته وتوجيهه بناءً عليها...")
+        
+        view_options = {i[2]: i[0] for i in ALL_NAV_ITEMS if i[0] not in ['settings']}
+        new_emp_views = st.multiselect("الشاشات المسموحة", list(view_options.keys()), default=["مكتب المدير"])
 
-    if st.button("إضافة الموظف", use_container_width=True):
-        if len(current_emps) >= max_devices:
-            st.error("🚫 عذراً! لقد وصلت للحد الأقصى لعدد المستخدمين المسموح به في رخصتك الحالية. لا يمكنك إضافة المزيد. يرجى التواصل مع الإدارة العليا للترقية.")
-        elif new_emp_name and new_emp_role and new_emp_views and new_emp_pin:
-            view_keys = [view_options[k] for k in new_emp_views]
-            current_emps.append({
-                'name': new_emp_name, 
-                'role': new_emp_role, 
-                'pin': new_emp_pin, 
-                'job_desc': new_emp_desc,
-                'views': view_keys
-            })
-            CFG['EMPLOYEES'] = current_emps
-            save_config(CFG)
-            st.rerun()
-        else:
-            st.warning("أدخل كافة البيانات (الاسم، الوظيفة، الرمز السري) واختر شاشة واحدة على الأقل.")
+        if st.button("إضافة الموظف للنظام", use_container_width=True, type="primary"):
+            if len(current_emps) >= max_devices:
+                st.error("🚫 عذراً! لقد وصلت للحد الأقصى لعدد المستخدمين المسموح به في رخصتك الحالية. لا يمكنك إضافة المزيد. يرجى التواصل مع الإدارة العليا للترقية.")
+            elif new_emp_name and new_emp_role and new_emp_views and new_emp_pin:
+                view_keys = [view_options[k] for k in new_emp_views]
+                current_emps.append({
+                    'name': new_emp_name, 
+                    'role': new_emp_role, 
+                    'pin': new_emp_pin, 
+                    'job_desc': new_emp_desc,
+                    'views': view_keys
+                })
+                CFG['EMPLOYEES'] = current_emps
+                save_config(CFG)
+                st.rerun()
+            else:
+                st.warning("أدخل كافة البيانات (الاسم، الوظيفة، الرمز السري) واختر شاشة واحدة على الأقل.")
+        st.markdown("</div>", unsafe_allow_html=True)
                 
     if current_emps:
-        st.markdown("**قائمة الموظفين المسجلين وصلاحياتهم:**")
+        st.markdown("**📋 قائمة الموظفين المسجلين وصلاحياتهم:**")
         for i, emp in enumerate(current_emps):
-            ec1, ec2 = st.columns([5, 1])
-            with ec1:
-                views_str = ", ".join([v for k, v in view_options.items() if emp.get('views') and view_options[k] in emp['views']])
-                pin_display = emp.get('pin', '0000')
-                desc_display = emp.get('job_desc', 'لا يوجد وصف.')
-                st.markdown(f"""
-                <div style="background:rgba(255,255,255,0.02); padding:10px 15px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
-                    <span style="color:var(--c-primary); font-weight:bold; font-size:1.1rem;">{emp['name']}</span> — {emp['role']} | <span style="color:#ffd700;">الرقم السري: {pin_display}</span><br>
-                    <span style='font-size:0.8rem; color:var(--c-dim);'>الشاشات: {views_str}</span><br>
-                    <span style='font-size:0.85rem; color:#e2e8f0;'>الوصف والأهداف: {desc_display}</span>
-                </div>""", unsafe_allow_html=True)
-            with ec2:
-                if st.button("حذف", key=f"del_emp_{i}", use_container_width=True):
-                    current_emps.pop(i)
-                    CFG['EMPLOYEES'] = current_emps
-                    save_config(CFG)
-                    st.rerun()
+            views_str = ", ".join([v for k, v in view_options.items() if emp.get('views') and view_options[k] in emp['views']])
+            pin_display = emp.get('pin', '0000')
+            desc_display = emp.get('job_desc', 'لا يوجد وصف.')
+            
+            st.markdown(f"""
+            <div style="background:rgba(15,15,20,0.6); padding:15px; border-radius:10px; border-right: 4px solid var(--c-primary); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                <div style="flex:1;">
+                    <div style="font-size:1.1rem; font-weight:bold; color:#fff; margin-bottom:5px;">
+                        {emp['name']} <span style="font-size:0.85rem; font-weight:normal; color:var(--c-dim);">({emp['role']})</span>
+                    </div>
+                    <div style="font-size:0.85rem; color:#e2e8f0; margin-bottom:5px;">
+                        <span style="color:var(--c-primary);">الشاشات:</span> {views_str}
+                    </div>
+                    <div style="font-size:0.85rem; color:#cbd5e1; line-height:1.4;">
+                        <span style="color:#00ff82;">المهام (KPIs):</span> {desc_display}
+                    </div>
+                </div>
+                <div style="text-align:left; min-width:120px;">
+                    <div style="background:rgba(255,215,0,0.1); color:#ffd700; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:0.9rem; margin-bottom:10px; text-align:center; border:1px solid rgba(255,215,0,0.3);">
+                        PIN: {pin_display}
+                    </div>
+            """, unsafe_allow_html=True)
+            
+            if st.button(f"حذف {emp['name']}", key=f"del_emp_{i}", use_container_width=True):
+                current_emps.pop(i)
+                CFG['EMPLOYEES'] = current_emps
+                save_config(CFG)
+                st.rerun()
+                
+            st.markdown("</div></div>", unsafe_allow_html=True)
     else:
         st.markdown("<div style='color:var(--c-dim); font-size:0.9rem;'>لا يوجد موظفين مسجلين حالياً.</div>", unsafe_allow_html=True)
 
