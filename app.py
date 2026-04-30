@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v47.5 (PERFECT WHATSAPP UI & RESPONSIVE FIX)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v47.6 (UI POLISH & SIDEBAR FIX)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -626,7 +626,7 @@ html, body, [class*="css"] {
     0% { opacity: 0; transform: translateY(20px); }
     100% { opacity: 1; transform: translateY(0); }
 }
-.g-card, .custom-metric, .page-header, [data-testid="stTabs"] {
+.g-card, .page-header, [data-testid="stTabs"] {
     animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -636,10 +636,18 @@ html, body, [class*="css"] {
     overflow-x: hidden !important;
 }
 
+/* Sidebar Styles & Overlap Fix for RTL */
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg, #05050c 0%, #030306 100%) !important;
     border-left: 1px solid var(--c-border) !important; 
+    overflow: hidden !important;
 }
+[data-testid="stSidebar"][aria-expanded="false"] {
+    visibility: hidden !important;
+    border-left: none !important;
+    box-shadow: none !important;
+}
+
 .sidebar-brand {
     padding: 30px 20px 25px; border-bottom: 1px solid var(--c-border);
     margin-bottom: 15px; text-align: center; position: relative; overflow: hidden;
@@ -786,9 +794,15 @@ html, body, [class*="css"] {
 .delta-neg { color: #ff2d78; font-size: 0.85rem; font-weight: 800; margin-left: 8px; background: rgba(255,45,120,0.1); padding: 2px 8px; border-radius: 99px; }
 .delta-neu { color: #cbd5e1; font-size: 0.85rem; font-weight: 800; margin-left: 8px; background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 99px; }
 
-.custom-metric { background: rgba(15,15,20,0.8); border: 1px solid rgba(255,255,255,0.05); border-radius: var(--r); padding: 1.5rem; display: flex; flex-direction: column; gap: 12px; }
-.cm-label { color: #cbd5e1; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; } 
-.cm-val { font-family: 'Orbitron', sans-serif; color: #fff; font-weight: 900; font-size: 1.8rem; }
+/* Custom Metric Dashboard Card */
+.custom-metric { background: rgba(15,15,20,0.8); border: 1px solid rgba(255,255,255,0.05); border-radius: var(--r); padding: 1.2rem; display: flex; flex-direction: column; gap: 8px; overflow: hidden; animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;}
+.cm-top { display: flex; justify-content: space-between; align-items: center; }
+.cm-label { color: #cbd5e1; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+.cm-val-wrapper { display: flex; align-items: baseline; width: 100%; white-space: nowrap; overflow: hidden; }
+.cm-val { font-family: 'Orbitron', sans-serif; color: #fff; font-weight: 900; font-size: 1.45rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cm-suf { font-size: 0.75rem; color: var(--c-dim); margin-right: 4px; font-family: 'Cairo', sans-serif; font-weight: 700; }
+.cm-delta { margin-left: auto; flex-shrink: 0; }
+
 .neon-forecast { font-family: 'Orbitron', sans-serif; color: #ffd700; text-shadow: 0 0 15px rgba(255,215,0,0.6); font-size: 2rem; font-weight: 900; }
 
 [data-testid="stDataFrame"] { border: 1px solid var(--c-border) !important; border-radius: var(--r-sm) !important; background: var(--c-bg2) !important; }
@@ -832,7 +846,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v47.5</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v47.6</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         allowed_navs = []
@@ -1233,7 +1247,7 @@ def render_dashboard():
     render_live_ticker(st.session_state.df_s, st.session_state.df_p)
 
     metrics = [
-        ("الإيرادات (المعتمدة)", f"{t_sales_appr:,.0f}", "ج", "money", get_delta_html(t_sales_appr, t_sales_appr_prev), {
+        ("الإيرادات (المعتمدة)", f"{t_sales_appr:,.0f}", "ج.م", "money", get_delta_html(t_sales_appr, t_sales_appr_prev), {
             'subtitle':'تحليل السيولة النقدية مقسمة حسب الحالة', 
             'kpis': [{'label':'موافق عليه','value':f"{t_sales_appr:,.0f} ج", 'color':'#00ff82'},
                      {'label':'مسودة','value':f"{t_sales_draft:,.0f} ج", 'color':'#ffd700'},
@@ -1254,7 +1268,7 @@ def render_dashboard():
             'badges':[{'text':'تلوين حراري لنشاط العميل'}],
             'df': split_clients
         }),
-        ("المشتريات والموردين", f"{t_po_appr:,.0f}", "ج", "truck", get_delta_html(t_po_appr, t_po_appr_prev), {
+        ("المشتريات والموردين", f"{t_po_appr:,.0f}", "ج.م", "truck", get_delta_html(t_po_appr, t_po_appr_prev), {
             'subtitle':'تحليل المشتريات والموردين (المعتمد وقيد الانتظار)', 
             'kpis':[{'label':'موافق عليه','value':f"{t_po_appr:,.0f} ج", 'color':'#00ff82'},
                     {'label':'قيد الانتظار','value':f"{t_po_draft:,.0f} ج", 'color':'#ffd700'}],
@@ -1272,7 +1286,18 @@ def render_dashboard():
     cols = st.columns(len(metrics))
     for i, (label, val, suf, icn, delta_html, mdata) in enumerate(metrics):
         with cols[i]:
-            st.markdown(f"""<div class="custom-metric"><div class="cm-top"><span class="cm-label">{label}</span>{get_icon(icn, 20, "var(--c-primary)")}</div><div class="cm-val" style="font-size:1.6rem;">{val}<span style="font-size:0.7rem;color:var(--c-dim);margin-right:4px;">{suf}</span> {delta_html}</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div class="custom-metric">
+                <div class="cm-top">
+                    <span class="cm-label" title="{label}">{label}</span>
+                    {get_icon(icn, 20, "var(--c-primary)")}
+                </div>
+                <div class="cm-val-wrapper">
+                    <div class="cm-val" title="{val}">{val}</div>
+                    <div class="cm-suf">{suf}</div>
+                    <div class="cm-delta">{delta_html}</div>
+                </div>
+            </div>""", unsafe_allow_html=True)
             if st.button("تحليل وتصدير", key=f"btn_m_{i}", use_container_width=True):
                 show_detailed_report(label, mdata)
     st.markdown('</div>', unsafe_allow_html=True)
@@ -1739,9 +1764,10 @@ def render_ai():
                     for idx, m in enumerate(chat_to_view):
                         with st.chat_message(m["role"]):
                             st.markdown(f"<span class='msg-{m['role']}' style='display:none;'></span>", unsafe_allow_html=True)
-                            st.markdown(f"<div class='chat-bubble' dir='rtl'>{m['content']}</div>", unsafe_allow_html=True)
+                            st.markdown(f"<div class='chat-bubble'>{m['content']}</div>", unsafe_allow_html=True)
                             
-                            c1, c2 = st.columns([1, 1])
+                            st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
+                            c1, c2, c3 = st.columns([1, 1, 15])
                             with c1:
                                 if st.button("✏️", key=f"gm_ed_{sel_emp}_{idx}", help="تعديل الرسالة"):
                                     edit_message_dialog(sel_emp, idx, m['content'])
@@ -1750,6 +1776,7 @@ def render_ai():
                                     st.session_state.all_chats[sel_emp].pop(idx)
                                     save_chats()
                                     st.rerun()
+                            st.markdown('</div>', unsafe_allow_html=True)
             else:
                 st.info("لا توجد محادثات نشطة للموظفين حتى الآن.")
 
@@ -1759,9 +1786,10 @@ def render_ai():
                 for idx, msg in enumerate(st.session_state.all_chats.get(curr_user, [])):
                     with st.chat_message(msg["role"]):
                         st.markdown(f"<span class='msg-{msg['role']}' style='display:none;'></span>", unsafe_allow_html=True)
-                        st.markdown(f"<div class='chat-bubble' dir='rtl'>{msg['content']}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='chat-bubble'>{msg['content']}</div>", unsafe_allow_html=True)
                         
-                        c1, c2 = st.columns([1, 1])
+                        st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
+                        c1, c2, c3 = st.columns([1, 1, 15])
                         with c1:
                             if st.button("✏️", key=f"ed_{curr_user}_{idx}", help="تعديل الرسالة"):
                                 edit_message_dialog(curr_user, idx, msg['content'])
@@ -1770,6 +1798,7 @@ def render_ai():
                                 st.session_state.all_chats[curr_user].pop(idx)
                                 save_chats()
                                 st.rerun()
+                        st.markdown('</div>', unsafe_allow_html=True)
                     
             user_input = st.chat_input("أصدر أوامرك، اطلب خططاً، أو استعلم عن البيانات...")
             
@@ -1779,7 +1808,7 @@ def render_ai():
             for idx, msg in enumerate(st.session_state.all_chats.get(curr_user, [])):
                 with st.chat_message(msg["role"]):
                     st.markdown(f"<span class='msg-{msg['role']}' style='display:none;'></span>", unsafe_allow_html=True)
-                    st.markdown(f"<div class='chat-bubble' dir='rtl'>{msg['content']}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='chat-bubble'>{msg['content']}</div>", unsafe_allow_html=True)
                 
         user_input = st.chat_input("اكتب رسالة...")
 
@@ -1798,7 +1827,7 @@ def render_ai():
         with chat_area:
             with st.chat_message("user"):
                 st.markdown("<span class='msg-user' style='display:none;'></span>", unsafe_allow_html=True)
-                st.markdown(f"<div class='chat-bubble' dir='rtl'>{user_input}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='chat-bubble'>{user_input}</div>", unsafe_allow_html=True)
             
             with st.spinner("يكتب الآن..."):
                 base_prompt = CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT)
@@ -2288,7 +2317,7 @@ def change_workspace_pin_dialog(ws_id):
 def render_super_admin():
     # تم حل مشكلة تسجيل الخروج بإضافة Sidebar للتحكم الآمن
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v47.5</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v47.6</div></div>""", unsafe_allow_html=True)
         st.markdown("---")
         if st.button("🔴 تسجيل الخروج وإغلاق", use_container_width=True, type="primary"):
             st.query_params.clear()
