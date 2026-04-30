@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v47.7 (NEON METRICS & CHAT POLISH)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v47.8 (FORM AUTO-CLEAR)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -778,7 +778,7 @@ html, body, [class*="css"] {
 }
 [data-testid="stChatMessage"] div.stButton > button:hover { 
     background: rgba(255,255,255,0.1) !important; 
-    color: #00f2ff !important; 
+    color: #ff2d78 !important; 
 }
 
 .stMarkdown div[dir="rtl"] strong { color: #00f2ff !important; }
@@ -795,7 +795,7 @@ html, body, [class*="css"] {
 .delta-neg { color: #ff2d78; font-size: 0.85rem; font-weight: 800; margin-left: 8px; background: rgba(255,45,120,0.1); padding: 2px 8px; border-radius: 99px; }
 .delta-neu { color: #cbd5e1; font-size: 0.85rem; font-weight: 800; margin-left: 8px; background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 99px; }
 
-/* Custom Metric Dashboard Card */
+/* Custom Metric Dashboard Card - Auto Shrink for Large Numbers */
 .custom-metric { background: rgba(15,15,20,0.8); border: 1px solid rgba(255,255,255,0.05); border-radius: var(--r); padding: 1.2rem; display: flex; flex-direction: column; gap: 8px; overflow: hidden; animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; container-type: inline-size;}
 .cm-top { display: flex; justify-content: space-between; align-items: center; }
 .cm-label { color: #cbd5e1; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
@@ -847,7 +847,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v47.7</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v47.8</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         allowed_navs = []
@@ -1760,12 +1760,10 @@ def render_ai():
                             st.markdown(f"<div class='chat-bubble' dir='rtl'>{m['content']}</div>", unsafe_allow_html=True)
                             
                             st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
-                            c1, c2 = st.columns([1, 15])
-                            with c1:
-                                if st.button("🗑️", key=f"gm_dl_{sel_emp}_{idx}", help="حذف الرسالة"):
-                                    st.session_state.all_chats[sel_emp].pop(idx)
-                                    save_chats()
-                                    st.rerun()
+                            if st.button("🗑️", key=f"gm_dl_{sel_emp}_{idx}", help="حذف الرسالة"):
+                                st.session_state.all_chats[sel_emp].pop(idx)
+                                save_chats()
+                                st.rerun()
                             st.markdown('</div>', unsafe_allow_html=True)
             else:
                 st.info("لا توجد محادثات نشطة للموظفين حتى الآن.")
@@ -1779,12 +1777,10 @@ def render_ai():
                         st.markdown(f"<div class='chat-bubble' dir='rtl'>{msg['content']}</div>", unsafe_allow_html=True)
                         
                         st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
-                        c1, c2 = st.columns([1, 15])
-                        with c1:
-                            if st.button("🗑️", key=f"dl_{curr_user}_{idx}", help="حذف الرسالة"):
-                                st.session_state.all_chats[curr_user].pop(idx)
-                                save_chats()
-                                st.rerun()
+                        if st.button("🗑️", key=f"dl_{curr_user}_{idx}", help="حذف الرسالة"):
+                            st.session_state.all_chats[curr_user].pop(idx)
+                            save_chats()
+                            st.rerun()
                         st.markdown('</div>', unsafe_allow_html=True)
                     
             user_input = st.chat_input("أصدر أوامرك، اطلب خططاً، أو استعلم عن البيانات...")
@@ -2088,8 +2084,8 @@ def render_settings():
     current_emps = CFG.get('EMPLOYEES', [])
     st.info(f"تم استهلاك {len(current_emps)} من أصل {max_devices} مستخدم مسموح به في رخصة شركتك.")
     
-    with st.container():
-        st.markdown("<div style='background:rgba(255,255,255,0.02); padding:20px; border-radius:12px; border:1px solid rgba(255,255,255,0.05); margin-bottom:20px;'>", unsafe_allow_html=True)
+    st.markdown("<div style='background:rgba(255,255,255,0.02); padding:20px; border-radius:12px; border:1px solid rgba(255,255,255,0.05); margin-bottom:20px;'>", unsafe_allow_html=True)
+    with st.form("add_emp_form", clear_on_submit=True):
         st.markdown("**➕ إضافة موظف جديد:**")
         c_emp1, c_emp2, c_emp3 = st.columns([2, 2, 2])
         with c_emp1: new_emp_name = st.text_input("اسم الموظف", placeholder="مثال: أحمد محمود")
@@ -2101,24 +2097,28 @@ def render_settings():
         view_options = {i[2]: i[0] for i in ALL_NAV_ITEMS if i[0] not in ['settings']}
         new_emp_views = st.multiselect("الشاشات المسموحة", list(view_options.keys()), default=["مكتب المدير"])
 
-        if st.button("إضافة الموظف للنظام", use_container_width=True, type="primary"):
-            if len(current_emps) >= max_devices:
-                st.error("🚫 عذراً! لقد وصلت للحد الأقصى لعدد المستخدمين المسموح به في رخصتك الحالية. لا يمكنك إضافة المزيد. يرجى التواصل مع الإدارة العليا للترقية.")
-            elif new_emp_name and new_emp_role and new_emp_views and new_emp_pin:
-                view_keys = [view_options[k] for k in new_emp_views]
-                current_emps.append({
-                    'name': new_emp_name, 
-                    'role': new_emp_role, 
-                    'pin': new_emp_pin, 
-                    'job_desc': new_emp_desc,
-                    'views': view_keys
-                })
-                CFG['EMPLOYEES'] = current_emps
-                save_config(CFG)
-                st.rerun()
-            else:
-                st.warning("أدخل كافة البيانات (الاسم، الوظيفة، الرمز السري) واختر شاشة واحدة على الأقل.")
-        st.markdown("</div>", unsafe_allow_html=True)
+        submit_emp = st.form_submit_button("إضافة الموظف للنظام", use_container_width=True, type="primary")
+
+    if submit_emp:
+        if len(current_emps) >= max_devices:
+            st.error("🚫 عذراً! لقد وصلت للحد الأقصى لعدد المستخدمين المسموح به في رخصتك الحالية. لا يمكنك إضافة المزيد. يرجى التواصل مع الإدارة العليا للترقية.")
+        elif any(emp['name'].strip().lower() == new_emp_name.strip().lower() for emp in current_emps):
+            st.error("🚫 عذراً! يوجد موظف مسجل بنفس هذا الاسم مسبقاً. يرجى استخدام اسم مختلف (أو إضافة لقب) لمنع التداخل في المهام والمحادثات.")
+        elif new_emp_name and new_emp_role and new_emp_views and new_emp_pin:
+            view_keys = [view_options[k] for k in new_emp_views]
+            current_emps.append({
+                'name': new_emp_name, 
+                'role': new_emp_role, 
+                'pin': new_emp_pin, 
+                'job_desc': new_emp_desc,
+                'views': view_keys
+            })
+            CFG['EMPLOYEES'] = current_emps
+            save_config(CFG)
+            st.rerun()
+        else:
+            st.warning("أدخل كافة البيانات (الاسم، الوظيفة، الرمز السري) واختر شاشة واحدة على الأقل.")
+    st.markdown("</div>", unsafe_allow_html=True)
                 
     if current_emps:
         st.markdown("**📋 قائمة الموظفين المسجلين وصلاحياتهم:**")
@@ -2304,7 +2304,7 @@ def change_workspace_pin_dialog(ws_id):
 def render_super_admin():
     # تم حل مشكلة تسجيل الخروج بإضافة Sidebar للتحكم الآمن
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v47.7</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v47.8</div></div>""", unsafe_allow_html=True)
         st.markdown("---")
         if st.button("🔴 تسجيل الخروج وإغلاق", use_container_width=True, type="primary"):
             st.query_params.clear()
@@ -2374,12 +2374,16 @@ def render_super_admin():
     st.markdown("<div class='g-card'>", unsafe_allow_html=True)
     st.markdown(f"<div class='g-card-title' style='color:var(--c-gold);'>{get_icon('rocket', 22)} إصدار ترخيص لشركة جديدة</div>", unsafe_allow_html=True)
     
-    c1, c2, c3, c4, c5 = st.columns([2.5, 2, 2, 2, 2])
-    with c1: new_ws_id = st.text_input("كود الشركة (بالإنجليزية):", placeholder="مثال: Ghareeb2026")
-    with c2: duration = st.selectbox("مدة الاشتراك:", ["شهر واحد", "3 شهور", "6 شهور", "سنة كاملة"])
-    with c3: max_dev = st.number_input("أقصى عدد للمستخدمين:", min_value=1, max_value=1000, value=5)
-    with c4: new_m_pin = st.text_input("رقم دخول المدير (PIN):", value="0000")
-    with c5: st.markdown("<br>", unsafe_allow_html=True); add_btn = st.button("تفعيل المساحة", use_container_width=True, type="primary")
+    st.markdown("<div style='background:rgba(255,255,255,0.02); padding:20px; border-radius:12px; border:1px solid rgba(255,255,255,0.05); margin-bottom:20px;'>", unsafe_allow_html=True)
+    with st.form("new_license_form", clear_on_submit=True, border=False):
+        c1, c2, c3, c4, c5 = st.columns([2.5, 2, 2, 2, 2])
+        with c1: new_ws_id = st.text_input("كود الشركة (بالإنجليزية):", placeholder="مثال: Ghareeb2026")
+        with c2: duration = st.selectbox("مدة الاشتراك:", ["شهر واحد", "3 شهور", "6 شهور", "سنة كاملة"])
+        with c3: max_dev = st.number_input("أقصى عدد للمستخدمين:", min_value=1, max_value=1000, value=5)
+        with c4: new_m_pin = st.text_input("رقم دخول المدير (PIN):", value="0000")
+        with c5: 
+            st.markdown("<br>", unsafe_allow_html=True)
+            add_btn = st.form_submit_button("تفعيل المساحة", use_container_width=True, type="primary")
 
     if add_btn:
         safe_id = "".join(c for c in str(new_ws_id) if c.isalnum() or c in ('_', '-'))
