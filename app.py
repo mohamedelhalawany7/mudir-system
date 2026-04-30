@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v42.1 (STRICT EMPLOYEE PIN)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v42.2 (SMART URL ROUTING)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -102,6 +102,55 @@ def save_licenses(data):
         with open(LICENSES_FILE, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
     except: pass
+
+# ============================================================
+# التوجيه الذكي للروابط (URL Routing & Initialization)
+# ============================================================
+def init_state():
+    # قراءة متغيرات الرابط المباشر
+    url_ws = st.query_params.get("workspace")
+    url_view = st.query_params.get("view")
+
+    # الدخول التلقائي للمساحة في حال وجودها بالرابط وتوفر رخصة سارية
+    if url_ws and 'workspace_key' not in st.session_state:
+        if url_ws == "SUPER_ADMIN":
+            st.session_state.workspace_key = "SUPER_ADMIN"
+            st.session_state.workspace_id = "SUPER_ADMIN"
+            st.session_state.view = url_view if url_view else 'super_admin'
+        else:
+            licenses = load_licenses()
+            ws_data = licenses.get('workspaces', {}).get(url_ws)
+            if ws_data and ws_data.get('status') == 'active':
+                expiry_str = ws_data.get('expiry_date')
+                if expiry_str:
+                    expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
+                    if datetime.now() <= expiry_date:
+                        st.session_state.workspace_key = url_ws
+                        st.session_state.workspace_id = url_ws
+                        st.session_state.app_config = load_config()
+                        st.session_state.view = url_view if url_view else 'login'
+
+    # في حال عدم وجود مساحة محددة
+    if 'workspace_key' not in st.session_state:
+        if st.session_state.get('view') != 'super_admin':
+            st.session_state.view = 'workspace_login'
+        return
+        
+    if 'app_config' not in st.session_state:
+        st.session_state.app_config = load_config()
+        
+    defaults = {
+        'view': url_view if url_view else 'login', 
+        'modal_open': False, 'modal_title': '', 'modal_data': {},
+        'current_user': None, 
+        'growth_stream': None, 'last_radar_report': None, 'data_loaded': False
+    }
+    
+    for k, v in defaults.items():
+        if k not in st.session_state: st.session_state[k] = v
+        
+    if 'all_chats' not in st.session_state:
+        st.session_state.all_chats = st.session_state.app_config.get('ALL_CHATS', {})
 
 # ============================================================
 # 1. نظام الأيقونات المبرمجة (SVG Icon System)
@@ -408,6 +457,30 @@ ALL_NAV_ITEMS = [
 ]
 
 def init_state():
+    # قراءة متغيرات الرابط المباشر
+    url_ws = st.query_params.get("workspace")
+    url_view = st.query_params.get("view")
+
+    # الدخول التلقائي للمساحة في حال وجودها بالرابط وتوفر رخصة سارية
+    if url_ws and 'workspace_key' not in st.session_state:
+        if url_ws == "SUPER_ADMIN":
+            st.session_state.workspace_key = "SUPER_ADMIN"
+            st.session_state.workspace_id = "SUPER_ADMIN"
+            st.session_state.view = url_view if url_view else 'super_admin'
+        else:
+            licenses = load_licenses()
+            ws_data = licenses.get('workspaces', {}).get(url_ws)
+            if ws_data and ws_data.get('status') == 'active':
+                expiry_str = ws_data.get('expiry_date')
+                if expiry_str:
+                    expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
+                    if datetime.now() <= expiry_date:
+                        st.session_state.workspace_key = url_ws
+                        st.session_state.workspace_id = url_ws
+                        st.session_state.app_config = load_config()
+                        st.session_state.view = url_view if url_view else 'login'
+
+    # في حال عدم وجود مساحة محددة
     if 'workspace_key' not in st.session_state:
         if st.session_state.get('view') != 'super_admin':
             st.session_state.view = 'workspace_login'
@@ -417,11 +490,12 @@ def init_state():
         st.session_state.app_config = load_config()
         
     defaults = {
-        'view': 'login', 
+        'view': url_view if url_view else 'login', 
         'modal_open': False, 'modal_title': '', 'modal_data': {},
         'current_user': None, 
         'growth_stream': None, 'last_radar_report': None, 'data_loaded': False
     }
+    
     for k, v in defaults.items():
         if k not in st.session_state: st.session_state[k] = v
         
@@ -621,6 +695,8 @@ def render_workspace_login():
                 st.session_state.workspace_key = "SUPER_ADMIN"
                 st.session_state.workspace_id = "SUPER_ADMIN"
                 st.session_state.view = 'super_admin'
+                st.query_params["workspace"] = "SUPER_ADMIN"
+                st.query_params["view"] = "super_admin"
                 st.rerun()
                 return
 
@@ -644,6 +720,8 @@ def render_workspace_login():
                 st.session_state.app_config = load_config()
                 st.session_state.all_chats = st.session_state.app_config.get('ALL_CHATS', {})
                 st.session_state.view = 'login'
+                st.query_params["workspace"] = ws_key.strip()
+                st.query_params["view"] = "login"
                 st.rerun()
         else:
             st.error("الرجاء إدخال الكود.")
@@ -667,6 +745,7 @@ def render_login():
             if pin == st.session_state.app_config.get('MANAGER_PIN', '0000'):
                 st.session_state.current_user = "المدير العام"
                 st.session_state.view = 'dashboard'
+                st.query_params["view"] = "dashboard"
                 if selected_user not in st.session_state.all_chats:
                     st.session_state.all_chats[selected_user] = [{"role": "assistant", "content": "أهلاً بك. الأرقام والبيانات جاهزة للعرض والمناقشة."}]
                 st.rerun()
@@ -680,8 +759,10 @@ def render_login():
                 st.session_state.current_user = selected_user
                 if emp_data and emp_data.get('views'):
                     st.session_state.view = emp_data['views'][0]
+                    st.query_params["view"] = emp_data['views'][0]
                 else:
                     st.session_state.view = 'ai' 
+                    st.query_params["view"] = "ai"
                     
                 if selected_user not in st.session_state.all_chats:
                     emp_name_only = selected_user.split(" - ")[0]
@@ -695,6 +776,7 @@ def render_login():
         del st.session_state['workspace_key']
         del st.session_state['workspace_id']
         st.session_state.view = 'workspace_login'
+        st.query_params.clear()
         st.rerun()
         
     st.markdown("</div>", unsafe_allow_html=True)
@@ -727,7 +809,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
     df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v42.1</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v42.2</div></div>""", unsafe_allow_html=True)
         
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
@@ -746,6 +828,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             button_type = "primary" if is_active else "secondary"
             if st.button(display_label, key=f"nav_{key}", use_container_width=True, type=button_type):
                 st.session_state.view = key
+                st.query_params["view"] = key
                 st.rerun()
 
         st.markdown("---")
@@ -753,6 +836,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
         if st.button("تسجيل الخروج", use_container_width=True):
             st.session_state.current_user = None
             st.session_state.view = 'login'
+            st.query_params["view"] = "login"
             st.rerun()
             
         status_color = "#00ff82" if st.session_state.is_real_data else "#ff2d78"
@@ -772,22 +856,33 @@ def map_po_state_ar(state_val):
     if val in ['cancel']: return 'ملغي'
     return val
 
-def style_dataframe(df, target_col):
-    if df.empty or target_col not in df.columns: return df
+def style_dataframe(df):
+    if df is None or df.empty: return df
     
+    # تحويل البيانات النصية المتشابكة بأمان قبل التلوين
+    df_safe = df.copy()
+    for col in df_safe.select_dtypes(include=['object']).columns:
+        df_safe[col] = df_safe[col].astype(str)
+        
     format_dict = {}
-    for col in ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح']:
-        if col in df.columns: format_dict[col] = "{:,.0f} ج.م"
+    for col in ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'صاف الربح']:
+        if col in df_safe.columns: format_dict[col] = "{:,.0f} ج.م"
     for col in ['الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة']:
-        if col in df.columns: format_dict[col] = "{:,.0f}"
-    if 'هامش الربح %' in df.columns: format_dict['هامش الربح %'] = "{:.1f}%"
+        if col in df_safe.columns: format_dict[col] = "{:,.0f}"
+    if 'هامش الربح %' in df_safe.columns: format_dict['هامش الربح %'] = "{:.1f}%"
+    
+    # تحديد العمود الذي سيتم تطبيق الخريطة الحرارية عليه تلقائياً
+    target_cols = ['صافي الربح', 'صاف الربح', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الكمية المطلوبة']
+    target_col = next((c for c in target_cols if c in df_safe.columns), None)
     
     try:
-        styler = df.style.background_gradient(subset=[target_col], cmap='RdYlGn')
-        return styler.format(format_dict) if format_dict else styler
-    except ImportError:
-        styler = df.style
-        return styler.format(format_dict) if format_dict else styler
+        if target_col:
+            styler = df_safe.style.background_gradient(subset=[target_col], cmap='RdYlGn')
+            return styler.format(format_dict) if format_dict else styler
+        else:
+            return df_safe.style.format(format_dict) if format_dict else df_safe
+    except Exception:
+        return df_safe.style.format(format_dict) if format_dict else df_safe
 
 def build_infographic_html(data: dict) -> str:
     kpis = data.get('kpis', [])
@@ -801,20 +896,6 @@ def build_infographic_html(data: dict) -> str:
 # ============================================================
 # 5. نظام التصدير الموحد الخالي من الأخطاء والجدول المباشر (Safe Export & Live Table System)
 # ============================================================
-
-def make_safe_df(df_val):
-    if hasattr(df_val, 'data'):
-        df = df_val.data.copy()
-    else:
-        df = df_val.copy()
-        
-    if df is None or df.empty: 
-        return pd.DataFrame()
-        
-    for col in df.select_dtypes(include=['object']).columns:
-        df[col] = df[col].astype(str)
-        
-    return df
 
 def create_export_buttons(title, df_dict):
     html_content = f"""<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
@@ -838,10 +919,10 @@ def create_export_buttons(title, df_dict):
     
     has_data = False
     for section, df_val in df_dict.items():
-        df_safe = make_safe_df(df_val)
-        if not df_safe.empty:
+        raw_df = df_val.data if hasattr(df_val, 'data') else df_val
+        if not raw_df.empty:
             has_data = True
-            table_html = f"<h3>{section}</h3>{df_safe.to_html(index=False)}"
+            table_html = f"<h3>{section}</h3>{raw_df.to_html(index=False)}"
             html_content += table_html
             html_content_pdf += table_html
     
@@ -924,9 +1005,10 @@ def render_filters_and_export(title, original_df_dict):
                         df = df[(temp_dt >= start_dt) & (temp_dt <= end_dt)]
                     except:
                         pass
-        filtered_dict[name] = df
+        # تطبيق الألوان بعد الفلترة مباشرة
+        filtered_dict[name] = style_dataframe(df)
         
-    st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 25px 0;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.1); margin: 25px 0;'>", unsafe_allow_html=True)
     create_export_buttons(title, filtered_dict)
     return filtered_dict
 
@@ -954,9 +1036,9 @@ def show_detailed_report(title: str, data: dict):
         tabs = st.tabs(list(filtered_dict.keys()))
         for i, (tab_name, df_val) in enumerate(filtered_dict.items()):
             with tabs[i]:
-                df_safe = make_safe_df(df_val)
-                if not df_safe.empty:
-                    st.dataframe(df_safe, use_container_width=True, hide_index=True)
+                raw_check = df_val.data if hasattr(df_val, 'data') else df_val
+                if not raw_check.empty:
+                    st.dataframe(df_val, use_container_width=True, hide_index=True)
                 else:
                     st.info("لا توجد بيانات مطابقة للفلاتر التي قمت بتحديدها.")
 
@@ -1095,21 +1177,22 @@ def render_dashboard():
         clean_pol = clean_pol.sort_values('product_qty', ascending=False)
         clean_pol = clean_pol.rename(columns={'product_qty': 'الكمية المطلوبة', 'price_subtotal': 'إجمالي التكلفة (ج.م)'})
 
-    s_appr = style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'موافق عليه'].sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s, 'القيمة (ج.م)')
-    s_draft = style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'مسودة'].sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s, 'القيمة (ج.م)')
-    s_canc = style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'ملغي'].sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s, 'القيمة (ج.م)')
+    s_all = style_dataframe(clean_s.sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s)
+    s_appr = style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'موافق عليه'].sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s)
+    s_draft = style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'مسودة'].sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s)
+    s_canc = style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'ملغي'].sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s)
 
     split_sales_dict = {"السجل الشامل للعروض والطلبات": clean_s, "موافق عليه": s_appr, "مسودة": s_draft, "ملغي": s_canc}
 
-    po_all = style_dataframe(clean_po.sort_values('القيمة (ج.م)', ascending=False) if not clean_po.empty else clean_po, 'القيمة (ج.م)')
+    po_all = style_dataframe(clean_po.sort_values('القيمة (ج.م)', ascending=False) if not clean_po.empty else clean_po)
     top_suppliers = pd.DataFrame()
     if not clean_po.empty:
         top_suppliers = clean_po[clean_po['الحالة'] == 'معتمد'].groupby('المورد')['القيمة (ج.م)'].sum().reset_index().sort_values('القيمة (ج.م)', ascending=False)
     
     split_po_dict = {
         "السجل الشامل للمشتريات": clean_po,
-        "أقوى الموردين": style_dataframe(top_suppliers, 'القيمة (ج.م)') if not top_suppliers.empty else top_suppliers,
-        "المنتجات / المواد الأكثر طلباً": style_dataframe(clean_pol, 'الكمية المطلوبة') if not clean_pol.empty else clean_pol
+        "أقوى الموردين": style_dataframe(top_suppliers) if not top_suppliers.empty else top_suppliers,
+        "المنتجات / المواد الأكثر طلباً": style_dataframe(clean_pol) if not clean_pol.empty else clean_pol
     }
 
     split_clients = {}
@@ -1139,23 +1222,25 @@ def render_dashboard():
 
         split_clients = {
             "السجل الشامل للعملاء": clean_p,
-            "الأقوى (معتمد)": style_dataframe(c_merged.sort_values('معتمد (ج.م)', ascending=False), 'معتمد (ج.م)'),
-            "حسب المسودة": style_dataframe(c_merged.sort_values('مسودة (ج.م)', ascending=False), 'مسودة (ج.م)'),
-            "حسب الملغي": style_dataframe(c_merged.sort_values('ملغي (ج.م)', ascending=False), 'ملغي (ج.م)'),
-            "الأكثر طلباً (عدد)": style_dataframe(c_merged.sort_values('إجمالي العروض', ascending=False), 'إجمالي العروض')
+            "الأقوى (معتمد)": style_dataframe(c_merged.sort_values('معتمد (ج.م)', ascending=False)),
+            "حسب المسودة": style_dataframe(c_merged.sort_values('مسودة (ج.م)', ascending=False)),
+            "حسب الملغي": style_dataframe(c_merged.sort_values('ملغي (ج.م)', ascending=False)),
+            "الأكثر طلباً (عدد)": style_dataframe(c_merged.sort_values('إجمالي العروض', ascending=False))
         }
     else:
-        split_clients = {"السجل الشامل للعملاء": style_dataframe(clean_p, 'إجمالي الفواتير (ج.م)') if not clean_p.empty else clean_p}
+        split_clients = {"السجل الشامل للعملاء": style_dataframe(clean_p) if not clean_p.empty else clean_p}
 
     split_stock = {}
     if not clean_i.empty:
         split_stock = {
             "سجل المنتجات الشامل": clean_i,
-            "المنتجات الأكثر توفراً (الكمية)": style_dataframe(clean_i.sort_values('الكمية المتاحة', ascending=False), 'الكمية المتاحة'),
-            "المنتجات الأغلى سعراً": style_dataframe(clean_i.sort_values('السعر (ج.م)', ascending=False), 'السعر (ج.م)')
+            "المنتجات الأكثر توفراً (الكمية)": style_dataframe(clean_i.sort_values('الكمية المتاحة', ascending=False)),
+            "المنتجات الأغلى سعراً": style_dataframe(clean_i.sort_values('السعر (ج.م)', ascending=False))
         }
     else:
         split_stock = {"الكل": clean_i}
+
+    render_live_ticker(st.session_state.df_s, st.session_state.df_p)
 
     metrics = [
         ("الإيرادات (المعتمدة)", f"{t_sales_appr:,.0f}", "ج", "money", get_delta_html(t_sales_appr, t_sales_appr_prev), {
@@ -1230,7 +1315,7 @@ def render_dashboard():
     st.markdown(f"<div style='margin-top: 30px; margin-bottom: 15px;'><div class='g-card-title' style='border: none; padding: 0;'>{get_icon('tabs', 24)} سجل العروض والتوريدات المباشر</div></div>", unsafe_allow_html=True)
     
     # في الشاشة الرئيسية نظهر السجلات الشاملة فقط للعرض السريع
-    s_all_df = style_dataframe(clean_s.sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s, 'القيمة (ج.م)')
+    s_all_df = style_dataframe(clean_s.sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s)
     
     tb_all, tb_appr, tb_draft, tb_canc = st.tabs(["الكل", "موافق عليه", "مسودة", "ملغي"])
     with tb_all:
@@ -1360,6 +1445,9 @@ def render_departments():
     else:
         st.info("لا توجد بيانات ربحية لعرضها في هذه الفترة.")
 
+    st.markdown(f"<div class='g-card-title' style='margin-top:20px;'>{get_icon('table', 22)} الجدول التحليلي الشامل لأداء الأقسام</div>", unsafe_allow_html=True)
+    st.dataframe(style_dataframe(final_table), use_container_width=True, hide_index=True)
+
 
 # ────────────────────────────────────────────────────────────
 # 7.3 التنبؤ المستقبلي (Predictive Forecasting)
@@ -1391,7 +1479,7 @@ def render_forecast():
 
     if len(monthly) < 3:
         st.warning("نحتاج بيانات مبيعات لثلاثة أشهر على الأقل لبناء نموذج تنبؤ دقيق.")
-        st.dataframe(style_dataframe(monthly.rename(columns={'amount_total':'القيمة (ج.م)'}), 'القيمة (ج.م)'), use_container_width=True, hide_index=True)
+        st.dataframe(style_dataframe(monthly.rename(columns={'amount_total':'القيمة (ج.م)'})), use_container_width=True, hide_index=True)
         return
 
     # ---------------------------------------------------------
@@ -1868,7 +1956,7 @@ def render_territories():
         st.plotly_chart(fig, use_container_width=True)
 
     st.markdown(f"<br><div class='g-card-title'>{get_icon('table', 22)} تفاصيل التمركز الجغرافي وقوة المدن</div>", unsafe_allow_html=True)
-    st.dataframe(style_dataframe(city_details, 'إجمالي_الفواتير'), use_container_width=True, hide_index=True)
+    st.dataframe(style_dataframe(city_details), use_container_width=True, hide_index=True)
 
 
 # ────────────────────────────────────────────────────────────
