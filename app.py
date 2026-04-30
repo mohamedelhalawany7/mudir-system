@@ -857,13 +857,22 @@ def map_po_state_ar(state_val):
     return val
 
 def style_dataframe(df):
-    if df is None or df.empty: return df
+    if df is None: return pd.DataFrame()
+    if hasattr(df, 'data') and df.data.empty: return df
+    if not hasattr(df, 'data') and df.empty: return df
     
-    # تحويل البيانات بشكل آمن لضمان عدم الانهيار وتفعيل الألوان
+    # تحويل البيانات بشكل آمن لضمان عدم الانهيار وتفعيل الألوان والترتيب
     df_safe = df.data.copy() if hasattr(df, 'data') else df.copy()
     
     numeric_cols = ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'صاف الربح', 'الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة', 'هامش الربح %', 'إجمالي العروض']
     
+    # تنظيف الأرقام من أي نصوص أو فواصل لضمان عمل الخريطة الحرارية
+    for col in numeric_cols:
+        if col in df_safe.columns:
+            if df_safe[col].dtype == 'object':
+                df_safe[col] = df_safe[col].astype(str).str.replace(',', '', regex=False).str.replace(' ج.م', '', regex=False).str.replace('%', '', regex=False)
+            df_safe[col] = pd.to_numeric(df_safe[col], errors='coerce').fillna(0)
+
     for col in df_safe.columns:
         if col not in numeric_cols and df_safe[col].dtype == 'object':
             df_safe[col] = df_safe[col].astype(str)
@@ -871,21 +880,22 @@ def style_dataframe(df):
     format_dict = {}
     for col in ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'صاف الربح']:
         if col in df_safe.columns:
-            df_safe[col] = pd.to_numeric(df_safe[col], errors='coerce').fillna(0)
             format_dict[col] = "{:,.0f} ج.م"
             
     for col in ['الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة', 'إجمالي العروض']:
         if col in df_safe.columns:
-            df_safe[col] = pd.to_numeric(df_safe[col], errors='coerce').fillna(0)
             format_dict[col] = "{:,.0f}"
             
     if 'هامش الربح %' in df_safe.columns:
-        df_safe['هامش الربح %'] = pd.to_numeric(df_safe['هامش الربح %'], errors='coerce').fillna(0)
         format_dict['هامش الربح %'] = "{:.1f}%"
     
-    # تحديد العمود الذي سيتم تطبيق الخريطة الحرارية عليه
+    # تحديد العمود الذي سيتم تطبيق الخريطة الحرارية عليه والترتيب التلقائي
     target_cols = ['صافي الربح', 'صاف الربح', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الكمية المطلوبة', 'الإيرادات', 'إجمالي العروض']
     target_col = next((c for c in target_cols if c in df_safe.columns), None)
+    
+    # الترتيب التلقائي من الأكبر للأصغر
+    if target_col:
+        df_safe = df_safe.sort_values(by=target_col, ascending=False).reset_index(drop=True)
     
     try:
         if target_col:
