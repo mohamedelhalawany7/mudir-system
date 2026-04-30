@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v42.4 (HEATMAP & STABILITY FIXED)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v42.5 (DEPARTMENTS DETAILS RESTORED)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -809,7 +809,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
     df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v42.4</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v42.5</div></div>""", unsafe_allow_html=True)
         
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
@@ -1376,6 +1376,15 @@ def render_departments():
     t_df['القسم'] = t_df['القسم'].apply(clean_department_name)
     t_df['الحالة (عربي)'] = t_df['state'].apply(map_state_ar)
 
+    # تجهيز سجل العمليات التفصيلي ليرتبط بالأقسام
+    clean_s = t_df.copy()
+    if not clean_s.empty:
+        clean_s['العميل'] = clean_s['partner_id'].apply(clean_odoo_m2o) if 'partner_id' in clean_s else ""
+        clean_s['المسؤول'] = clean_s['user_id'].apply(clean_odoo_m2o) if 'user_id' in clean_s else ""
+        clean_s = clean_s.rename(columns={'name': 'رقم الطلب', 'amount_total': 'القيمة (ج.م)'})
+        if 'date_order' in clean_s: clean_s['التاريخ'] = clean_s['date_order'].dt.strftime('%Y-%m-%d')
+        clean_s = clean_s[[c for c in ['رقم الطلب', 'القسم', 'العميل', 'القيمة (ج.م)', 'التاريخ', 'الحالة (عربي)', 'المسؤول'] if c in clean_s.columns]]
+
     appr_df = t_df[t_df['الحالة (عربي)'] == 'موافق عليه'].copy()
     
     if 'margin' in appr_df.columns:
@@ -1407,7 +1416,10 @@ def render_departments():
     final_table = final_table.rename(columns={'إيرادات_معتمدة': 'الإيرادات', 'صافي_الربح': 'صافي الربح'}).sort_values('صافي الربح', ascending=False)
 
     if st.button(f"📥 تحليل وتصدير تقرير الأقسام (Word / PDF)", use_container_width=True):
-        export_data = {"الجدول التحليلي الشامل لأداء الأقسام": final_table}
+        export_data = {
+            "الجدول التحليلي الشامل لأداء الأقسام": final_table,
+            "سجل العمليات التفصيلي للأقسام": clean_s
+        }
         show_detailed_report("التحليل الاستراتيجي للأقسام", {"df": export_data})
         
     st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin-bottom: 20px;'>", unsafe_allow_html=True)
@@ -1461,6 +1473,13 @@ def render_departments():
 
     st.markdown(f"<div class='g-card-title' style='margin-top:20px;'>{get_icon('table', 22)} الجدول التحليلي الشامل لأداء الأقسام</div>", unsafe_allow_html=True)
     st.dataframe(style_dataframe(final_table), use_container_width=True, hide_index=True)
+
+    st.markdown(f"<div class='g-card-title' style='margin-top:30px;'>{get_icon('tabs', 22)} سجل العمليات التفصيلي للأقسام</div>", unsafe_allow_html=True)
+    if not clean_s.empty:
+        s_all_df = style_dataframe(clean_s.sort_values('القيمة (ج.م)', ascending=False))
+        st.dataframe(s_all_df, use_container_width=True, hide_index=True)
+    else:
+        st.info("لا توجد بيانات تفصيلية لعرضها.")
 
 
 # ────────────────────────────────────────────────────────────
