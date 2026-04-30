@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v42.0 (EMPLOYEE PIN SECURITY)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v42.1 (STRICT EMPLOYEE PIN)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -689,7 +689,7 @@ def render_login():
                     save_chats()
                 st.rerun()
             else:
-                st.error("عذراً، رمز الدخول السري الخاص بالموظف غير صحيح!")
+                st.error("عذراً، رمز الدخول السري الخاص بك غير صحيح!")
             
     if st.button("تغيير مساحة العمل", use_container_width=True):
         del st.session_state['workspace_key']
@@ -727,7 +727,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
     df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v42.0</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v42.1</div></div>""", unsafe_allow_html=True)
         
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
@@ -926,7 +926,7 @@ def render_filters_and_export(title, original_df_dict):
                         pass
         filtered_dict[name] = df
         
-    st.markdown("<hr style='border-color: rgba(255,255,255,0.1); margin: 25px 0;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 25px 0;'>", unsafe_allow_html=True)
     create_export_buttons(title, filtered_dict)
     return filtered_dict
 
@@ -1895,11 +1895,11 @@ def render_settings():
     current_emps = CFG.get('EMPLOYEES', [])
     st.info(f"تم استهلاك {len(current_emps)} من أصل {max_devices} مستخدم مسموح به في رخصة شركتك.")
     
-    c1, c2, c3, c4 = st.columns([2, 2, 1.5, 2])
-    with c1: new_emp_name = st.text_input("اسم الموظف", placeholder="مثال: أحمد محمود")
-    with c2: new_emp_role = st.text_input("الوظيفة / القسم", placeholder="مثال: مبيعات هاتفية")
-    with c3: new_emp_pin = st.text_input("الرمز السري (PIN)", type="password", placeholder="رمز الدخول")
-    with c4: 
+    c_emp1, c_emp2, c_emp3, c_emp4 = st.columns([2, 2, 1.5, 2])
+    with c_emp1: new_emp_name = st.text_input("اسم الموظف", placeholder="مثال: أحمد محمود")
+    with c_emp2: new_emp_role = st.text_input("الوظيفة / القسم", placeholder="مثال: مبيعات هاتفية")
+    with c_emp3: new_emp_pin = st.text_input("الرقم السري للموظف", placeholder="مثال: 1234")
+    with c_emp4: 
         view_options = {i[2]: i[0] for i in ALL_NAV_ITEMS if i[0] not in ['settings']}
         new_emp_views = st.multiselect("الشاشات المسموحة", list(view_options.keys()), default=["مكتب المدير"])
 
@@ -1921,7 +1921,8 @@ def render_settings():
             ec1, ec2 = st.columns([5, 1])
             with ec1:
                 views_str = ", ".join([v for k, v in view_options.items() if emp.get('views') and view_options[k] in emp['views']])
-                st.markdown(f"""<div style="background:rgba(255,255,255,0.02); padding:10px 15px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);"><span style="color:var(--c-primary); font-weight:bold;">{emp['name']}</span> — {emp['role']} (PIN: ****) <br><span style='font-size:0.8rem; color:var(--c-dim);'>الشاشات: {views_str}</span></div>""", unsafe_allow_html=True)
+                pin_display = emp.get('pin', '0000')
+                st.markdown(f"""<div style="background:rgba(255,255,255,0.02); padding:10px 15px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);"><span style="color:var(--c-primary); font-weight:bold;">{emp['name']}</span> — {emp['role']} | <span style="color:#ffd700;">الرقم السري: {pin_display}</span> <br><span style='font-size:0.8rem; color:var(--c-dim);'>الشاشات: {views_str}</span></div>""", unsafe_allow_html=True)
             with ec2:
                 if st.button("حذف", key=f"del_emp_{i}", use_container_width=True):
                     current_emps.pop(i)
