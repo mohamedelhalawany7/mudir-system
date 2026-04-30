@@ -2,5 +2,7 @@ streamlit
 pandas
 plotly
 openai
-matplotlib
 prophet
+jinja2
+openpyxl
+```eof
