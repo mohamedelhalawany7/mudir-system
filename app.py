@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v46.1 (FINAL STABLE - ZERO ERRORS)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v46.2 (EMPTY STATE FIX)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -712,7 +712,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
     df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v46.1</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v46.2</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         allowed_navs = []
@@ -996,11 +996,16 @@ def render_dashboard():
         clean_pol = clean_pol.sort_values('product_qty', ascending=False)
         clean_pol = clean_pol.rename(columns={'product_qty': 'الكمية المطلوبة', 'price_subtotal': 'إجمالي التكلفة (ج.م)'})
 
+    # تجهيز الجداول لتجنب خطأ فلترة جدول فارغ
+    s_appr = clean_s[clean_s['الحالة (عربي)'] == 'موافق عليه'] if not clean_s.empty and 'الحالة (عربي)' in clean_s.columns else pd.DataFrame()
+    s_draft = clean_s[clean_s['الحالة (عربي)'] == 'مسودة'] if not clean_s.empty and 'الحالة (عربي)' in clean_s.columns else pd.DataFrame()
+    s_canc = clean_s[clean_s['الحالة (عربي)'] == 'ملغي'] if not clean_s.empty and 'الحالة (عربي)' in clean_s.columns else pd.DataFrame()
+
     split_sales_dict = {
         "السجل الشامل للعروض والطلبات": style_dataframe(clean_s), 
-        "موافق عليه": style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'موافق عليه']), 
-        "مسودة": style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'مسودة']), 
-        "ملغي": style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'ملغي'])
+        "موافق عليه": style_dataframe(s_appr), 
+        "مسودة": style_dataframe(s_draft), 
+        "ملغي": style_dataframe(s_canc)
     }
 
     top_suppliers = pd.DataFrame()
@@ -1124,13 +1129,13 @@ def render_dashboard():
         if not clean_s.empty: st.dataframe(split_sales_dict["السجل الشامل للعروض والطلبات"], use_container_width=True, hide_index=True)
         else: st.info("لا توجد بيانات متاحة في هذه الفترة.")
     with tb_appr:
-        if not clean_s[clean_s['الحالة (عربي)'] == 'موافق عليه'].empty: st.dataframe(split_sales_dict["موافق عليه"], use_container_width=True, hide_index=True)
+        if not s_appr.empty: st.dataframe(split_sales_dict["موافق عليه"], use_container_width=True, hide_index=True)
         else: st.info("لا توجد طلبات موافق عليها في هذه الفترة.")
     with tb_draft:
-        if not clean_s[clean_s['الحالة (عربي)'] == 'مسودة'].empty: st.dataframe(split_sales_dict["مسودة"], use_container_width=True, hide_index=True)
+        if not s_draft.empty: st.dataframe(split_sales_dict["مسودة"], use_container_width=True, hide_index=True)
         else: st.info("لا توجد مسودات في هذه الفترة.")
     with tb_canc:
-        if not clean_s[clean_s['الحالة (عربي)'] == 'ملغي'].empty: st.dataframe(split_sales_dict["ملغي"], use_container_width=True, hide_index=True)
+        if not s_canc.empty: st.dataframe(split_sales_dict["ملغي"], use_container_width=True, hide_index=True)
         else: st.info("لا توجد طلبات ملغاة في هذه الفترة.")
 
     st.markdown("<br>", unsafe_allow_html=True)
