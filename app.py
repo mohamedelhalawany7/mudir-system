@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v43.1 (STABLE RELEASE - FINAL FIX)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v44.0 (FLAWLESS KPI & HEATMAPS)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -282,11 +282,16 @@ def style_dataframe(df):
     # 1. التنظيف الصارم للأرقام (إزالة الفواصل والنصوص مثل ج.م و %) قبل أي ترتيب أو تلوين
     for col in all_numeric:
         if col in df_raw.columns:
-            if df_raw[col].dtype == object:
+            if df_raw[col].dtype == object or df_raw[col].dtype.name == 'category':
                 # مسح كل شيء عدا الأرقام، السالب، والنقطة العشرية
                 df_raw[col] = df_raw[col].astype(str).str.replace(r'[^\d.-]', '', regex=True)
             # تحويل إلى رقم فعلي
             df_raw[col] = pd.to_numeric(df_raw[col], errors='coerce').fillna(0)
+            
+    # تحويل باقي الأعمدة لنصوص آمنة لمنع الانهيار
+    for col in df_raw.columns:
+        if col not in all_numeric:
+            df_raw[col] = df_raw[col].fillna("").astype(str)
 
     # تحديد العمود المستهدف للخريطة الحرارية (أهم عمود موجود في الجدول)
     target_cols_priority = ['صافي الربح', 'صاف الربح', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الكمية المطلوبة', 'الإيرادات', 'إجمالي العروض', 'إجمالي الطلبات']
@@ -696,7 +701,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
     df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v43.0</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v44.0</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         allowed_navs = []
@@ -737,7 +742,7 @@ def build_infographic_html(data: dict) -> str:
     return f"""<div style="font-family:'Cairo',sans-serif;direction:rtl;color:#e2e8f0;"><p style="color:#94a3b8;font-size:1rem;margin:0 0 1.5rem;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:15px;">{data.get('subtitle', '')}</p><div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:2rem;">{kpi_html}</div>{f'<div style="font-weight:900;font-size:1rem;color:#64748b;text-transform:uppercase;margin:1.5rem 0 1rem;">{get_icon("chart",18)} المؤشرات الحيوية</div>{bar_html}' if bar_html else ''}{f'<div style="font-weight:900;font-size:1rem;color:#64748b;text-transform:uppercase;margin:2rem 0 1rem;">{get_icon("check",18)} التصنيفات الاستراتيجية</div><div>{badge_html}</div>' if badge_html else ''}</div>"""
 
 # ============================================================
-# 5. نظام التصدير الموحد والتلوين الآمن 
+# 5. نظام التصدير الموحد والتلوين الآمن (100% STABLE)
 # ============================================================
 def create_export_buttons(title, df_dict):
     html_content = f"""<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
