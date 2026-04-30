@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v48.0 (EMPLOYEE PERFORMANCE REPORTS)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v48.1 (PREMIUM RESPONSIVE CHAT UI)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -697,23 +697,23 @@ html, body, [class*="css"] {
 }
 
 .chat-bubble { 
-    padding: 12px 16px !important; 
+    padding: 12px 18px !important; 
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Cairo", Helvetica, Arial, sans-serif !important; 
-    font-size: 1.05rem !important; 
-    line-height: 1.6 !important; 
+    font-size: 1.1rem !important; /* Premium font size */
+    line-height: 1.7 !important; 
     word-wrap: break-word !important; 
     white-space: pre-wrap !important; 
     text-align: right !important; 
     direction: rtl !important; 
     width: fit-content !important; 
-    max-width: 85% !important; 
-    box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important; 
+    max-width: 80% !important; 
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important; 
     margin-bottom: 2px !important; 
 }
-.chat-bubble p { margin: 0 !important; color: #e9edef !important;}
+.chat-bubble p { margin: 0 !important; color: #e9edef !important; font-size: 1.1rem !important;}
 .chat-bubble h1, .chat-bubble h2, .chat-bubble h3 { margin-top: 5px !important; margin-bottom: 5px !important; color: #fff !important; }
 .chat-bubble ul, .chat-bubble ol { margin-right: 20px !important; padding-right: 15px !important; margin-bottom: 0 !important;}
-.chat-bubble li { margin-bottom: 4px !important; }
+.chat-bubble li { font-size: 1.1rem !important; line-height: 1.8 !important; margin-bottom: 4px !important; }
 
 /* User Message (Right Side in RTL) */
 [data-testid="stChatMessage"]:has(.msg-user) [data-testid="stChatMessageContent"] { 
@@ -848,7 +848,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v48.0</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v48.1</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         allowed_navs = []
@@ -1810,33 +1810,6 @@ def render_ai():
             use_container_width=True
         )
 
-    # إضافة إعدادات العرض (محرك التصغير والتكبير المرن)
-    with st.expander("🔍 إعدادات العرض (تكبير وتصغير الشاشة)", expanded=False):
-        cz1, cz2 = st.columns(2)
-        with cz1:
-            chat_zoom = st.slider("تكبير/تصغير حجم الخط (%)", min_value=50, max_value=200, value=100, step=10, help="قم بالتصغير لترى المزيد من الكلام، أو التكبير لرؤية أوضح.")
-        with cz2:
-            chat_height = st.slider("طول شاشة المحادثة (بيكسل)", min_value=300, max_value=1200, value=500, step=50, help="اسحب لتطويل الشاشة لرؤية المحادثة كاملة بدون تمرير (Scrolling).")
-    
-    st.markdown(f"""
-    <style>
-    .chat-bubble {{
-        font-size: {1.05 * (chat_zoom/100)}rem !important;
-        line-height: {1.6 * (chat_zoom/100)} !important;
-    }}
-    .chat-bubble p, .chat-bubble li {{
-        font-size: {1.05 * (chat_zoom/100)}rem !important;
-        line-height: {1.8 * (chat_zoom/100)} !important;
-    }}
-    [data-testid="stChatMessage"] div.stButton > button {{
-        width: {34 * (chat_zoom/100)}px !important;
-        height: {34 * (chat_zoom/100)}px !important;
-        min-height: {34 * (chat_zoom/100)}px !important;
-        font-size: {1.1 * (chat_zoom/100)}rem !important;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-
     curr_user = st.session_state.current_user
     df_s = df_s_master
     df_p = df_p_master
@@ -1940,7 +1913,7 @@ def render_ai():
                 st.info("لا توجد محادثات نشطة للموظفين حتى الآن.")
 
         with gm_tabs[1]:
-            chat_area = st.container(height=chat_height, border=False)
+            chat_area = st.container(height=650, border=False)
             with chat_area:
                 for idx, msg in enumerate(st.session_state.all_chats.get(curr_user, [])):
                     with st.chat_message(msg["role"]):
@@ -1957,7 +1930,7 @@ def render_ai():
             user_input = st.chat_input("أصدر أوامرك، اطلب خططاً، أو استعلم عن البيانات...")
             
     else:
-        chat_area = st.container(height=chat_height, border=False)
+        chat_area = st.container(height=650, border=False)
         with chat_area:
             for idx, msg in enumerate(st.session_state.all_chats.get(curr_user, [])):
                 with st.chat_message(msg["role"]):
@@ -2482,7 +2455,7 @@ def change_workspace_pin_dialog(ws_id):
 def render_super_admin():
     # تم حل مشكلة تسجيل الخروج بإضافة Sidebar للتحكم الآمن
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v48.0</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v48.1</div></div>""", unsafe_allow_html=True)
         st.markdown("---")
         if st.button("🔴 تسجيل الخروج وإغلاق", use_container_width=True, type="primary"):
             st.query_params.clear()
