@@ -861,12 +861,12 @@ def style_dataframe(df):
     if hasattr(df, 'data') and df.data.empty: return df
     if not hasattr(df, 'data') and df.empty: return df
     
-    # تحويل البيانات بشكل آمن لضمان عدم الانهيار وتفعيل الألوان والترتيب
+    # نسخة آمنة تماماً لحماية النظام من الانهيار
     df_safe = df.data.copy() if hasattr(df, 'data') else df.copy()
     
-    numeric_cols = ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'صاف الربح', 'الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة', 'هامش الربح %', 'إجمالي العروض']
+    numeric_cols = ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة', 'هامش الربح %', 'إجمالي العروض']
     
-    # تنظيف الأرقام من أي نصوص أو فواصل لضمان عمل الخريطة الحرارية
+    # التنظيف الجذري للبيانات لضمان عمل الألوان في نوافذ الفلترة
     for col in numeric_cols:
         if col in df_safe.columns:
             if df_safe[col].dtype == 'object':
@@ -878,33 +878,32 @@ def style_dataframe(df):
             df_safe[col] = df_safe[col].astype(str)
 
     format_dict = {}
-    for col in ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'صاف الربح']:
-        if col in df_safe.columns:
-            format_dict[col] = "{:,.0f} ج.م"
+    for col in ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح']:
+        if col in df_safe.columns: format_dict[col] = "{:,.0f} ج.م"
             
     for col in ['الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة', 'إجمالي العروض']:
-        if col in df_safe.columns:
-            format_dict[col] = "{:,.0f}"
+        if col in df_safe.columns: format_dict[col] = "{:,.0f}"
             
     if 'هامش الربح %' in df_safe.columns:
         format_dict['هامش الربح %'] = "{:.1f}%"
     
-    # تحديد العمود الذي سيتم تطبيق الخريطة الحرارية عليه والترتيب التلقائي
-    target_cols = ['صافي الربح', 'صاف الربح', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الكمية المطلوبة', 'الإيرادات', 'إجمالي العروض']
+    target_cols = ['صافي الربح', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الكمية المطلوبة', 'الإيرادات', 'إجمالي العروض']
     target_col = next((c for c in target_cols if c in df_safe.columns), None)
     
     # الترتيب التلقائي من الأكبر للأصغر
     if target_col:
         df_safe = df_safe.sort_values(by=target_col, ascending=False).reset_index(drop=True)
     
+    # تطبيق الخريطة الحرارية والتنسيقات بأمان مطلق
     try:
+        styler = df_safe.style
+        if format_dict:
+            styler = styler.format(format_dict, na_rep="-")
         if target_col:
-            styler = df_safe.style.background_gradient(subset=[target_col], cmap='RdYlGn')
-            return styler.format(format_dict) if format_dict else styler
-        else:
-            return df_safe.style.format(format_dict) if format_dict else df_safe
+            styler = styler.background_gradient(subset=[target_col], cmap='RdYlGn')
+        return styler
     except Exception:
-        return df_safe.style.format(format_dict) if format_dict else df_safe
+        return df_safe
 
 def build_infographic_html(data: dict) -> str:
     kpis = data.get('kpis', [])
