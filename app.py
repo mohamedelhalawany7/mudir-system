@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v42.7 (BULLETPROOF HEATMAPS & STABILITY)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v43.0 (ULTIMATE HEATMAPS & KPI AI)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -88,7 +88,6 @@ def save_chats():
         st.session_state.app_config['ALL_CHATS'] = st.session_state.all_chats
         save_config(st.session_state.app_config)
 
-# --- دوال إدارة التراخيص الجديدة ---
 def load_licenses():
     if os.path.exists(LICENSES_FILE):
         try:
@@ -107,11 +106,9 @@ def save_licenses(data):
 # التوجيه الذكي للروابط (URL Routing & Initialization)
 # ============================================================
 def init_state():
-    # قراءة متغيرات الرابط المباشر
     url_ws = st.query_params.get("workspace")
     url_view = st.query_params.get("view")
 
-    # الدخول التلقائي للمساحة في حال وجودها بالرابط وتوفر رخصة سارية
     if url_ws and 'workspace_key' not in st.session_state:
         if url_ws == "SUPER_ADMIN":
             st.session_state.workspace_key = "SUPER_ADMIN"
@@ -130,7 +127,6 @@ def init_state():
                         st.session_state.app_config = load_config()
                         st.session_state.view = url_view if url_view else 'login'
 
-    # في حال عدم وجود مساحة محددة
     if 'workspace_key' not in st.session_state:
         if st.session_state.get('view') != 'super_admin':
             st.session_state.view = 'workspace_login'
@@ -172,8 +168,71 @@ def call_universal_ai(messages):
     return response.choices[0].message.content
 
 # ============================================================
-# 4. طبقة البيانات (Data Layer & Intelligent Extraction)
+# 4. طبقة البيانات والتلوين الذكي المضاد للانهيار
 # ============================================================
+
+def get_icon(name: str, size: int = 24, color: str = "currentColor", class_name: str = "") -> str:
+    svg_map = {
+        "dashboard": '<path d="M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z"/>',
+        "radar": '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v10l5 5"/>',
+        "cpu": '<rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/>',
+        "fusion": '<path d="M9 3v11l-5 6v2h16v-2l-5-6V3M14 3h-4"/>',
+        "rocket": '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>',
+        "settings": '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+        "money": '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>',
+        "users": '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+        "orders": '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>',
+        "stock": '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/>',
+        "check": '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/>',
+        "chart": '<path d="M18 20V10M12 20V4M6 20v-4"/>',
+        "globe": '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+        "robot": '<rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4M8 16h.01M16 16h.01"/>',
+        "search": '<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>',
+        "download": '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+        "target": '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+        "folder": '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
+        "bulb": '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/><path d="M12 2v2"/>',
+        "dna": '<path d="M2 15c6.667-6 13.333 0 20-6"/><path d="M2 9c6.667 6 13.333 0 20 6"/><path d="m17 4-1 1.5"/><path d="m19 6-1 1.5"/><path d="m5 18-1-1.5"/><path d="m7 20-1-1.5"/><path d="m10.5 7.5-1 1.5"/><path d="m14.5 16.5-1-1.5"/>',
+        "send": '<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',
+        "eye": '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+        "table": '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>',
+        "layers": '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
+        "tabs": '<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M2 11h20"/><path d="M6 7v4"/><path d="M12 7v4"/>',
+        "map": '<polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>',
+        "command": '<rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><polyline points="9 9 12 12 9 15"/><line x1="13" y1="15" x2="15" y2="15"/>',
+        "handshake": '<path d="M8 12.5L4 16.5M16 12.5L20 16.5M12 15v4M7 8h10"/><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/>',
+        "truck": '<rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
+        "trending-up": '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+        "trending-down": '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
+        "calendar": '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+        "edit": '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',
+        "bell": '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+        "manager": '<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
+        "employee": '<circle cx="12" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>',
+        "print": '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
+        "activity": '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'
+    }
+    path = svg_map.get(name, "")
+    return f'<svg xmlns="http://www.w3.org/2000/svg" class="{class_name}" width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{path}</svg>'
+
+def get_base64_svg(icon_name, color="#00f2ff"):
+    svg_str = get_icon(icon_name, 24, color)
+    b64 = base64.b64encode(svg_str.encode('utf-8')).decode('utf-8')
+    return f"data:image/svg+xml;base64,{b64}"
+
+def map_state_ar(state_val):
+    val = str(state_val).lower()
+    if val in ['sale', 'done']: return 'موافق عليه'
+    if val in ['draft', 'sent']: return 'مسودة'
+    if val in ['cancel']: return 'ملغي'
+    return val
+
+def map_po_state_ar(state_val):
+    val = str(state_val).lower()
+    if val in ['purchase', 'done']: return 'معتمد'
+    if val in ['draft', 'sent', 'to approve']: return 'مسودة / قيد الانتظار'
+    if val in ['cancel']: return 'ملغي'
+    return val
 
 def clean_department_name(val):
     name_str = str(val).strip()
@@ -198,6 +257,55 @@ def extract_department_from_row(row):
             if row[f] and str(row[f]).lower() not in ['false', 'none', '']:
                 return clean_odoo_m2o(row[f])
     return "غير محدد"
+
+# ────────────────────────────────────────────────────────────
+# الدالة الأساسية لتنظيف، ترتيب، وتلوين الجداول بأمان 100%
+# ────────────────────────────────────────────────────────────
+def style_dataframe(df):
+    if df is None: return pd.DataFrame()
+    if hasattr(df, 'data') and df.data.empty: return df
+    if not hasattr(df, 'data') and df.empty: return df
+    
+    df_safe = df.data.copy() if hasattr(df, 'data') else df.copy()
+    
+    numeric_cols = ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة', 'هامش الربح %', 'إجمالي العروض']
+    
+    # 1. التنظيف الصارم للأرقام (إزالة الفواصل والنصوص)
+    for col in numeric_cols:
+        if col in df_safe.columns:
+            if df_safe[col].dtype == 'object':
+                df_safe[col] = df_safe[col].astype(str).str.replace(r'[^\d.-]', '', regex=True)
+            df_safe[col] = pd.to_numeric(df_safe[col], errors='coerce').fillna(0)
+
+    # 2. تحديد العمود المستهدف للترتيب والتلوين
+    target_cols = ['صافي الربح', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الكمية المطلوبة', 'الإيرادات', 'إجمالي العروض']
+    target_col = next((c for c in target_cols if c in df_safe.columns), None)
+    
+    # 3. الترتيب التنازلي التلقائي بناءً على الأرقام الصافية
+    if target_col:
+        df_safe = df_safe.sort_values(by=target_col, ascending=False).reset_index(drop=True)
+
+    # 4. تجهيز التنسيقات (إضافة العملة وعلامة النسبة)
+    format_dict = {}
+    for col in ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح']:
+        if col in df_safe.columns: format_dict[col] = "{:,.0f} ج.م"
+            
+    for col in ['الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة', 'إجمالي العروض']:
+        if col in df_safe.columns: format_dict[col] = "{:,.0f}"
+            
+    if 'هامش الربح %' in df_safe.columns:
+        format_dict['هامش الربح %'] = "{:.1f}%"
+    
+    # 5. التلوين والتنسيق الآمن لمنع انهيار Streamlit
+    try:
+        styler = df_safe.style
+        if target_col:
+            styler = styler.background_gradient(subset=[target_col], cmap='RdYlGn')
+        if format_dict:
+            styler = styler.format(format_dict)
+        return styler
+    except Exception:
+        return df_safe
 
 @st.cache_data(ttl=600, show_spinner=False)
 def fetch_master_data(url, db, user, pswd):
@@ -432,8 +540,118 @@ def render_login():
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ============================================================
-# 6. شريط التنقل الجانبي 
+# 6. شريط التنقل الجانبي (CSS)
 # ============================================================
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Orbitron:wght@400;700;900&display=swap');
+
+#MainMenu {visibility: hidden !important; display: none !important;}
+footer {visibility: hidden !important; display: none !important;}
+header {visibility: hidden !important; display: none !important;}
+[data-testid="stHeader"] {display: none !important;}
+[data-testid="stToolbar"] {display: none !important;}
+
+:root {
+    --c-primary:   #00f2ff;
+    --c-secondary: #7000ff;
+    --c-accent:    #ff2d78;
+    --c-gold:      #ffd700;
+    --c-bg:        #04040a;
+    --c-bg2:       #080810;
+    --c-card:      rgba(15,15,25,0.7);
+    --c-border:    rgba(255,255,255,0.08);
+    --c-dim:       #64748b;
+    --r:           16px;
+    --r-sm:        10px;
+    --transition:  all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+html, body, [class*="css"] {
+    font-family: 'Cairo', sans-serif;
+    direction: rtl; background: var(--c-bg) !important; color: #e2e8f0;
+}
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-thumb { background: var(--c-dim); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--c-primary); }
+
+@keyframes fadeUp {
+    0% { opacity: 0; transform: translateY(20px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+.g-card, .custom-metric, .page-header, [data-testid="stTabs"] {
+    animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #05050c 0%, #030306 100%) !important;
+    border-left: 1px solid var(--c-border) !important; 
+}
+.sidebar-brand {
+    padding: 30px 20px 25px; border-bottom: 1px solid var(--c-border);
+    margin-bottom: 15px; text-align: center; position: relative; overflow: hidden;
+}
+.brand-logo {
+    width: 60px; height: 60px; border-radius: 16px;
+    background: linear-gradient(135deg, rgba(0,242,255,0.15), rgba(112,0,255,0.15));
+    border: 1px solid rgba(0,242,255,0.4); margin: 0 auto 12px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 20px rgba(0,242,255,0.2); color: var(--c-primary);
+}
+.brand-name { font-family: 'Orbitron', sans-serif; font-size: 0.85rem; letter-spacing: 4px; color: #fff; font-weight: 900;}
+.brand-ver { font-size: 0.65rem; color: var(--c-primary); margin-top: 6px; font-weight: bold; background: rgba(0,242,255,0.1); padding: 2px 8px; border-radius: 99px; display: inline-block;}
+
+[data-testid="stSidebar"] div.stButton > button {
+    background: transparent !important; border: 1px solid transparent !important;
+    color: var(--c-dim) !important; justify-content: flex-start !important;
+    padding: 12px 18px !important; font-weight: 700 !important; font-size: 1.05rem !important;
+}
+[data-testid="stSidebar"] div.stButton > button:hover { background: rgba(255,255,255,0.05) !important; color: #fff !important; }
+[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
+    background: rgba(0, 242, 255, 0.15) !important; color: var(--c-primary) !important;
+    border: 1px solid rgba(0, 242, 255, 0.4) !important; font-weight: 900 !important;
+}
+
+[data-testid="stChatMessage"] { background: transparent !important; border: none !important; padding: 0 !important; margin-bottom: 1.5rem !important; display: flex !important; flex-direction: column !important; clear: both !important; }
+[data-testid="stChatMessage"]:has(.msg-user) { align-items: flex-start !important; }
+[data-testid="stChatMessage"]:has(.msg-assistant) { align-items: flex-end !important; }
+[data-testid="stChatMessageContent"] { padding: 0 !important; background: transparent !important; width: fit-content !important; max-width: 80% !important; display: flex; flex-direction: column; }
+.chat-bubble { padding: 12px 18px !important; box-shadow: 0 1px 2px rgba(0,0,0,0.3) !important; border: 1px solid rgba(255,255,255,0.05); font-family: 'Cairo', sans-serif !important; }
+[data-testid="stChatMessage"]:has(.msg-user) .chat-bubble { background-color: #005c4b !important; border-radius: 12px 0 12px 12px !important; }
+[data-testid="stChatMessage"]:has(.msg-assistant) .chat-bubble { background-color: #202c33 !important; border-radius: 0 12px 12px 12px !important; }
+[data-testid="stChatAvatar"] { display: none !important; }
+.stMarkdown div[dir="rtl"] p, .stMarkdown div[dir="rtl"] li { font-size: 1.05rem !important; line-height: 1.8 !important; color: #e9edef !important; }
+.stMarkdown div[dir="rtl"] strong { color: #00f2ff !important; }
+[data-testid="stChatMessage"] div.stButton > button { padding: 6px 10px !important; font-size: 0.85rem !important; background: rgba(0,0,0,0.2) !important; color: #8696a0 !important; margin-top: 8px !important; width: 100% !important; min-height: 36px !important; }
+
+.page-header { padding: 2.5rem 3rem; margin-bottom: 1rem; border-radius: var(--r); background: linear-gradient(135deg, #090912, #050508); border: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.ph-icon-wrap { background: rgba(0,242,255,0.05); border-radius: 16px; padding: 18px; border: 1px solid rgba(0,242,255,0.2); }
+.ph-title { font-size: 2.2rem; font-weight: 900; color: #fff; line-height: 1.2;}
+.ph-sub { color: #94a3b8; font-size: 1rem; margin-top: 8px; font-weight: 600;}
+
+.g-card { background: var(--c-card); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--r); padding: 1.8rem; margin-bottom: 1.5rem; }
+.g-card-title { font-weight: 800; font-size: 1.2rem; color: #fff; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; } 
+
+.delta-pos { color: #00ff82; font-size: 0.85rem; font-weight: 800; margin-left: 8px; background: rgba(0,255,130,0.1); padding: 2px 8px; border-radius: 99px; }
+.delta-neg { color: #ff2d78; font-size: 0.85rem; font-weight: 800; margin-left: 8px; background: rgba(255,45,120,0.1); padding: 2px 8px; border-radius: 99px; }
+.delta-neu { color: #cbd5e1; font-size: 0.85rem; font-weight: 800; margin-left: 8px; background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 99px; }
+
+.custom-metric { background: rgba(15,15,20,0.8); border: 1px solid rgba(255,255,255,0.05); border-radius: var(--r); padding: 1.5rem; display: flex; flex-direction: column; gap: 12px; }
+.cm-label { color: #cbd5e1; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; } 
+.cm-val { font-family: 'Orbitron', sans-serif; color: #fff; font-weight: 900; font-size: 1.8rem; }
+.neon-forecast { font-family: 'Orbitron', sans-serif; color: #ffd700; text-shadow: 0 0 15px rgba(255,215,0,0.6); font-size: 2rem; font-weight: 900; }
+
+[data-testid="stDataFrame"] { border: 1px solid var(--c-border) !important; border-radius: var(--r-sm) !important; background: var(--c-bg2) !important; }
+[data-testid="stDataFrame"] th { background: rgba(0,242,255,0.08) !important; color: var(--c-primary) !important; font-weight: 800 !important; font-size: 0.9rem !important; }
+
+.ticker-wrap { width: 100%; overflow: hidden; background: rgba(0,0,0,0.5); padding: 8px 0; margin-bottom: 20px; }
+.ticker-move { display: inline-block; white-space: nowrap; padding-right: 100%; animation: ticker 40s linear infinite; }
+@keyframes ticker { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(100%, 0, 0); } }
+.ticker-item { display: inline-block; padding: 0 2rem; font-size: 0.95rem; font-weight: 700; color: #e2e8f0; }
+.ticker-item span { color: var(--c-primary); margin-left: 5px; }
+</style>
+""", unsafe_allow_html=True)
+
 init_state()
 
 if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login'] and st.session_state.current_user is not None:
@@ -448,9 +666,6 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             st.session_state.df_pol = df_pol_raw
             st.session_state.is_real_data = is_real
             st.session_state.data_loaded = True
-            
-            if not is_real:
-                st.toast("سيرفر Odoo غير متجاوب أو البيانات غير متوفرة لهذه المساحة.")
 
     df_s_master = st.session_state.df_s
     df_p_master = st.session_state.df_p
@@ -459,8 +674,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
     df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v42.7</div></div>""", unsafe_allow_html=True)
-        
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v43.0</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         allowed_navs = []
@@ -482,7 +696,6 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
                 st.rerun()
 
         st.markdown("---")
-        
         if st.button("تسجيل الخروج", use_container_width=True):
             st.session_state.current_user = None
             st.session_state.view = 'login'
@@ -491,72 +704,6 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             
         status_color = "#00ff82" if st.session_state.is_real_data else "#ff2d78"
         st.markdown(f"""<div style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.05); border-radius:12px; padding:15px; text-align:center; margin-top:20px;"><div style="font-size:0.8rem; color:#64748b; margin-bottom:6px; font-weight:700;">حالة الاتصال المركزية</div><div style="color:{status_color}; font-weight:900; font-size:0.9rem; display:flex; align-items:center; justify-content:center;"><div class="status-dot" style="color:{status_color}; background:{status_color}; margin-left:8px;"></div>{'متصل بـ Odoo الحقيقي' if st.session_state.is_real_data else 'غير متصل (البيانات فارغة)'}</div></div>""", unsafe_allow_html=True)
-
-def map_state_ar(state_val):
-    val = str(state_val).lower()
-    if val in ['sale', 'done']: return 'موافق عليه'
-    if val in ['draft', 'sent']: return 'مسودة'
-    if val in ['cancel']: return 'ملغي'
-    return val
-
-def map_po_state_ar(state_val):
-    val = str(state_val).lower()
-    if val in ['purchase', 'done']: return 'معتمد'
-    if val in ['draft', 'sent', 'to approve']: return 'مسودة / قيد الانتظار'
-    if val in ['cancel']: return 'ملغي'
-    return val
-
-def style_dataframe(df):
-    if df is None: return pd.DataFrame()
-    if hasattr(df, 'data') and df.data.empty: return df
-    if not hasattr(df, 'data') and df.empty: return df
-    
-    # نسخة آمنة تماماً لحماية النظام من الانهيار (Crash Prevention)
-    df_safe = df.data.copy() if hasattr(df, 'data') else df.copy()
-    
-    numeric_cols = ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة', 'هامش الربح %', 'إجمالي العروض']
-    
-    # 1. تنظيف الأرقام الجذري ومعالجة الفراغات
-    for col in numeric_cols:
-        if col in df_safe.columns:
-            if df_safe[col].dtype == 'object':
-                df_safe[col] = df_safe[col].astype(str).str.replace(',', '', regex=False).str.replace(' ج.م', '', regex=False).str.replace('%', '', regex=False)
-            df_safe[col] = pd.to_numeric(df_safe[col], errors='coerce').fillna(0)
-
-    # 2. تنظيف النصوص الجذري لمنع صدمة PyArrow داخل Streamlit
-    for col in df_safe.columns:
-        if col not in numeric_cols:
-            df_safe[col] = df_safe[col].fillna("").astype(str)
-
-    # 3. تجهيز قاموس التنسيقات
-    format_dict = {}
-    for col in ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح']:
-        if col in df_safe.columns: format_dict[col] = "{:,.0f} ج.م"
-            
-    for col in ['الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة', 'إجمالي العروض']:
-        if col in df_safe.columns: format_dict[col] = "{:,.0f}"
-            
-    if 'هامش الربح %' in df_safe.columns:
-        format_dict['هامش الربح %'] = "{:.1f}%"
-    
-    # 4. تحديد العمود الذي سيتم تطبيق الخريطة الحرارية عليه
-    target_cols = ['صافي الربح', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الكمية المطلوبة', 'الإيرادات', 'إجمالي العروض']
-    target_col = next((c for c in target_cols if c in df_safe.columns), None)
-    
-    # 5. الترتيب التلقائي من الأكبر للأصغر
-    if target_col:
-        df_safe = df_safe.sort_values(by=target_col, ascending=False).reset_index(drop=True)
-    
-    # 6. تطبيق التلوين بأمان مطلق
-    try:
-        styler = df_safe.style
-        if target_col:
-            styler = styler.background_gradient(subset=[target_col], cmap='RdYlGn')
-        if format_dict:
-            styler = styler.format(format_dict) # تم إزالة na_rep لأنه كان المسبب الأول للانهيار
-        return styler
-    except Exception:
-        return df_safe
 
 def build_infographic_html(data: dict) -> str:
     kpis = data.get('kpis', [])
@@ -568,9 +715,8 @@ def build_infographic_html(data: dict) -> str:
     return f"""<div style="font-family:'Cairo',sans-serif;direction:rtl;color:#e2e8f0;"><p style="color:#94a3b8;font-size:1rem;margin:0 0 1.5rem;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:15px;">{data.get('subtitle', '')}</p><div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:2rem;">{kpi_html}</div>{f'<div style="font-weight:900;font-size:1rem;color:#64748b;text-transform:uppercase;margin:1.5rem 0 1rem;">{get_icon("chart",18)} المؤشرات الحيوية</div>{bar_html}' if bar_html else ''}{f'<div style="font-weight:900;font-size:1rem;color:#64748b;text-transform:uppercase;margin:2rem 0 1rem;">{get_icon("check",18)} التصنيفات الاستراتيجية</div><div>{badge_html}</div>' if badge_html else ''}</div>"""
 
 # ============================================================
-# 5. نظام التصدير الموحد الخالي من الأخطاء والجدول المباشر (Safe Export & Live Table System)
+# 5. نظام التصدير الموحد والتلوين الآمن 
 # ============================================================
-
 def create_export_buttons(title, df_dict):
     html_content = f"""<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
     <head><meta charset='utf-8'><title>{title}</title>
@@ -613,22 +759,9 @@ def create_export_buttons(title, df_dict):
     
     c1, c2 = st.columns(2)
     with c1:
-        st.download_button(
-            label="حفظ التقرير بصيغة Word",
-            data=html_content.encode('utf-8-sig'),
-            file_name=f"Report_{title}.doc",
-            mime="application/msword",
-            use_container_width=True
-        )
+        st.download_button(label="حفظ التقرير بصيغة Word", data=html_content.encode('utf-8-sig'), file_name=f"Report_{title}.doc", mime="application/msword", use_container_width=True)
     with c2:
-        st.download_button(
-            label="استخراج للطباعة وحفظ (PDF)",
-            data=html_content_pdf.encode('utf-8-sig'),
-            file_name=f"Report_{title}.html",
-            mime="text/html",
-            help="سيتم تحميل ملف، بمجرد فتحه ستظهر لك شاشة حفظ بصيغة PDF تلقائياً.",
-            use_container_width=True
-        )
+        st.download_button(label="استخراج للطباعة وحفظ (PDF)", data=html_content_pdf.encode('utf-8-sig'), file_name=f"Report_{title}.html", mime="text/html", help="سيتم تحميل ملف، بمجرد فتحه ستظهر لك شاشة حفظ بصيغة PDF تلقائياً.", use_container_width=True)
 
 def render_filters_and_export(title, original_df_dict):
     st.markdown("#### 🔍 فلاتر البيانات الحية للجدول الشامل")
@@ -637,41 +770,28 @@ def render_filters_and_export(title, original_df_dict):
     for df_val in original_df_dict.values():
         df = df_val.data if hasattr(df_val, 'data') else df_val
         if df is not None and not df.empty:
-            if 'العميل' in df.columns:
-                all_clients.extend(df['العميل'].dropna().astype(str).unique())
-            elif 'المورد' in df.columns:
-                all_clients.extend(df['المورد'].dropna().astype(str).unique())
-            elif 'اسم الجهة' in df.columns:
-                all_clients.extend(df['اسم الجهة'].dropna().astype(str).unique())
+            if 'العميل' in df.columns: all_clients.extend(df['العميل'].dropna().astype(str).unique())
+            elif 'المورد' in df.columns: all_clients.extend(df['المورد'].dropna().astype(str).unique())
+            elif 'اسم الجهة' in df.columns: all_clients.extend(df['اسم الجهة'].dropna().astype(str).unique())
                 
-    all_clients = list(dict.fromkeys(all_clients)) # Remove duplicates
+    all_clients = list(dict.fromkeys(all_clients))
     
     c1, c2, c3 = st.columns(3)
-    with c1:
-        selected_state = st.selectbox("تصفية بحالة العروض/الأوامر:", ['الكل', 'موافق عليه', 'مسودة', 'ملغي', 'معتمد', 'مسودة / قيد الانتظار'], key=f"state_{title}")
-    with c2:
-        selected_client = st.selectbox("العميل / المورد / الجهة:", all_clients, key=f"client_{title}")
-    with c3:
-        date_filter = st.date_input("تحديد فترة (من - إلى):", value=[], key=f"date_{title}")
+    with c1: selected_state = st.selectbox("تصفية بحالة العروض/الأوامر:", ['الكل', 'موافق عليه', 'مسودة', 'ملغي', 'معتمد', 'مسودة / قيد الانتظار'], key=f"state_{title}")
+    with c2: selected_client = st.selectbox("العميل / المورد / الجهة:", all_clients, key=f"client_{title}")
+    with c3: date_filter = st.date_input("تحديد فترة (من - إلى):", value=[], key=f"date_{title}")
 
     filtered_dict = {}
     for name, df_val in original_df_dict.items():
         df = df_val.data.copy() if hasattr(df_val, 'data') else df_val.copy()
         if not df.empty:
             if selected_state != 'الكل':
-                if 'الحالة (عربي)' in df.columns:
-                    df = df[df['الحالة (عربي)'] == selected_state]
-                elif 'الحالة' in df.columns:
-                    df = df[df['الحالة'] == selected_state]
-            
+                if 'الحالة (عربي)' in df.columns: df = df[df['الحالة (عربي)'] == selected_state]
+                elif 'الحالة' in df.columns: df = df[df['الحالة'] == selected_state]
             if selected_client != 'الكل':
-                if 'العميل' in df.columns:
-                    df = df[df['العميل'] == selected_client]
-                elif 'المورد' in df.columns:
-                    df = df[df['المورد'] == selected_client]
-                elif 'اسم الجهة' in df.columns:
-                    df = df[df['اسم الجهة'] == selected_client]
-                    
+                if 'العميل' in df.columns: df = df[df['العميل'] == selected_client]
+                elif 'المورد' in df.columns: df = df[df['المورد'] == selected_client]
+                elif 'اسم الجهة' in df.columns: df = df[df['اسم الجهة'] == selected_client]
             if len(date_filter) == 2:
                 start_date, end_date = date_filter
                 start_dt = pd.to_datetime(start_date)
@@ -680,9 +800,7 @@ def render_filters_and_export(title, original_df_dict):
                     try:
                         temp_dt = pd.to_datetime(df['التاريخ'])
                         df = df[(temp_dt >= start_dt) & (temp_dt <= end_dt)]
-                    except:
-                        pass
-        # تطبيق الألوان بعد الفلترة مباشرة
+                    except: pass
         filtered_dict[name] = style_dataframe(df)
         
     st.markdown("<hr style='border-color: rgba(255,255,255,0.1); margin: 25px 0;'>", unsafe_allow_html=True)
@@ -695,10 +813,8 @@ def show_detailed_report(title: str, data: dict):
     
     df_dict = {}
     if 'df' in data and data['df'] is not None:
-        if isinstance(data['df'], dict):
-            df_dict = data['df']
-        else:
-            df_dict = {"البيانات التفصيلية": data['df']}
+        if isinstance(data['df'], dict): df_dict = data['df']
+        else: df_dict = {"البيانات التفصيلية": data['df']}
             
     filtered_dict = {}
     if df_dict:
@@ -714,10 +830,8 @@ def show_detailed_report(title: str, data: dict):
         for i, (tab_name, df_val) in enumerate(filtered_dict.items()):
             with tabs[i]:
                 raw_check = df_val.data if hasattr(df_val, 'data') else df_val
-                if not raw_check.empty:
-                    st.dataframe(df_val, use_container_width=True, hide_index=True)
-                else:
-                    st.info("لا توجد بيانات مطابقة للفلاتر التي قمت بتحديدها.")
+                if not raw_check.empty: st.dataframe(df_val, use_container_width=True, hide_index=True)
+                else: st.info("لا توجد بيانات مطابقة للفلاتر التي قمت بتحديدها.")
 
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("إغلاق التقرير", type="primary", use_container_width=True):
@@ -750,11 +864,7 @@ def render_dashboard():
     df_i = df_i_master.copy()
     df_pol = df_pol_master.copy()
     
-    # Calculate Prev Metrics if Dates provided
-    t_sales_appr_prev = 0
-    t_orders_appr_prev = 0
-    t_po_appr_prev = 0
-    
+    t_sales_appr_prev = t_orders_appr_prev = t_po_appr_prev = 0
     if prev_start_dt and prev_end_dt:
         if not df_s_master.empty and 'date_order' in df_s_master.columns:
             prev_df_s = df_s_master[(df_s_master['date_order'] >= prev_start_dt) & (df_s_master['date_order'] <= prev_end_dt)]
@@ -765,10 +875,8 @@ def render_dashboard():
             t_po_appr_prev = prev_df_po[prev_df_po['state'].isin(['purchase', 'done'])]['amount_total'].sum()
 
     if start_dt and end_dt:
-        if not df_s.empty and 'date_order' in df_s.columns:
-            df_s = df_s[(df_s['date_order'] >= start_dt) & (df_s['date_order'] <= end_dt)]
-        if not df_po.empty and 'date_order' in df_po.columns:
-            df_po = df_po[(df_po['date_order'] >= start_dt) & (df_po['date_order'] <= end_dt)]
+        if not df_s.empty and 'date_order' in df_s.columns: df_s = df_s[(df_s['date_order'] >= start_dt) & (df_s['date_order'] <= end_dt)]
+        if not df_po.empty and 'date_order' in df_po.columns: df_po = df_po[(df_po['date_order'] >= start_dt) & (df_po['date_order'] <= end_dt)]
 
     with st.expander("فلاتر إضافية للوحة القيادة", expanded=False):
         fc1, fc2 = st.columns(2)
@@ -779,10 +887,8 @@ def render_dashboard():
         with fc2:
             if not df_s.empty and 'amount_total' in df_s.columns:
                 a_min, a_max = int(df_s['amount_total'].min()), int(df_s['amount_total'].max())
-                if a_min < a_max:
-                    amt_range = st.slider("نطاق القيمة", min_value=a_min, max_value=a_max, value=(a_min, a_max))
-                else:
-                    amt_range = (a_min, a_max)
+                if a_min < a_max: amt_range = st.slider("نطاق القيمة", min_value=a_min, max_value=a_max, value=(a_min, a_max))
+                else: amt_range = (a_min, a_max)
             else: amt_range = None
 
         if not filtered_s.empty:
@@ -796,11 +902,9 @@ def render_dashboard():
     t_sales_appr = filtered_s.loc[is_approved, 'amount_total'].sum() if not filtered_s.empty else 0
     t_sales_draft = filtered_s.loc[is_draft, 'amount_total'].sum() if not filtered_s.empty else 0
     t_sales_canc = filtered_s.loc[is_cancel, 'amount_total'].sum() if not filtered_s.empty else 0
-    
     t_orders_appr = is_approved.sum() if not is_approved.empty else 0
     t_orders_draft = is_draft.sum() if not is_draft.empty else 0
     t_orders_canc = is_cancel.sum() if not is_cancel.empty else 0
-    
     t_clients = len(df_p) if df_p is not None else 0
 
     is_po_appr = df_po['state'].isin(['purchase', 'done']) if not df_po.empty else pd.Series(dtype=bool)
@@ -854,59 +958,46 @@ def render_dashboard():
         clean_pol = clean_pol.sort_values('product_qty', ascending=False)
         clean_pol = clean_pol.rename(columns={'product_qty': 'الكمية المطلوبة', 'price_subtotal': 'إجمالي التكلفة (ج.م)'})
 
-    s_all_df = style_dataframe(clean_s)
-    s_appr = style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'موافق عليه'])
-    s_draft = style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'مسودة'])
-    s_canc = style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'ملغي'])
-
-    split_sales_dict = {"السجل الشامل للعروض والطلبات": s_all_df, "موافق عليه": s_appr, "مسودة": s_draft, "ملغي": s_canc}
+    split_sales_dict = {
+        "السجل الشامل للعروض والطلبات": style_dataframe(clean_s), 
+        "موافق عليه": style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'موافق عليه']), 
+        "مسودة": style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'مسودة']), 
+        "ملغي": style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'ملغي'])
+    }
 
     top_suppliers = pd.DataFrame()
-    if not clean_po.empty:
-        top_suppliers = clean_po[clean_po['الحالة'] == 'معتمد'].groupby('المورد')['القيمة (ج.م)'].sum().reset_index()
+    if not clean_po.empty: top_suppliers = clean_po[clean_po['الحالة'] == 'معتمد'].groupby('المورد')['القيمة (ج.م)'].sum().reset_index()
     
     split_po_dict = {
         "السجل الشامل للمشتريات": style_dataframe(clean_po),
-        "أقوى الموردين": style_dataframe(top_suppliers) if not top_suppliers.empty else top_suppliers,
-        "المنتجات / المواد الأكثر طلباً": style_dataframe(clean_pol) if not clean_pol.empty else clean_pol
+        "أقوى الموردين": style_dataframe(top_suppliers),
+        "المنتجات / المواد الأكثر طلباً": style_dataframe(clean_pol)
     }
 
-    split_clients = {}
     if not clean_s.empty:
         c_appr_df = clean_s[clean_s['الحالة (عربي)'] == 'موافق عليه'].groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'معتمد (ج.م)'})
         c_draft_df = clean_s[clean_s['الحالة (عربي)'] == 'مسودة'].groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'مسودة (ج.م)'})
         c_canc_df = clean_s[clean_s['الحالة (عربي)'] == 'ملغي'].groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'ملغي (ج.م)'})
-        
         c_count_df = clean_s.groupby('العميل')['رقم الطلب'].count().reset_index().rename(columns={'رقم الطلب': 'إجمالي العروض'})
-        c_appr_cnt = clean_s[clean_s['الحالة (عربي)'] == 'موافق عليه'].groupby('العميل')['رقم الطلب'].count().reset_index().rename(columns={'رقم الطلب': 'عدد (معتمد)'})
-        c_draft_cnt = clean_s[clean_s['الحالة (عربي)'] == 'مسودة'].groupby('العميل')['رقم الطلب'].count().reset_index().rename(columns={'رقم الطلب': 'عدد (مسودة)'})
-        c_canc_cnt = clean_s[clean_s['الحالة (عربي)'] == 'ملغي'].groupby('العميل')['رقم الطلب'].count().reset_index().rename(columns={'رقم الطلب': 'عدد (ملغي)'})
-
-        c_merged = c_count_df.merge(c_appr_df, on='العميل', how='left')\
-                             .merge(c_appr_cnt, on='العميل', how='left')\
-                             .merge(c_draft_df, on='العميل', how='left')\
-                             .merge(c_draft_cnt, on='العميل', how='left')\
-                             .merge(c_canc_df, on='العميل', how='left')\
-                             .merge(c_canc_cnt, on='العميل', how='left').fillna(0)
+        
+        c_merged = c_count_df.merge(c_appr_df, on='العميل', how='left').merge(c_draft_df, on='العميل', how='left').merge(c_canc_df, on='العميل', how='left').fillna(0)
         
         if not clean_p.empty:
             p_info = clean_p[['اسم الجهة', 'المدينة', 'الهاتف']].drop_duplicates(subset=['اسم الجهة']).rename(columns={'اسم الجهة': 'العميل'})
             c_merged = c_merged.merge(p_info, on='العميل', how='left').fillna('-')
 
-        c_cols = ['العميل', 'إجمالي العروض', 'عدد (معتمد)', 'معتمد (ج.م)', 'عدد (مسودة)', 'مسودة (ج.م)', 'عدد (ملغي)', 'ملغي (ج.م)', 'المدينة', 'الهاتف']
+        c_cols = ['العميل', 'إجمالي العروض', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'المدينة', 'الهاتف']
         c_merged = c_merged[[c for c in c_cols if c in c_merged.columns]]
 
         split_clients = {
             "السجل الشامل للعملاء": style_dataframe(clean_p),
             "الأقوى (معتمد)": style_dataframe(c_merged[['العميل', 'معتمد (ج.م)']]),
             "حسب المسودة": style_dataframe(c_merged[['العميل', 'مسودة (ج.م)']]),
-            "حسب الملغي": style_dataframe(c_merged[['العميل', 'ملغي (ج.م)']]),
             "الأكثر طلباً (عدد)": style_dataframe(c_merged[['العميل', 'إجمالي العروض']])
         }
     else:
         split_clients = {"السجل الشامل للعملاء": style_dataframe(clean_p)}
 
-    split_stock = {}
     if not clean_i.empty:
         split_stock = {
             "سجل المنتجات الشامل": style_dataframe(clean_i),
@@ -992,19 +1083,16 @@ def render_dashboard():
     
     tb_all, tb_appr, tb_draft, tb_canc = st.tabs(["الكل", "موافق عليه", "مسودة", "ملغي"])
     with tb_all:
-        if not clean_s.empty: st.dataframe(s_all_df, use_container_width=True, hide_index=True)
+        if not clean_s.empty: st.dataframe(split_sales_dict["السجل الشامل للعروض والطلبات"], use_container_width=True, hide_index=True)
         else: st.info("لا توجد بيانات متاحة في هذه الفترة.")
     with tb_appr:
-        raw_appr = s_appr.data if hasattr(s_appr, 'data') else s_appr
-        if not raw_appr.empty: st.dataframe(s_appr, use_container_width=True, hide_index=True)
+        if not clean_s[clean_s['الحالة (عربي)'] == 'موافق عليه'].empty: st.dataframe(split_sales_dict["موافق عليه"], use_container_width=True, hide_index=True)
         else: st.info("لا توجد طلبات موافق عليها في هذه الفترة.")
     with tb_draft:
-        raw_draft = s_draft.data if hasattr(s_draft, 'data') else s_draft
-        if not raw_draft.empty: st.dataframe(s_draft, use_container_width=True, hide_index=True)
+        if not clean_s[clean_s['الحالة (عربي)'] == 'مسودة'].empty: st.dataframe(split_sales_dict["مسودة"], use_container_width=True, hide_index=True)
         else: st.info("لا توجد مسودات في هذه الفترة.")
     with tb_canc:
-        raw_canc = s_canc.data if hasattr(s_canc, 'data') else s_canc
-        if not raw_canc.empty: st.dataframe(s_canc, use_container_width=True, hide_index=True)
+        if not clean_s[clean_s['الحالة (عربي)'] == 'ملغي'].empty: st.dataframe(split_sales_dict["ملغي"], use_container_width=True, hide_index=True)
         else: st.info("لا توجد طلبات ملغاة في هذه الفترة.")
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -1075,7 +1163,7 @@ def render_departments():
     ).reset_index()
 
     final_table = pd.merge(summ_df_all, dept_summary[['القسم', 'المصروفات', 'صافي_الربح', 'هامش الربح %']], on='القسم', how='left').fillna(0)
-    final_table = final_table.rename(columns={'إيرادات_معتمدة': 'الإيرادات', 'صافي_الربح': 'صافي الربح'}).sort_values('صافي الربح', ascending=False)
+    final_table = final_table.rename(columns={'إيرادات_معتمدة': 'الإيرادات', 'صافي_الربح': 'صافي الربح'})
 
     if st.button(f"📥 تحليل وتصدير تقرير الأقسام (Word / PDF)", use_container_width=True):
         export_data = {
@@ -1458,6 +1546,10 @@ def render_ai():
             with st.spinner("يكتب الآن..."):
                 base_prompt = CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT)
                 
+                # جلب الوصف الوظيفي للموظف الحالي ليستخدمه الذكاء الاصطناعي
+                curr_emp_data = next((e for e in CFG.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == curr_user), None)
+                job_desc = curr_emp_data.get('job_desc', 'لا يوجد وصف وظيفي محدد.') if curr_emp_data else 'أنت المدير العام.'
+                
                 live_context = f"""
                 
 === بيانات النظام الحية (يجب أخذها في الاعتبار) ===
@@ -1472,7 +1564,13 @@ def render_ai():
 {team_context_str}
 
 الموظف اللي بيكلمك دلوقتي: {curr_user}.
+"""
+                if curr_user != "المدير العام":
+                    live_context += f"\n=== ملف الموظف الحالي ({curr_user}) ===\n"
+                    live_context += f"المهام والأهداف المطلوبة من هذا الموظف (KPIs):\n{job_desc}\n"
+                    live_context += "بصفتك المدير، قم بتوجيه الموظف ومحاسبته وإعطائه مهام بناءً على هذا الوصف الوظيفي والأهداف بدقة وبدون أي مجاملة.\n"
 
+                live_context += """
 **مهم جداً جداً للتقييم**: في نهاية أي رسالة بتكتبها، لازم تقيم الموظف (إذا لم يكن هو المدير العام) من 10 وتكتب تعليق سري عن أدائه. التقييم ده لازم يكون في آخر سطر بالظبط بالشكل ده:
 $$EVAL: 8/10 - الموظف ردوده إيجابية بس محتاج يسرع رتمه شوية$$
 إياك تنسى كود الـ $$EVAL: في النهاية، وإياك تعرف الموظف إنك بتقيمه أو بتكتب الكود ده. السرية التامة ضرورية."""
@@ -1677,20 +1775,28 @@ def render_settings():
     current_emps = CFG.get('EMPLOYEES', [])
     st.info(f"تم استهلاك {len(current_emps)} من أصل {max_devices} مستخدم مسموح به في رخصة شركتك.")
     
-    c_emp1, c_emp2, c_emp3, c_emp4 = st.columns([2, 2, 1.5, 2])
+    c_emp1, c_emp2, c_emp3 = st.columns([2, 2, 2])
     with c_emp1: new_emp_name = st.text_input("اسم الموظف", placeholder="مثال: أحمد محمود")
     with c_emp2: new_emp_role = st.text_input("الوظيفة / القسم", placeholder="مثال: مبيعات هاتفية")
-    with c_emp3: new_emp_pin = st.text_input("الرقم السري للموظف", placeholder="مثال: 1234")
-    with c_emp4: 
-        view_options = {i[2]: i[0] for i in ALL_NAV_ITEMS if i[0] not in ['settings']}
-        new_emp_views = st.multiselect("الشاشات المسموحة", list(view_options.keys()), default=["مكتب المدير"])
+    with c_emp3: new_emp_pin = st.text_input("الرمز السري للموظف (PIN)", placeholder="مثال: 1234")
+    
+    new_emp_desc = st.text_area("الوصف الوظيفي والأهداف (KPIs)", placeholder="اكتب هنا مهام الموظف وما تتوقعه منه، ليقوم الذكاء الاصطناعي بمتابعته بناءً عليها...")
+    
+    view_options = {i[2]: i[0] for i in ALL_NAV_ITEMS if i[0] not in ['settings']}
+    new_emp_views = st.multiselect("الشاشات المسموحة", list(view_options.keys()), default=["مكتب المدير"])
 
     if st.button("إضافة الموظف", use_container_width=True):
         if len(current_emps) >= max_devices:
             st.error("🚫 عذراً! لقد وصلت للحد الأقصى لعدد المستخدمين المسموح به في رخصتك الحالية. لا يمكنك إضافة المزيد. يرجى التواصل مع الإدارة العليا للترقية.")
         elif new_emp_name and new_emp_role and new_emp_views and new_emp_pin:
             view_keys = [view_options[k] for k in new_emp_views]
-            current_emps.append({'name': new_emp_name, 'role': new_emp_role, 'pin': new_emp_pin, 'views': view_keys})
+            current_emps.append({
+                'name': new_emp_name, 
+                'role': new_emp_role, 
+                'pin': new_emp_pin, 
+                'job_desc': new_emp_desc,
+                'views': view_keys
+            })
             CFG['EMPLOYEES'] = current_emps
             save_config(CFG)
             st.rerun()
@@ -1704,7 +1810,13 @@ def render_settings():
             with ec1:
                 views_str = ", ".join([v for k, v in view_options.items() if emp.get('views') and view_options[k] in emp['views']])
                 pin_display = emp.get('pin', '0000')
-                st.markdown(f"""<div style="background:rgba(255,255,255,0.02); padding:10px 15px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);"><span style="color:var(--c-primary); font-weight:bold;">{emp['name']}</span> — {emp['role']} | <span style="color:#ffd700;">الرقم السري: {pin_display}</span> <br><span style='font-size:0.8rem; color:var(--c-dim);'>الشاشات: {views_str}</span></div>""", unsafe_allow_html=True)
+                desc_display = emp.get('job_desc', 'لا يوجد وصف.')
+                st.markdown(f"""
+                <div style="background:rgba(255,255,255,0.02); padding:10px 15px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+                    <span style="color:var(--c-primary); font-weight:bold; font-size:1.1rem;">{emp['name']}</span> — {emp['role']} | <span style="color:#ffd700;">الرقم السري: {pin_display}</span><br>
+                    <span style='font-size:0.8rem; color:var(--c-dim);'>الشاشات: {views_str}</span><br>
+                    <span style='font-size:0.85rem; color:#e2e8f0;'>الوصف والأهداف: {desc_display}</span>
+                </div>""", unsafe_allow_html=True)
             with ec2:
                 if st.button("حذف", key=f"del_emp_{i}", use_container_width=True):
                     current_emps.pop(i)
