@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v45.0 (KPIs & PIN SECURITY FIXED)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v45.0 (CACHE UNLOCKED - KPIs FIXED)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -22,17 +22,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-# القائمة الجانبية (تعريف المتغير الذي كان مفقوداً في النسخة السابقة لتجنب الأخطاء)
-ALL_NAV_ITEMS = [
-    ('dashboard', 'dashboard', 'لوحة القيادة'),
-    ('departments', 'layers', 'أداء الأقسام'),
-    ('forecast', 'bulb', 'التنبؤ المستقبلي'),
-    ('territories', 'globe', 'التحليل الجغرافي'),
-    ('fusion', 'fusion', 'مختبر الاندماج'),
-    ('ai', 'command', 'مكتب المدير'),
-    ('settings', 'settings', 'الإعدادات')
-]
 
 # ============================================================
 # 0. نظام الحفظ الديناميكي وإدارة التراخيص (License & Workspace)
@@ -275,6 +264,7 @@ def extract_department_from_row(row):
 def style_dataframe(df):
     if df is None: return pd.DataFrame()
     
+    # الحصول على البيانات كـ DataFrame نظيف
     if hasattr(df, 'data'):
         df_raw = df.data.copy()
     else:
@@ -282,22 +272,28 @@ def style_dataframe(df):
 
     if df_raw.empty: return df_raw
 
+    # تعريف الأعمدة التي يجب أن تكون أرقاماً
     currency_cols = ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'صاف الربح']
     number_cols = ['الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة', 'إجمالي العروض', 'إجمالي الطلبات']
     pct_cols = ['هامش الربح %']
     
     all_numeric = currency_cols + number_cols + pct_cols
 
+    # 1. التنظيف الصارم للأرقام (إزالة الفواصل والنصوص مثل ج.م و %) قبل أي ترتيب أو تلوين
     for col in all_numeric:
         if col in df_raw.columns:
             if df_raw[col].dtype == object or df_raw[col].dtype.name == 'category':
+                # مسح كل شيء عدا الأرقام، السالب، والنقطة العشرية
                 df_raw[col] = df_raw[col].astype(str).str.replace(r'[^\d.-]', '', regex=True)
+            # تحويل إلى رقم فعلي
             df_raw[col] = pd.to_numeric(df_raw[col], errors='coerce').fillna(0)
             
+    # تحويل باقي الأعمدة لنصوص آمنة لمنع الانهيار
     for col in df_raw.columns:
         if col not in all_numeric:
             df_raw[col] = df_raw[col].fillna("").astype(str)
 
+    # تحديد العمود المستهدف للخريطة الحرارية (أهم عمود موجود في الجدول)
     target_cols_priority = ['صافي الربح', 'صاف الربح', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الكمية المطلوبة', 'الإيرادات', 'إجمالي العروض', 'إجمالي الطلبات']
     active_target = None
     for col in target_cols_priority:
@@ -305,9 +301,11 @@ def style_dataframe(df):
             active_target = col
             break
 
+    # 2. الترتيب التنازلي التلقائي بناءً على الأرقام الصافية (إذا وجد عمود مستهدف)
     if active_target:
         df_raw = df_raw.sort_values(by=active_target, ascending=False).reset_index(drop=True)
 
+    # 3. تجهيز قاموس التنسيقات ليظهر الـ ج.م والـ % بـعـد التلوين
     fmt = {}
     for c in currency_cols:
         if c in df_raw.columns: fmt[c] = "{:,.0f} ج.م"
@@ -316,6 +314,7 @@ def style_dataframe(df):
     for c in pct_cols:
         if c in df_raw.columns: fmt[c] = "{:.1f}%"
 
+    # 4. التلوين والتنسيق الآمن لمنع انهيار Streamlit
     try:
         styler = df_raw.style
         if active_target:
@@ -324,6 +323,7 @@ def style_dataframe(df):
             styler = styler.format(fmt)
         return styler
     except Exception as e:
+        # في أسوأ الظروف، إذا فشل التلوين، يرجع الجدول مرتباً ونظيفاً بدلاً من الانهيار
         return df_raw
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -565,12 +565,10 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Orbitron:wght@400;700;900&display=swap');
 
-/* التدمير الشامل لقوائم وأزرار Streamlit Cloud و Manage app */
-#MainMenu {visibility: hidden !important; display: none !important;}
-footer {visibility: hidden !important; display: none !important;}
-header {visibility: hidden !important; display: none !important;}
-[data-testid="stHeader"] {display: none !important;}
-[data-testid="stToolbar"] {display: none !important;}
+/* تم إظهار الشريط العلوي مؤقتاً لتتمكن من عمل مسح للذاكرة Clear Cache */
+/* #MainMenu {visibility: hidden !important; display: none !important;} */
+/* header {visibility: hidden !important; display: none !important;} */
+/* [data-testid="manage-app-button"] {display: none !important;} */
 
 :root {
     --c-primary:   #00f2ff;
@@ -742,7 +740,7 @@ def build_infographic_html(data: dict) -> str:
     return f"""<div style="font-family:'Cairo',sans-serif;direction:rtl;color:#e2e8f0;"><p style="color:#94a3b8;font-size:1rem;margin:0 0 1.5rem;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:15px;">{data.get('subtitle', '')}</p><div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:2rem;">{kpi_html}</div>{f'<div style="font-weight:900;font-size:1rem;color:#64748b;text-transform:uppercase;margin:1.5rem 0 1rem;">{get_icon("chart",18)} المؤشرات الحيوية</div>{bar_html}' if bar_html else ''}{f'<div style="font-weight:900;font-size:1rem;color:#64748b;text-transform:uppercase;margin:2rem 0 1rem;">{get_icon("check",18)} التصنيفات الاستراتيجية</div><div>{badge_html}</div>' if badge_html else ''}</div>"""
 
 # ============================================================
-# 5. نظام التصدير الموحد والتلوين الآمن (100% STABLE)
+# 5. نظام التصدير الموحد والتلوين الآمن 
 # ============================================================
 def create_export_buttons(title, df_dict):
     html_content = f"""<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
@@ -1573,8 +1571,9 @@ def render_ai():
             with st.spinner("يكتب الآن..."):
                 base_prompt = CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT)
                 
-                # جلب البيانات المخصصة للموظف (احتياجات الشركة و KPIs)
+                # جلب الوصف الوظيفي للموظف الحالي ليستخدمه الذكاء الاصطناعي
                 curr_emp_data = next((e for e in CFG.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == curr_user), None)
+                job_desc = curr_emp_data.get('job_desc', 'لا يوجد وصف وظيفي محدد.') if curr_emp_data else 'أنت المدير العام.'
                 
                 live_context = f"""
                 
@@ -1591,19 +1590,14 @@ def render_ai():
 
 الموظف اللي بيكلمك دلوقتي: {curr_user}.
 """
-                if curr_user != "المدير العام" and curr_emp_data:
-                    # جلب الاحتياجات ومؤشرات الأداء بشكل دقيق مع دعم الإصدارات القديمة
-                    role_needs = curr_emp_data.get('role_needs', curr_emp_data.get('job_desc', 'غير محدد'))
-                    kpis = curr_emp_data.get('kpis', 'غير محدد')
-                    
+                if curr_user != "المدير العام":
                     live_context += f"\n=== ملف الموظف الحالي ({curr_user}) ===\n"
-                    live_context += f"- احتياجات الشركة منه:\n{role_needs}\n"
-                    live_context += f"- مؤشرات الأداء المطلوبة (KPIs):\n{kpis}\n\n"
-                    live_context += "بصفتك المدير، قم بتوجيه هذا الموظف وتكليفه بمهام صارمة تخدم 'احتياجات الشركة' المذكورة، وحاسبه وتابعه بناءً على 'مؤشرات الأداء (KPIs)' الخاصة به بدقة وبدون أي مجاملة.\n"
+                    live_context += f"المهام والأهداف المطلوبة من هذا الموظف (KPIs):\n{job_desc}\n"
+                    live_context += "بصفتك المدير، قم بتوجيه الموظف ومحاسبته وإعطائه مهام بناءً على هذا الوصف الوظيفي والأهداف بدقة وبدون أي مجاملة.\n"
 
                 live_context += """
-**مهم جداً جداً للتقييم**: في نهاية أي رسالة بتكتبها، لازم تقيم الموظف (إذا لم يكن هو المدير العام) من 10 وتكتب تعليق سري عن أدائه مرتبط بالـ KPIs بتاعته. التقييم ده لازم يكون في آخر سطر بالظبط بالشكل ده:
-$$EVAL: 8/10 - الموظف مهتم بس مقصر في الـ KPI التاني الخاص بالمكالمات$$
+**مهم جداً جداً للتقييم**: في نهاية أي رسالة بتكتبها، لازم تقيم الموظف (إذا لم يكن هو المدير العام) من 10 وتكتب تعليق سري عن أدائه. التقييم ده لازم يكون في آخر سطر بالظبط بالشكل ده:
+$$EVAL: 8/10 - الموظف ردوده إيجابية بس محتاج يسرع رتمه شوية$$
 إياك تنسى كود الـ $$EVAL: في النهاية، وإياك تعرف الموظف إنك بتقيمه أو بتكتب الكود ده. السرية التامة ضرورية."""
 
                 sys_prompt = base_prompt + "\n" + live_context
@@ -1814,12 +1808,10 @@ def render_settings():
         with c_emp2: new_emp_role = st.text_input("الوظيفة / القسم", placeholder="مثال: مبيعات هاتفية")
         with c_emp3: new_emp_pin = st.text_input("الرقم السري للموظف (PIN)", placeholder="مثال: 1234")
         
-        # التعديل الجديد: فصل احتياجات الشركة ومؤشرات الأداء
-        new_emp_needs = st.text_area("احتياجات الشركة من هذه الوظيفة", placeholder="مثال: نحتاج لزيادة المبيعات بنسبة 20% وفتح أسواق جديدة في الخليج...")
-        new_emp_kpis = st.text_area("مؤشرات الأداء الرئيسية المطلوبة (KPIs)", placeholder="مثال: 1. إغلاق 5 صفقات أسبوعياً.\n2. الاتصال بـ 50 عميل يومياً...")
+        new_emp_desc = st.text_area("الوصف الوظيفي والأهداف (KPIs)", placeholder="اكتب هنا مهام الموظف وما تتوقعه منه، ليقوم الذكاء الاصطناعي بمتابعته وتوجيهه بناءً عليها...")
         
         view_options = {i[2]: i[0] for i in ALL_NAV_ITEMS if i[0] not in ['settings']}
-        new_emp_views = st.multiselect("الشاشات المسموحة للموظف", list(view_options.keys()), default=["مكتب المدير"])
+        new_emp_views = st.multiselect("الشاشات المسموحة", list(view_options.keys()), default=["مكتب المدير"])
 
         if st.button("إضافة الموظف للنظام", use_container_width=True, type="primary"):
             if len(current_emps) >= max_devices:
@@ -1830,9 +1822,7 @@ def render_settings():
                     'name': new_emp_name, 
                     'role': new_emp_role, 
                     'pin': new_emp_pin, 
-                    'role_needs': new_emp_needs,  # إضافة الحقل الجديد
-                    'kpis': new_emp_kpis,         # إضافة الحقل الجديد
-                    'job_desc': new_emp_needs + "\n" + new_emp_kpis, # للتوافق مع الإصدارات القديمة إذا لزم الأمر
+                    'job_desc': new_emp_desc,
                     'views': view_keys
                 })
                 CFG['EMPLOYEES'] = current_emps
@@ -1847,10 +1837,7 @@ def render_settings():
         for i, emp in enumerate(current_emps):
             views_str = ", ".join([v for k, v in view_options.items() if emp.get('views') and view_options[k] in emp['views']])
             pin_display = emp.get('pin', '0000')
-            
-            # جلب البيانات بشكل آمن لتدعم الموظفين المسجلين قديماً
-            needs_display = emp.get('role_needs', emp.get('job_desc', 'لم يتم تحديد احتياجات.'))
-            kpis_display = emp.get('kpis', 'لم يتم تحديد KPIs.')
+            desc_display = emp.get('job_desc', 'لا يوجد وصف.')
             
             st.markdown(f"""
             <div style="background:rgba(15,15,20,0.6); padding:15px; border-radius:10px; border-right: 4px solid var(--c-primary); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
@@ -1858,21 +1845,15 @@ def render_settings():
                     <div style="font-size:1.1rem; font-weight:bold; color:#fff; margin-bottom:5px;">
                         {emp['name']} <span style="font-size:0.85rem; font-weight:normal; color:var(--c-dim);">({emp['role']})</span>
                     </div>
-                    <div style="font-size:0.85rem; color:#e2e8f0; margin-bottom:10px;">
+                    <div style="font-size:0.85rem; color:#e2e8f0; margin-bottom:5px;">
                         <span style="color:var(--c-primary);">الشاشات:</span> {views_str}
                     </div>
-                    
-                    <div style="background: rgba(255,255,255,0.02); padding: 10px; border-radius: 8px; margin-bottom: 5px;">
-                        <div style="font-size:0.85rem; color:#cbd5e1; line-height:1.4; margin-bottom: 8px;">
-                            <span style="color:var(--c-gold); font-weight:bold;">احتياجات الشركة:</span> {needs_display}
-                        </div>
-                        <div style="font-size:0.85rem; color:#cbd5e1; line-height:1.4;">
-                            <span style="color:#00ff82; font-weight:bold;">مؤشرات الأداء (KPIs):</span> {kpis_display}
-                        </div>
+                    <div style="font-size:0.85rem; color:#cbd5e1; line-height:1.4;">
+                        <span style="color:#00ff82;">المهام (KPIs):</span> {desc_display}
                     </div>
                 </div>
-                <div style="text-align:left; min-width:120px; padding-right: 15px;">
-                    <div style="background:rgba(255,215,0,0.1); color:#ffd700; padding:6px 10px; border-radius:6px; font-weight:bold; font-size:1rem; margin-bottom:10px; text-align:center; border:1px solid rgba(255,215,0,0.3);">
+                <div style="text-align:left; min-width:120px;">
+                    <div style="background:rgba(255,215,0,0.1); color:#ffd700; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:0.9rem; margin-bottom:10px; text-align:center; border:1px solid rgba(255,215,0,0.3);">
                         PIN: {pin_display}
                     </div>
             """, unsafe_allow_html=True)
