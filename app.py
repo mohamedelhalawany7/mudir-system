@@ -1731,7 +1731,16 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
             smart_report_html = call_universal_ai([{"role": "user", "content": report_prompt}])
             smart_report_html = smart_report_html.replace('```html', '').replace('```', '').strip()
         except Exception as e:
-            smart_report_html = f"<p style='color: #ff2d78; font-weight: bold;'>حدث خطأ أثناء توليد التقرير الذكي من الخادم. يرجى المحاولة لاحقاً.</p><p style='font-size: 0.9rem; color: #8696a0;'>تفاصيل الخطأ التقني: {str(e)}</p>"
+            smart_report_html = f"""
+            <div style="background-color: rgba(255, 45, 120, 0.1); border: 1px dashed rgba(255, 45, 120, 0.4); padding: 25px; border-radius: 12px; text-align: center; margin: 20px 0;">
+                <h3 style="color: #ff2d78; margin-top: 0; font-weight: 800;">عذراً، تعذر استكمال التقرير الذكي</h3>
+                <p style="color: #334155; font-size: 1.1rem; line-height: 1.6; font-weight: 600;">
+                    حدثت مشكلة أثناء الاتصال بمحرك الذكاء الاصطناعي بسبب الضغط الكثيف على الخادم حالياً.<br>
+                    <strong>نرجو الانتظار لبضع دقائق، ثم إعادة المحاولة.</strong>
+                </p>
+                <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 0;">(كود الخطأ التقني للمراجعة: {str(e)})</p>
+            </div>
+            """
 
     # --- Build HTML for Export ---
     html_export = f"""
