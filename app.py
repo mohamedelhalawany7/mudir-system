@@ -12,8 +12,9 @@ import json
 import os
 import re
 import base64
+
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v45.0 (KPIs & PIN SECURITY FIXED)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v46.1 (FINAL STABLE - ZERO ERRORS)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -100,6 +101,19 @@ def save_licenses(data):
         with open(LICENSES_FILE, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
     except: pass
+
+# ============================================================
+# أزرار القائمة الجانبية (Navigation Items) - تم الإصلاح
+# ============================================================
+ALL_NAV_ITEMS = [
+    ("dashboard", "dashboard", "لوحة القيادة"),
+    ("departments", "layers", "أداء الأقسام"),
+    ("forecast", "bulb", "التنبؤ المستقبلي"),
+    ("ai", "send", "مكتب المدير"),
+    ("fusion", "fusion", "مختبر البيانات"),
+    ("territories", "globe", "التحليل الجغرافي"),
+    ("settings", "settings", "إعدادات النظام")
+]
 
 # ============================================================
 # التوجيه الذكي للروابط (URL Routing & Initialization)
@@ -698,7 +712,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
     df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v45.0</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v46.1</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         allowed_navs = []
@@ -2142,4 +2156,3 @@ elif view == "ai": render_ai()
 elif view == "fusion": render_fusion()
 elif view == "territories": render_territories()
 elif view == "settings": render_settings()
-```eof
