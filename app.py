@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v47.3 (PERFECT WHATSAPP UI & SECURE ADMIN)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v47.4 (COLOR RESTORE & PO DETAILED)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -328,7 +328,7 @@ def style_dataframe(df):
             df_raw[col] = df_raw[col].fillna("").astype(str)
 
     # تحديد العمود المستهدف للخريطة الحرارية (أهم عمود موجود في الجدول)
-    target_cols_priority = ['صافي الربح', 'صاف الربح', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الكمية المطلوبة', 'الإيرادات', 'إجمالي العروض', 'إجمالي الطلبات']
+    target_cols_priority = ['صافي الربح', 'صاف الربح', 'القيمة الكلية (ج.م)', 'قيمة (معتمد)', 'قيمة (مسودة)', 'قيمة (ملغي)', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الكمية المطلوبة', 'الإيرادات', 'العدد الكلي', 'إجمالي العروض', 'إجمالي الطلبات']
     active_target = None
     for col in target_cols_priority:
         if col in df_raw.columns:
@@ -824,7 +824,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v47.3</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v47.4</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         allowed_navs = []
@@ -1139,16 +1139,45 @@ def render_dashboard():
         "ملغي": style_dataframe(s_canc)
     }
 
-    top_suppliers = pd.DataFrame()
-    if not clean_po.empty and 'الحالة' in clean_po.columns and 'المورد' in clean_po.columns and 'القيمة (ج.م)' in clean_po.columns: 
-        top_suppliers = clean_po[clean_po['الحالة'] == 'معتمد'].groupby('المورد')['القيمة (ج.م)'].sum().reset_index()
-    
-    split_po_dict = {
-        "السجل الشامل للمشتريات": style_dataframe(clean_po),
-        "أقوى الموردين": style_dataframe(top_suppliers),
-        "المنتجات / المواد الأكثر طلباً": style_dataframe(clean_pol)
-    }
+    # تفصيل بيانات الموردين
+    if not clean_po.empty and 'المورد' in clean_po.columns:
+        po_appr = clean_po[clean_po['الحالة'] == 'معتمد']
+        po_draft = clean_po[clean_po['الحالة'] == 'مسودة / قيد الانتظار']
+        po_canc = clean_po[clean_po['الحالة'] == 'ملغي']
 
+        po_count_all = clean_po.groupby('المورد')['رقم الأمر'].count().reset_index().rename(columns={'رقم الأمر': 'العدد الكلي'})
+        po_sum_all = clean_po.groupby('المورد')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'القيمة الكلية (ج.م)'})
+
+        po_count_appr = po_appr.groupby('المورد')['رقم الأمر'].count().reset_index().rename(columns={'رقم الأمر': 'عدد (معتمد)'}) if not po_appr.empty else pd.DataFrame(columns=['المورد', 'عدد (معتمد)'])
+        po_sum_appr = po_appr.groupby('المورد')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'قيمة (معتمد)'}) if not po_appr.empty else pd.DataFrame(columns=['المورد', 'قيمة (معتمد)'])
+
+        po_count_draft = po_draft.groupby('المورد')['رقم الأمر'].count().reset_index().rename(columns={'رقم الأمر': 'عدد (مسودة)'}) if not po_draft.empty else pd.DataFrame(columns=['المورد', 'عدد (مسودة)'])
+        po_sum_draft = po_draft.groupby('المورد')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'قيمة (مسودة)'}) if not po_draft.empty else pd.DataFrame(columns=['المورد', 'قيمة (مسودة)'])
+
+        po_count_canc = po_canc.groupby('المورد')['رقم الأمر'].count().reset_index().rename(columns={'رقم الأمر': 'عدد (ملغي)'}) if not po_canc.empty else pd.DataFrame(columns=['المورد', 'عدد (ملغي)'])
+        po_sum_canc = po_canc.groupby('المورد')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'قيمة (ملغي)'}) if not po_canc.empty else pd.DataFrame(columns=['المورد', 'قيمة (ملغي)'])
+
+        po_merged = po_count_all.merge(po_sum_all, on='المورد', how='left') \
+                              .merge(po_count_appr, on='المورد', how='left').merge(po_sum_appr, on='المورد', how='left') \
+                              .merge(po_count_draft, on='المورد', how='left').merge(po_sum_draft, on='المورد', how='left') \
+                              .merge(po_count_canc, on='المورد', how='left').merge(po_sum_canc, on='المورد', how='left').fillna(0)
+        
+        po_cols = ['المورد', 'العدد الكلي', 'القيمة الكلية (ج.م)', 'عدد (معتمد)', 'قيمة (معتمد)', 'عدد (مسودة)', 'قيمة (مسودة)', 'عدد (ملغي)', 'قيمة (ملغي)']
+        po_merged = po_merged[[c for c in po_cols if c in po_merged.columns]]
+
+        split_po_dict = {
+            "التحليل الشامل للموردين": style_dataframe(po_merged),
+            "الأقوى (معتمد)": style_dataframe(po_merged[['المورد', 'عدد (معتمد)', 'قيمة (معتمد)']]) if 'قيمة (معتمد)' in po_merged.columns else style_dataframe(pd.DataFrame()),
+            "قيد الانتظار (مسودة)": style_dataframe(po_merged[['المورد', 'عدد (مسودة)', 'قيمة (مسودة)']]) if 'قيمة (مسودة)' in po_merged.columns else style_dataframe(pd.DataFrame()),
+            "المنتجات / المواد الأكثر طلباً": style_dataframe(clean_pol)
+        }
+    else:
+        split_po_dict = {
+            "السجل الشامل للمشتريات": style_dataframe(clean_po),
+            "المنتجات / المواد الأكثر طلباً": style_dataframe(clean_pol)
+        }
+
+    # تفصيل بيانات العملاء
     if not clean_s.empty and 'العميل' in clean_s.columns:
         c_count_all = clean_s.groupby('العميل')['رقم الطلب'].count().reset_index().rename(columns={'رقم الطلب': 'العدد الكلي'})
         c_sum_all = clean_s.groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'القيمة الكلية (ج.م)'})
@@ -2255,7 +2284,7 @@ def change_workspace_pin_dialog(ws_id):
 def render_super_admin():
     # تم حل مشكلة تسجيل الخروج بإضافة Sidebar للتحكم الآمن
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v47.3</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v47.4</div></div>""", unsafe_allow_html=True)
         st.markdown("---")
         if st.button("🔴 تسجيل الخروج وإغلاق", use_container_width=True, type="primary"):
             st.query_params.clear()
