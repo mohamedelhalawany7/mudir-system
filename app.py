@@ -1702,8 +1702,11 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
 
     # Generate Smart Report
     with st.spinner("جاري تحليل البيانات وتوليد التقرير الذكي بواسطة الذكاء الاصطناعي..."):
-        evals_str = "\n".join([f"[{e['date']}] {e['eval']}" for e in filtered_evals])[-1500:]
-        chats_str = "\n".join([f"[{c['timestamp']}] {'الموظف' if c.get('role')=='user' else 'المدير'}: {c.get('content','')}" for c in activities])[-3000:]
+        evals_str = "\n".join([f"[{e['date']}] {e['eval']}" for e in filtered_evals])
+        chats_str = "\n".join([f"[{c['timestamp']}] {'الموظف' if c.get('role')=='user' else 'المدير'}: {c.get('content','')}" for c in activities])
+        
+        if len(evals_str) > 2000: evals_str = "..." + evals_str[-2000:]
+        if len(chats_str) > 3000: chats_str = "..." + chats_str[-3000:]
 
         report_prompt = f"""
         أنت خبير تقييم أداء (HR Executive). قم بكتابة تقرير أداء ذكي وملخص لموظف بناءً على البيانات التالية:
@@ -1736,8 +1739,8 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
             smart_report_html = call_universal_ai([{"role": "user", "content": report_prompt}])
             # Clean up if AI wrapped it in ```html
             smart_report_html = smart_report_html.replace('```html', '').replace('```', '').strip()
-        except Exception:
-            smart_report_html = "<p>حدث خطأ أثناء توليد التقرير الذكي من الخادم. يرجى المحاولة لاحقاً.</p>"
+        except Exception as e:
+            smart_report_html = f"<p style='color: #ff2d78; font-weight: bold;'>حدث خطأ أثناء توليد التقرير الذكي من الخادم. يرجى المحاولة لاحقاً.</p><p style='font-size: 0.9rem; color: #8696a0;'>تفاصيل الخطأ التقني (لتزويد الدعم الفني بها): {str(e)}</p>"
 
     # --- Build HTML for Export (Word / PDF) with elegant fonts and styling ---
     html_export = f"""
@@ -1816,6 +1819,10 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
             <h2 style="color: #00a884; font-weight: 800; font-size: 2rem; margin: 0 0 10px 0;">التقرير الإداري الشامل</h2>
             <div style="color: #e9edef; font-size: 1.2rem;"><strong>{emp_short}</strong> <span style="color:#8696a0;">| {emp_role}</span></div>
             <div style="color: #8696a0; font-size: 0.9rem; margin-top: 5px;">الفترة المحددة: {start_date} إلى {end_date}</div>
+        </div>
+        
+        <div style="text-align: center; color: #8696a0; font-size: 0.8rem; margin-bottom: 20px; margin-top: -15px;">
+            * ملحوظة: الأصفار في مبيعات الموظف تعني أن اسمه المسجل بالنظام هنا يختلف عن اسم (مندوب المبيعات) في Odoo.
         </div>
         
         <div style="display: flex; gap: 15px; margin-bottom: 30px;">
