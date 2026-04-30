@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v42.6 (ULTIMATE HEATMAP FIX)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v42.7 (BULLETPROOF HEATMAPS & STABILITY)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -106,356 +106,6 @@ def save_licenses(data):
 # ============================================================
 # التوجيه الذكي للروابط (URL Routing & Initialization)
 # ============================================================
-def init_state():
-    # قراءة متغيرات الرابط المباشر
-    url_ws = st.query_params.get("workspace")
-    url_view = st.query_params.get("view")
-
-    # الدخول التلقائي للمساحة في حال وجودها بالرابط وتوفر رخصة سارية
-    if url_ws and 'workspace_key' not in st.session_state:
-        if url_ws == "SUPER_ADMIN":
-            st.session_state.workspace_key = "SUPER_ADMIN"
-            st.session_state.workspace_id = "SUPER_ADMIN"
-            st.session_state.view = url_view if url_view else 'super_admin'
-        else:
-            licenses = load_licenses()
-            ws_data = licenses.get('workspaces', {}).get(url_ws)
-            if ws_data and ws_data.get('status') == 'active':
-                expiry_str = ws_data.get('expiry_date')
-                if expiry_str:
-                    expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
-                    if datetime.now() <= expiry_date:
-                        st.session_state.workspace_key = url_ws
-                        st.session_state.workspace_id = url_ws
-                        st.session_state.app_config = load_config()
-                        st.session_state.view = url_view if url_view else 'login'
-
-    # في حال عدم وجود مساحة محددة
-    if 'workspace_key' not in st.session_state:
-        if st.session_state.get('view') != 'super_admin':
-            st.session_state.view = 'workspace_login'
-        return
-        
-    if 'app_config' not in st.session_state:
-        st.session_state.app_config = load_config()
-        
-    defaults = {
-        'view': url_view if url_view else 'login', 
-        'modal_open': False, 'modal_title': '', 'modal_data': {},
-        'current_user': None, 
-        'growth_stream': None, 'last_radar_report': None, 'data_loaded': False
-    }
-    
-    for k, v in defaults.items():
-        if k not in st.session_state: st.session_state[k] = v
-        
-    if 'all_chats' not in st.session_state:
-        st.session_state.all_chats = st.session_state.app_config.get('ALL_CHATS', {})
-
-# ============================================================
-# 1. نظام الأيقونات المبرمجة (SVG Icon System)
-# ============================================================
-def get_icon(name: str, size: int = 24, color: str = "currentColor", class_name: str = "") -> str:
-    svg_map = {
-        "dashboard": '<path d="M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z"/>',
-        "radar": '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v10l5 5"/>',
-        "cpu": '<rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/>',
-        "fusion": '<path d="M9 3v11l-5 6v2h16v-2l-5-6V3M14 3h-4"/>',
-        "rocket": '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>',
-        "settings": '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
-        "money": '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>',
-        "users": '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
-        "orders": '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>',
-        "stock": '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/>',
-        "check": '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/>',
-        "chart": '<path d="M18 20V10M12 20V4M6 20v-4"/>',
-        "globe": '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
-        "robot": '<rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4M8 16h.01M16 16h.01"/>',
-        "search": '<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>',
-        "download": '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
-        "target": '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
-        "folder": '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
-        "bulb": '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/><path d="M12 2v2"/>',
-        "dna": '<path d="M2 15c6.667-6 13.333 0 20-6"/><path d="M2 9c6.667 6 13.333 0 20 6"/><path d="m17 4-1 1.5"/><path d="m19 6-1 1.5"/><path d="m5 18-1-1.5"/><path d="m7 20-1-1.5"/><path d="m10.5 7.5-1 1.5"/><path d="m14.5 16.5-1-1.5"/>',
-        "send": '<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',
-        "eye": '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
-        "table": '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>',
-        "layers": '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
-        "tabs": '<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M2 11h20"/><path d="M6 7v4"/><path d="M12 7v4"/>',
-        "map": '<polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>',
-        "command": '<rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><polyline points="9 9 12 12 9 15"/><line x1="13" y1="15" x2="15" y2="15"/>',
-        "handshake": '<path d="M8 12.5L4 16.5M16 12.5L20 16.5M12 15v4M7 8h10"/><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/>',
-        "truck": '<rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
-        "trending-up": '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
-        "trending-down": '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
-        "calendar": '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
-        "edit": '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',
-        "bell": '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
-        "manager": '<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
-        "employee": '<circle cx="12" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>',
-        "print": '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
-        "activity": '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'
-    }
-    path = svg_map.get(name, "")
-    return f'<svg xmlns="http://www.w3.org/2000/svg" class="{class_name}" width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{path}</svg>'
-
-def get_base64_svg(icon_name, color="#00f2ff"):
-    svg_str = get_icon(icon_name, 24, color)
-    b64 = base64.b64encode(svg_str.encode('utf-8')).decode('utf-8')
-    return f"data:image/svg+xml;base64,{b64}"
-
-# ============================================================
-# 2. التنسيقات العامة والـ CSS (محدثة للإخفاء التام لعلامات Streamlit وتصميم واتساب)
-# ============================================================
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Orbitron:wght@400;700;900&display=swap');
-
-/* التدمير الشامل لقوائم وأزرار Streamlit Cloud و Manage app */
-#MainMenu {visibility: hidden !important; display: none !important;}
-footer {visibility: hidden !important; display: none !important;}
-header {visibility: hidden !important; display: none !important;}
-[data-testid="stHeader"] {display: none !important;}
-[data-testid="stToolbar"] {display: none !important;}
-[data-testid="manage-app-button"] {display: none !important;}
-.viewerBadge_container__1QSob {display: none !important;}
-
-:root {
-    --c-primary:   #00f2ff;
-    --c-secondary: #7000ff;
-    --c-accent:    #ff2d78;
-    --c-gold:      #ffd700;
-    --c-bg:        #04040a;
-    --c-bg2:       #080810;
-    --c-card:      rgba(15,15,25,0.7);
-    --c-glass:     rgba(255,255,255,0.03);
-    --c-border:    rgba(255,255,255,0.08);
-    --c-dim:       #64748b;
-    --r:           16px;
-    --r-sm:        10px;
-    --shadow-glow: 0 0 25px rgba(0,242,255,0.15);
-    --transition:  all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-html, body, [class*="css"] {
-    font-family: 'Cairo', sans-serif;
-    direction: rtl; background: var(--c-bg) !important; color: #e2e8f0;
-}
-::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--c-dim); border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: var(--c-primary); }
-
-@keyframes fadeUp {
-    0% { opacity: 0; transform: translateY(20px); }
-    100% { opacity: 1; transform: translateY(0); }
-}
-.g-card, .custom-metric, .page-header, [data-testid="stTabs"] {
-    animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-[data-testid="stAppViewBlockContainer"] {
-    max-width: 100% !important;
-    padding: 1rem 2rem !important;
-    overflow-x: hidden !important;
-}
-
-[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #05050c 0%, #030306 100%) !important;
-    border-left: 1px solid var(--c-border) !important; 
-}
-[data-testid="stSidebarUserContent"] {
-    padding-right: 5px;
-}
-
-.sidebar-brand {
-    padding: 30px 20px 25px; border-bottom: 1px solid var(--c-border);
-    margin-bottom: 15px; text-align: center; position: relative; overflow: hidden;
-}
-.sidebar-brand::before {
-    content: ''; position: absolute; top: -50px; left: 50%; transform: translateX(-50%);
-    width: 100px; height: 100px; background: var(--c-primary); filter: blur(60px); opacity: 0.2; pointer-events: none;
-}
-.brand-logo {
-    width: 60px; height: 60px; border-radius: 16px;
-    background: linear-gradient(135deg, rgba(0,242,255,0.15), rgba(112,0,255,0.15));
-    border: 1px solid rgba(0,242,255,0.4); margin: 0 auto 12px;
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 0 20px rgba(0,242,255,0.2); color: var(--c-primary);
-}
-.brand-name { font-family: 'Orbitron', sans-serif; font-size: 0.85rem; letter-spacing: 4px; color: #fff; text-shadow: 0 0 10px rgba(0,242,255,0.5); font-weight: 900;}
-.brand-ver { font-size: 0.65rem; color: var(--c-primary); margin-top: 6px; font-weight: bold; background: rgba(0,242,255,0.1); padding: 2px 8px; border-radius: 99px; display: inline-block;}
-
-[data-testid="stSidebar"] div.stButton > button {
-    background: transparent !important; 
-    border: 1px solid transparent !important;
-    color: var(--c-dim) !important; 
-    justify-content: flex-start !important;
-    padding: 12px 18px !important; 
-    font-weight: 700 !important; 
-    font-size: 1.05rem !important;
-    border-radius: var(--r-sm) !important; 
-    box-shadow: none !important; 
-    transition: var(--transition);
-}
-[data-testid="stSidebar"] div.stButton > button:hover { 
-    background: rgba(255,255,255,0.05) !important; 
-    color: #fff !important; 
-    transform: translateX(-5px) !important; 
-}
-[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
-    background: rgba(0, 242, 255, 0.15) !important;
-    color: var(--c-primary) !important;
-    border: 1px solid rgba(0, 242, 255, 0.4) !important;
-    box-shadow: 0 0 15px rgba(0, 242, 255, 0.1) !important;
-    font-weight: 900 !important;
-}
-
-div[role="radiogroup"] { display: flex; flex-direction: row; flex-wrap: wrap; gap: 12px; }
-div[role="radiogroup"] > label { background: rgba(0, 242, 255, 0.05) !important; border: 1px solid rgba(0, 242, 255, 0.2) !important; padding: 8px 20px !important; border-radius: 99px !important; cursor: pointer !important; margin: 0 !important; transition: var(--transition) !important; }
-div[role="radiogroup"] > label:hover { background: rgba(0, 242, 255, 0.15) !important; }
-div[role="radiogroup"] > label:has(input:checked) { background: var(--c-primary) !important; border-color: var(--c-primary) !important; box-shadow: 0 0 15px rgba(0, 242, 255, 0.4) !important; }
-div[role="radiogroup"] > label:has(input:checked) div[data-testid="stMarkdownContainer"] p { color: #000 !important; font-weight: 900 !important; }
-div[role="radiogroup"] > label > div:first-child { display: none !important; }
-
-/* ── WhatsApp Style Chat (RTL & Clean) ──────────────────────────── */
-[data-testid="stChatMessage"] {
-    background: transparent !important;
-    border: none !important;
-    padding: 0 !important;
-    margin-bottom: 1.5rem !important;
-    display: flex !important;
-    flex-direction: column !important; 
-    clear: both !important;
-}
-
-[data-testid="stChatMessage"]:has(.msg-user) {
-    align-items: flex-start !important; /* Right side in RTL */
-}
-
-[data-testid="stChatMessage"]:has(.msg-assistant) {
-    align-items: flex-end !important; /* Left side in RTL */
-}
-
-[data-testid="stChatMessageContent"] {
-    padding: 0 !important;
-    background: transparent !important;
-    width: fit-content !important;
-    max-width: 80% !important;
-    display: flex;
-    flex-direction: column;
-}
-
-.chat-bubble {
-    padding: 12px 18px !important;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
-    border: 1px solid rgba(255,255,255,0.05);
-    font-family: 'Cairo', sans-serif !important;
-}
-
-[data-testid="stChatMessage"]:has(.msg-user) .chat-bubble {
-    background-color: #005c4b !important;
-    border-radius: 12px 0 12px 12px !important;
-}
-
-[data-testid="stChatMessage"]:has(.msg-assistant) .chat-bubble {
-    background-color: #202c33 !important;
-    border-radius: 0 12px 12px 12px !important;
-}
-
-/* Hide avatars for neat WhatsApp look */
-[data-testid="stChatAvatar"] { display: none !important; }
-
-.stMarkdown div[dir="rtl"] { text-align: right !important; }
-.stMarkdown div[dir="rtl"] p { font-size: 1.05rem !important; line-height: 1.8 !important; color: #e9edef !important; margin-bottom: 5px !important; }
-.stMarkdown div[dir="rtl"] ul, .stMarkdown div[dir="rtl"] ol { padding-right: 1.5rem !important; padding-left: 0 !important; margin-bottom: 1rem !important; color: #e9edef !important; }
-.stMarkdown div[dir="rtl"] strong { color: #00f2ff !important; }
-
-/* Buttons styling inside chat */
-[data-testid="stChatMessage"] div.stButton > button { 
-    padding: 6px 10px !important; 
-    font-size: 0.85rem !important; 
-    background: rgba(0,0,0,0.2) !important; 
-    border: 1px solid rgba(255,255,255,0.05) !important; 
-    color: #8696a0 !important; 
-    margin-top: 8px !important; 
-    border-radius: 6px !important; 
-    width: 100% !important; 
-    min-height: 36px !important; 
-    height: auto !important;
-    line-height: 1.5 !important; 
-    white-space: nowrap !important;
-    transition: var(--transition); 
-}
-[data-testid="stChatMessage"] div.stButton > button:hover { 
-    background: rgba(255,255,255,0.1) !important; 
-    color: #fff !important; 
-}
-
-.stSpinner > div > div { border-color: var(--c-primary) transparent transparent transparent !important; }
-
-/* ── UI Elements ──────────────────────────── */
-.page-header { position: relative; overflow: hidden; padding: 2.5rem 3rem; margin-bottom: 1rem; border-radius: var(--r); background: linear-gradient(135deg, #090912, #050508); border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 20px 40px rgba(0,0,0,0.6); display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
-.page-header::after { content: ''; position: absolute; right: 0; top: 0; width: 40%; height: 100%; background: radial-gradient(circle at right, rgba(0,242,255,0.08), transparent 70%); pointer-events: none; }
-.ph-icon-wrap { background: rgba(0,242,255,0.05); border-radius: 16px; padding: 18px; display: flex; border: 1px solid rgba(0,242,255,0.2); box-shadow: inset 0 0 20px rgba(0,242,255,0.05); }
-.ph-title { font-size: 2.2rem; font-weight: 900; color: #fff; margin: 0; letter-spacing: -0.5px; line-height: 1.2;}
-.ph-sub { color: #94a3b8; font-size: 1rem; margin-top: 8px; font-weight: 600; line-height: 1.5;}
-
-.g-card { background: var(--c-card); backdrop-filter: blur(25px); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--r); padding: 1.8rem; margin-bottom: 1.5rem; transition: var(--transition); overflow-x: auto; }
-.g-card:hover { border-color: rgba(0,242,255,0.25); box-shadow: 0 15px 35px rgba(0,0,0,0.5), 0 0 20px rgba(0,242,255,0.05); transform: translateY(-2px); }
-.g-card-title { font-weight: 800; font-size: 1.2rem; color: #fff; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; white-space: normal; line-height: 1.4; flex-wrap: wrap;} 
-
-.delta-pos { color: #00ff82; font-size: 0.85rem; font-weight: 800; margin-left: 8px; background: rgba(0,255,130,0.1); padding: 2px 8px; border-radius: 99px; }
-.delta-neg { color: #ff2d78; font-size: 0.85rem; font-weight: 800; margin-left: 8px; background: rgba(255,45,120,0.1); padding: 2px 8px; border-radius: 99px; }
-.delta-neu { color: #cbd5e1; font-size: 0.85rem; font-weight: 800; margin-left: 8px; background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 99px; }
-
-.custom-metric { background: rgba(15,15,20,0.8); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05); border-radius: var(--r); padding: 1.5rem; position: relative; overflow: hidden; transition: var(--transition); display: flex; flex-direction: column; gap: 12px; cursor: pointer; min-width: 180px; height: 100%; }
-.custom-metric::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at top right, rgba(0,242,255,0.1), transparent 60%); opacity: 0; transition: opacity 0.4s; }
-.custom-metric::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--c-primary), var(--c-secondary)); transform: scaleX(0); transform-origin: right; transition: transform 0.4s ease; }
-.custom-metric:hover { border-color: rgba(0,242,255,0.4); transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0,0,0,0.6); }
-.custom-metric:hover::before { opacity: 1; }
-.custom-metric:hover::after { transform: scaleX(1); transform-origin: left; }
-.cm-top { display: flex; justify-content: space-between; align-items: flex-start; position: relative; z-index: 1;}
-.cm-label { color: #cbd5e1; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; white-space: normal; line-height: 1.3;} 
-.cm-val { font-family: 'Orbitron', sans-serif; color: #fff; font-weight: 900; font-size: 1.8rem; position: relative; z-index: 1; text-shadow: 0 2px 10px rgba(0,0,0,0.5); word-wrap: break-word; display: flex; align-items: center; gap: 5px;}
-
-.neon-forecast { font-family: 'Orbitron', sans-serif; color: #ffd700; text-shadow: 0 0 15px rgba(255,215,0,0.6); font-size: 2rem; font-weight: 900; }
-
-[data-testid="stTextInput"]>div>div>input, [data-testid="stSelectbox"]>div>div, [data-testid="stMultiSelect"]>div, [data-testid="stTextArea"]>div>div>textarea { background: rgba(0,0,0,0.2) !important; border: 1px solid rgba(255,255,255,0.1) !important; color: #fff !important; border-radius: var(--r-sm) !important; }
-[data-testid="stTextInput"]>div>div>input:focus, [data-testid="stTextArea"]>div>div>textarea:focus { border-color: var(--c-primary) !important; box-shadow: 0 0 0 2px rgba(0,242,255,0.2) !important; }
-[data-testid="stDataFrame"] { border: 1px solid var(--c-border) !important; border-radius: var(--r-sm) !important; background: var(--c-bg2) !important; overflow-x: auto !important;}
-[data-testid="stDataFrame"] th { background: rgba(0,242,255,0.08) !important; color: var(--c-primary) !important; font-weight: 800 !important; font-size: 0.9rem !important; white-space: nowrap !important;}
-[data-testid="stExpander"] { border: 1px solid rgba(255,255,255,0.08) !important; border-radius: var(--r-sm) !important; background: rgba(15,15,25,0.5) !important; }
-
-[data-baseweb="tab-list"] { background: transparent !important; border-bottom: 2px solid rgba(255,255,255,0.05) !important; gap: 8px; overflow-x: auto !important; flex-wrap: nowrap !important;}
-[data-baseweb="tab"] { font-family: 'Cairo', sans-serif !important; font-weight: 700 !important; color: var(--c-dim) !important; background: rgba(255,255,255,0.02) !important; border-radius: 8px 8px 0 0 !important; padding: 10px 20px !important; border: 1px solid transparent !important; margin: 0 !important; white-space: nowrap;}
-[aria-selected="true"] { color: var(--c-primary) !important; border: 1px solid rgba(0,242,255,0.3) !important; border-bottom: none !important; background: rgba(0,242,255,0.05) !important;}
-
-/* ── Live Ticker Animation ──────────────────────────── */
-.ticker-wrap { width: 100%; overflow: hidden; background: rgba(0,0,0,0.5); border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05); padding: 8px 0; margin-bottom: 20px; box-shadow: inset 0 0 10px rgba(0,0,0,0.8); }
-.ticker-move { display: inline-block; white-space: nowrap; padding-right: 100%; box-sizing: content-box; animation: ticker 40s linear infinite; }
-.ticker-move:hover { animation-play-state: paused; }
-@keyframes ticker { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(100%, 0, 0); } }
-.ticker-item { display: inline-block; padding: 0 2rem; font-size: 0.95rem; font-weight: 700; color: #e2e8f0; }
-.ticker-item span { color: var(--c-primary); margin-left: 5px; }
-
-</style>
-""", unsafe_allow_html=True)
-
-# ============================================================
-# 3. إدارة الحالة (State Management) وربط النظام الموحد
-# ============================================================
-
-ALL_NAV_ITEMS = [
-    ("dashboard", "dashboard", "لوحة القيادة"),
-    ("departments", "layers", "أداء الأقسام"),
-    ("forecast", "bulb", "التنبؤ المستقبلي"),
-    ("ai", "send", "مكتب المدير"),
-    ("fusion", "fusion", "مختبر البيانات"),
-    ("territories", "globe", "التحليل الجغرافي"),
-    ("settings", "settings", "إعدادات النظام")
-]
-
 def init_state():
     # قراءة متغيرات الرابط المباشر
     url_ws = st.query_params.get("workspace")
@@ -809,7 +459,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
     df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v42.6</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v42.7</div></div>""", unsafe_allow_html=True)
         
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
@@ -861,22 +511,24 @@ def style_dataframe(df):
     if hasattr(df, 'data') and df.data.empty: return df
     if not hasattr(df, 'data') and df.empty: return df
     
-    # نسخة آمنة تماماً لحماية النظام من الانهيار
+    # نسخة آمنة تماماً لحماية النظام من الانهيار (Crash Prevention)
     df_safe = df.data.copy() if hasattr(df, 'data') else df.copy()
     
     numeric_cols = ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة', 'هامش الربح %', 'إجمالي العروض']
     
-    # التنظيف الجذري للبيانات لضمان عمل الألوان في نوافذ الفلترة
+    # 1. تنظيف الأرقام الجذري ومعالجة الفراغات
     for col in numeric_cols:
         if col in df_safe.columns:
             if df_safe[col].dtype == 'object':
                 df_safe[col] = df_safe[col].astype(str).str.replace(',', '', regex=False).str.replace(' ج.م', '', regex=False).str.replace('%', '', regex=False)
             df_safe[col] = pd.to_numeric(df_safe[col], errors='coerce').fillna(0)
 
+    # 2. تنظيف النصوص الجذري لمنع صدمة PyArrow داخل Streamlit
     for col in df_safe.columns:
-        if col not in numeric_cols and df_safe[col].dtype == 'object':
-            df_safe[col] = df_safe[col].astype(str)
+        if col not in numeric_cols:
+            df_safe[col] = df_safe[col].fillna("").astype(str)
 
+    # 3. تجهيز قاموس التنسيقات
     format_dict = {}
     for col in ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح']:
         if col in df_safe.columns: format_dict[col] = "{:,.0f} ج.م"
@@ -887,22 +539,21 @@ def style_dataframe(df):
     if 'هامش الربح %' in df_safe.columns:
         format_dict['هامش الربح %'] = "{:.1f}%"
     
+    # 4. تحديد العمود الذي سيتم تطبيق الخريطة الحرارية عليه
     target_cols = ['صافي الربح', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الكمية المطلوبة', 'الإيرادات', 'إجمالي العروض']
     target_col = next((c for c in target_cols if c in df_safe.columns), None)
     
-    # الترتيب التلقائي من الأكبر للأصغر
+    # 5. الترتيب التلقائي من الأكبر للأصغر
     if target_col:
         df_safe = df_safe.sort_values(by=target_col, ascending=False).reset_index(drop=True)
     
-    # تطبيق الخريطة الحرارية والتنسيقات بأمان مطلق
+    # 6. تطبيق التلوين بأمان مطلق
     try:
         styler = df_safe.style
-        # APPLY GRADIENT FIRST!!!
         if target_col:
             styler = styler.background_gradient(subset=[target_col], cmap='RdYlGn')
-        # APPLY FORMATTING SECOND!!!
         if format_dict:
-            styler = styler.format(format_dict, na_rep="-")
+            styler = styler.format(format_dict) # تم إزالة na_rep لأنه كان المسبب الأول للانهيار
         return styler
     except Exception:
         return df_safe
