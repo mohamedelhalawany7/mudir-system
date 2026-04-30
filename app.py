@@ -23,6 +23,17 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# القائمة الجانبية (تعريف المتغير الذي كان مفقوداً في النسخة السابقة لتجنب الأخطاء)
+ALL_NAV_ITEMS = [
+    ('dashboard', 'dashboard', 'لوحة القيادة'),
+    ('departments', 'layers', 'أداء الأقسام'),
+    ('forecast', 'bulb', 'التنبؤ المستقبلي'),
+    ('territories', 'globe', 'التحليل الجغرافي'),
+    ('fusion', 'fusion', 'مختبر الاندماج'),
+    ('ai', 'command', 'مكتب المدير'),
+    ('settings', 'settings', 'الإعدادات')
+]
+
 # ============================================================
 # 0. نظام الحفظ الديناميكي وإدارة التراخيص (License & Workspace)
 # ============================================================
@@ -690,7 +701,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
     df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v44.0</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v45.0</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         allowed_navs = []
@@ -1562,9 +1573,8 @@ def render_ai():
             with st.spinner("يكتب الآن..."):
                 base_prompt = CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT)
                 
-                # جلب الوصف الوظيفي للموظف الحالي ليستخدمه الذكاء الاصطناعي
+                # جلب البيانات المخصصة للموظف (احتياجات الشركة و KPIs)
                 curr_emp_data = next((e for e in CFG.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == curr_user), None)
-                job_desc = curr_emp_data.get('job_desc', 'لا يوجد وصف وظيفي محدد.') if curr_emp_data else 'أنت المدير العام.'
                 
                 live_context = f"""
                 
@@ -1581,14 +1591,19 @@ def render_ai():
 
 الموظف اللي بيكلمك دلوقتي: {curr_user}.
 """
-                if curr_user != "المدير العام":
+                if curr_user != "المدير العام" and curr_emp_data:
+                    # جلب الاحتياجات ومؤشرات الأداء بشكل دقيق مع دعم الإصدارات القديمة
+                    role_needs = curr_emp_data.get('role_needs', curr_emp_data.get('job_desc', 'غير محدد'))
+                    kpis = curr_emp_data.get('kpis', 'غير محدد')
+                    
                     live_context += f"\n=== ملف الموظف الحالي ({curr_user}) ===\n"
-                    live_context += f"المهام والأهداف المطلوبة من هذا الموظف (KPIs):\n{job_desc}\n"
-                    live_context += "بصفتك المدير، قم بتوجيه الموظف ومحاسبته وإعطائه مهام بناءً على هذا الوصف الوظيفي والأهداف بدقة وبدون أي مجاملة.\n"
+                    live_context += f"- احتياجات الشركة منه:\n{role_needs}\n"
+                    live_context += f"- مؤشرات الأداء المطلوبة (KPIs):\n{kpis}\n\n"
+                    live_context += "بصفتك المدير، قم بتوجيه هذا الموظف وتكليفه بمهام صارمة تخدم 'احتياجات الشركة' المذكورة، وحاسبه وتابعه بناءً على 'مؤشرات الأداء (KPIs)' الخاصة به بدقة وبدون أي مجاملة.\n"
 
                 live_context += """
-**مهم جداً جداً للتقييم**: في نهاية أي رسالة بتكتبها، لازم تقيم الموظف (إذا لم يكن هو المدير العام) من 10 وتكتب تعليق سري عن أدائه. التقييم ده لازم يكون في آخر سطر بالظبط بالشكل ده:
-$$EVAL: 8/10 - الموظف ردوده إيجابية بس محتاج يسرع رتمه شوية$$
+**مهم جداً جداً للتقييم**: في نهاية أي رسالة بتكتبها، لازم تقيم الموظف (إذا لم يكن هو المدير العام) من 10 وتكتب تعليق سري عن أدائه مرتبط بالـ KPIs بتاعته. التقييم ده لازم يكون في آخر سطر بالظبط بالشكل ده:
+$$EVAL: 8/10 - الموظف مهتم بس مقصر في الـ KPI التاني الخاص بالمكالمات$$
 إياك تنسى كود الـ $$EVAL: في النهاية، وإياك تعرف الموظف إنك بتقيمه أو بتكتب الكود ده. السرية التامة ضرورية."""
 
                 sys_prompt = base_prompt + "\n" + live_context
@@ -1799,10 +1814,12 @@ def render_settings():
         with c_emp2: new_emp_role = st.text_input("الوظيفة / القسم", placeholder="مثال: مبيعات هاتفية")
         with c_emp3: new_emp_pin = st.text_input("الرقم السري للموظف (PIN)", placeholder="مثال: 1234")
         
-        new_emp_desc = st.text_area("الوصف الوظيفي والأهداف (KPIs)", placeholder="اكتب هنا مهام الموظف وما تتوقعه منه، ليقوم الذكاء الاصطناعي بمتابعته وتوجيهه بناءً عليها...")
+        # التعديل الجديد: فصل احتياجات الشركة ومؤشرات الأداء
+        new_emp_needs = st.text_area("احتياجات الشركة من هذه الوظيفة", placeholder="مثال: نحتاج لزيادة المبيعات بنسبة 20% وفتح أسواق جديدة في الخليج...")
+        new_emp_kpis = st.text_area("مؤشرات الأداء الرئيسية المطلوبة (KPIs)", placeholder="مثال: 1. إغلاق 5 صفقات أسبوعياً.\n2. الاتصال بـ 50 عميل يومياً...")
         
         view_options = {i[2]: i[0] for i in ALL_NAV_ITEMS if i[0] not in ['settings']}
-        new_emp_views = st.multiselect("الشاشات المسموحة", list(view_options.keys()), default=["مكتب المدير"])
+        new_emp_views = st.multiselect("الشاشات المسموحة للموظف", list(view_options.keys()), default=["مكتب المدير"])
 
         if st.button("إضافة الموظف للنظام", use_container_width=True, type="primary"):
             if len(current_emps) >= max_devices:
@@ -1813,7 +1830,9 @@ def render_settings():
                     'name': new_emp_name, 
                     'role': new_emp_role, 
                     'pin': new_emp_pin, 
-                    'job_desc': new_emp_desc,
+                    'role_needs': new_emp_needs,  # إضافة الحقل الجديد
+                    'kpis': new_emp_kpis,         # إضافة الحقل الجديد
+                    'job_desc': new_emp_needs + "\n" + new_emp_kpis, # للتوافق مع الإصدارات القديمة إذا لزم الأمر
                     'views': view_keys
                 })
                 CFG['EMPLOYEES'] = current_emps
@@ -1828,7 +1847,10 @@ def render_settings():
         for i, emp in enumerate(current_emps):
             views_str = ", ".join([v for k, v in view_options.items() if emp.get('views') and view_options[k] in emp['views']])
             pin_display = emp.get('pin', '0000')
-            desc_display = emp.get('job_desc', 'لا يوجد وصف.')
+            
+            # جلب البيانات بشكل آمن لتدعم الموظفين المسجلين قديماً
+            needs_display = emp.get('role_needs', emp.get('job_desc', 'لم يتم تحديد احتياجات.'))
+            kpis_display = emp.get('kpis', 'لم يتم تحديد KPIs.')
             
             st.markdown(f"""
             <div style="background:rgba(15,15,20,0.6); padding:15px; border-radius:10px; border-right: 4px solid var(--c-primary); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
@@ -1836,15 +1858,21 @@ def render_settings():
                     <div style="font-size:1.1rem; font-weight:bold; color:#fff; margin-bottom:5px;">
                         {emp['name']} <span style="font-size:0.85rem; font-weight:normal; color:var(--c-dim);">({emp['role']})</span>
                     </div>
-                    <div style="font-size:0.85rem; color:#e2e8f0; margin-bottom:5px;">
+                    <div style="font-size:0.85rem; color:#e2e8f0; margin-bottom:10px;">
                         <span style="color:var(--c-primary);">الشاشات:</span> {views_str}
                     </div>
-                    <div style="font-size:0.85rem; color:#cbd5e1; line-height:1.4;">
-                        <span style="color:#00ff82;">المهام (KPIs):</span> {desc_display}
+                    
+                    <div style="background: rgba(255,255,255,0.02); padding: 10px; border-radius: 8px; margin-bottom: 5px;">
+                        <div style="font-size:0.85rem; color:#cbd5e1; line-height:1.4; margin-bottom: 8px;">
+                            <span style="color:var(--c-gold); font-weight:bold;">احتياجات الشركة:</span> {needs_display}
+                        </div>
+                        <div style="font-size:0.85rem; color:#cbd5e1; line-height:1.4;">
+                            <span style="color:#00ff82; font-weight:bold;">مؤشرات الأداء (KPIs):</span> {kpis_display}
+                        </div>
                     </div>
                 </div>
-                <div style="text-align:left; min-width:120px;">
-                    <div style="background:rgba(255,215,0,0.1); color:#ffd700; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:0.9rem; margin-bottom:10px; text-align:center; border:1px solid rgba(255,215,0,0.3);">
+                <div style="text-align:left; min-width:120px; padding-right: 15px;">
+                    <div style="background:rgba(255,215,0,0.1); color:#ffd700; padding:6px 10px; border-radius:6px; font-weight:bold; font-size:1rem; margin-bottom:10px; text-align:center; border:1px solid rgba(255,215,0,0.3);">
                         PIN: {pin_display}
                     </div>
             """, unsafe_allow_html=True)
