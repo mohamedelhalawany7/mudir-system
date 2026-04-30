@@ -1731,7 +1731,7 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
             smart_report_html = call_universal_ai([{"role": "user", "content": report_prompt}])
             smart_report_html = smart_report_html.replace('```html', '').replace('```', '').strip()
         except Exception as e:
-            error_details = str(e)
+            error_details = str(e).replace('<', '&lt;').replace('>', '&gt;')
             if len(error_details) > 150: 
                 error_details = error_details[:150] + "..."
                 
@@ -1742,7 +1742,7 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
                     حدثت مشكلة أثناء الاتصال بمحرك الذكاء الاصطناعي بسبب الضغط الكثيف على الخادم حالياً.<br>
                     <strong>نرجو الانتظار لبضع دقائق، ثم إعادة المحاولة.</strong>
                 </p>
-                <div style="color: #94a3b8; font-size: 0.85rem; margin-top: 15px; direction: ltr; text-align: left; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px;">(Error: {error_details})</div>
+                <div style="color: #94a3b8; font-size: 0.85rem; margin-top: 15px; direction: ltr; text-align: left; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">(Error: {error_details})</div>
             </div>
             """
 
@@ -1840,8 +1840,16 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
             </div>
         </div>
 
-        <div style="background: #0b141a; padding: 30px; border-radius: 12px; border-right: 4px solid #00a884; color: #e9edef; font-size: 1.05rem; line-height: 1.8;">
-            {smart_report_html.replace('<h2>', '<h3 style="color:#00a884; font-weight:700; margin-top:1.5rem; border-bottom:1px solid #202c33; padding-bottom:10px;">').replace('</h2>', '</h3>').replace('<h3>', '<h4 style="color:#00f2ff; font-weight:600; margin-top:1rem;">').replace('</h3>', '</h4>')}
+        <style>
+            .ai-report-box h2 {{ color: #00a884; font-weight: 700; margin-top: 1.5rem; border-bottom: 1px solid #202c33; padding-bottom: 10px; font-size: 1.5rem; }}
+            .ai-report-box h3 {{ color: #00f2ff; font-weight: 600; margin-top: 1rem; font-size: 1.25rem; }}
+            .ai-report-box h4 {{ color: #ffd700; font-weight: 600; margin-top: 1rem; font-size: 1.1rem; }}
+            .ai-report-box p {{ margin-bottom: 15px; }}
+            .ai-report-box ul, .ai-report-box ol {{ padding-right: 20px; margin-bottom: 15px; }}
+            .ai-report-box li {{ margin-bottom: 8px; }}
+        </style>
+        <div class="ai-report-box" style="background: #0b141a; padding: 30px; border-radius: 12px; border-right: 4px solid #00a884; color: #e9edef; font-size: 1.05rem; line-height: 1.8;">
+            {smart_report_html}
         </div>
     </div>
     <br>
