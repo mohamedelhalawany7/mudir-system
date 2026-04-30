@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v48.1 (PREMIUM RESPONSIVE CHAT UI)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v48.2 (SMART AI EXECUTIVE REPORTS)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -848,7 +848,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v48.1</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v48.2</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         allowed_navs = []
@@ -1661,7 +1661,7 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
     emp_data = next((e for e in CFG.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == emp_full_name), None)
     kpis = emp_data.get('job_desc', 'لا يوجد مهام مسجلة') if emp_data else 'لا يوجد'
     
-    # 2. Get Sales Performance from Odoo (df_s_master)
+    # 2. Get Sales Performance
     appr_sales, draft_sales, orders_count = 0, 0, 0
     if not df_s_master.empty and 'user_id' in df_s_master.columns and 'date_order' in df_s_master.columns:
         s_df = df_s_master.copy()
@@ -1676,10 +1676,9 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
             appr_sales = emp_s[emp_s['state'].isin(['sale', 'done'])]['amount_total'].sum()
             draft_sales = emp_s[emp_s['state'].isin(['draft', 'sent'])]['amount_total'].sum()
             orders_count = len(emp_s[emp_s['state'].isin(['sale', 'done'])])
-        except Exception:
-            pass
+        except: pass
             
-    # 3. Get Evaluations History
+    # 3. Get Evals & Chats
     eval_history = CFG.get('EVAL_HISTORY', {}).get(emp_full_name, [])
     filtered_evals = []
     for ev in eval_history:
@@ -1689,7 +1688,6 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
                 filtered_evals.append(ev)
         except: pass
         
-    # 4. Get Audit Log (Accomplishments / Activities)
     audit_log = CFG.get('AUDIT_LOG', {}).get(emp_full_name, [])
     activities = []
     for al in audit_log:
@@ -1699,86 +1697,87 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
                 activities.append(al)
         except: pass
 
-    # --- Build HTML for Export ---
-    html_report = f"""
+    # Generate Smart Report
+    with st.spinner("جاري تحليل البيانات وتوليد التقرير الذكي بواسطة الذكاء الاصطناعي..."):
+        evals_str = "\n".join([f"[{e['date']}] {e['eval']}" for e in filtered_evals])[-1500:]
+        chats_str = "\n".join([f"[{c['timestamp']}] {'الموظف' if c.get('role')=='user' else 'المدير'}: {c.get('content','')}" for c in activities])[-3000:]
+
+        report_prompt = f"""
+        أنت خبير تقييم أداء (HR Executive). قم بكتابة تقرير أداء ذكي وملخص لموظف بناءً على البيانات التالية:
+        - اسم الموظف: {emp_short}
+        - الوظيفة: {emp_role}
+        - المبيعات المعتمدة (في الفترة): {appr_sales:,.0f} ج.م
+        - العروض المعلقة (في الفترة): {draft_sales:,.0f} ج.م
+        - الطلبات الناجحة: {orders_count}
+        - الأهداف المطلوبة (KPIs): {kpis}
+
+        سجل التقييمات السابقة (مستخرجة من الذكاء الاصطناعي):
+        {evals_str if evals_str else 'لا يوجد'}
+
+        مقتطفات من تفاعلات الموظف (الشات):
+        {chats_str if chats_str else 'لا يوجد'}
+
+        المطلوب:
+        اكتب تقرير إداري مكثف ومنظم بصيغة Markdown، يكون مناسب للطباعة في صفحة واحدة، ويتضمن:
+        1. ملخص تنفيذي لأداء الموظف.
+        2. مدى التزامه بالتوجيهات اليومية وإعداد التقارير.
+        3. نقاط القوة، ونقاط الضعف أو فرص التحسين.
+        4. التقييم النهائي العام (من 10).
+
+        تجنب الإطالة نهائياً، استخدم نقاط واضحة، لغة احترافية، بدون رموز تعبيرية (Emojis).
+        """
+        try:
+            smart_report_md = call_universal_ai([{"role": "user", "content": report_prompt}])
+        except Exception:
+            smart_report_md = "حدث خطأ أثناء توليد التقرير الذكي من الخادم. يرجى المحاولة لاحقاً."
+
+    # Convert markdown to basic HTML for export
+    html_friendly_report = smart_report_md.replace("\n", "<br>").replace("**", "")
+
+    html_export = f"""
     <html dir="rtl" lang="ar">
     <head>
         <meta charset="utf-8">
         <style>
-            body {{ font-family: 'Arial', sans-serif; padding: 20px; color: #333; direction: rtl; text-align: right; }}
+            body {{ font-family: 'Arial', sans-serif; padding: 20px; color: #333; direction: rtl; text-align: right; line-height: 1.6; }}
             h1 {{ color: #005c4b; text-align: center; border-bottom: 2px solid #005c4b; padding-bottom: 10px; margin-bottom: 30px; }}
-            h2 {{ color: #202c33; margin-top: 30px; background: #f0f2f5; padding: 10px; border-radius: 5px; border-right: 4px solid #005c4b; }}
-            .metric-container {{ display: flex; justify-content: space-between; text-align: center; margin-bottom: 20px; }}
             .metric-box {{ border: 1px solid #ccc; padding: 15px; border-radius: 8px; width: 30%; background: #fafafa; display: inline-block; text-align: center; margin: 1%; }}
             .metric-val {{ font-size: 24px; font-weight: bold; color: #005c4b; margin-top: 5px; }}
-            .eval-item {{ border-right: 4px solid #00f2ff; padding: 10px; margin-bottom: 10px; background: #f9f9f9; }}
-            .act-item {{ margin-bottom: 5px; font-size: 14px; border-bottom: 1px dashed #eee; padding-bottom: 5px; }}
         </style>
     </head>
     <body>
         <h1>تقرير الأداء والتقييم الشامل</h1>
-        <p><strong>اسم الموظف:</strong> {emp_short}</p>
-        <p><strong>الوظيفة/القسم:</strong> {emp_role}</p>
+        <p><strong>اسم الموظف:</strong> {emp_short} &nbsp;&nbsp; | &nbsp;&nbsp; <strong>الوظيفة:</strong> {emp_role}</p>
         <p><strong>فترة التقرير:</strong> من {start_date} إلى {end_date}</p>
-        
-        <h2>المؤشرات الرقمية المحققة (من Odoo)</h2>
-        <div style="text-align: center;">
-            <div class="metric-box">
-                <div>مبيعات معتمدة</div>
-                <div class="metric-val">{appr_sales:,.0f} ج.م</div>
-            </div>
-            <div class="metric-box">
-                <div>عروض مسودة / معلقة</div>
-                <div class="metric-val">{draft_sales:,.0f} ج.م</div>
-            </div>
-            <div class="metric-box">
-                <div>الطلبات الناجحة</div>
-                <div class="metric-val">{orders_count} طلب</div>
-            </div>
+
+        <div style="text-align: center; margin-bottom: 30px;">
+            <div class="metric-box"><div>مبيعات معتمدة</div><div class="metric-val">{appr_sales:,.0f} ج</div></div>
+            <div class="metric-box"><div>عروض مسودة</div><div class="metric-val">{draft_sales:,.0f} ج</div></div>
+            <div class="metric-box"><div>طلبات ناجحة</div><div class="metric-val">{orders_count}</div></div>
         </div>
 
-        <h2>المهام والأهداف (KPIs)</h2>
-        <p style="white-space: pre-wrap; line-height: 1.6;">{kpis}</p>
-
-        <h2>التقييمات الإدارية (AI Evaluations)</h2>
+        <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; border-right: 4px solid #005c4b;">
+            {html_friendly_report}
+        </div>
+    </body></html>
     """
-    if filtered_evals:
-        for ev in reversed(filtered_evals): # newest first
-            html_report += f"<div class='eval-item'><small style='color:#666;'>{ev['date']}</small><br><strong style='line-height: 1.6;'>{ev['eval']}</strong></div>"
-    else:
-        html_report += "<p>لا توجد تقييمات مسجلة في هذه الفترة.</p>"
 
-    html_report += "<h2>سجل التكليفات والتفاعلات الأخير (الإنجازات)</h2>"
-    if activities:
-        for ac in reversed(activities[-20:]): # Last 20 to avoid huge files
-            role_ar = "الموظف" if ac['role'] == 'user' else "المدير"
-            color_role = "#005c4b" if ac['role'] == 'user' else "#666"
-            html_report += f"<div class='act-item'><strong style='color:{color_role};'>[{ac['timestamp']}] {role_ar}:</strong> {ac['content']}</div>"
-    else:
-        html_report += "<p>لا يوجد نشاط مسجل في هذه الفترة.</p>"
-        
-    html_report += "</body></html>"
-    
-    # Display in Streamlit UI
+    # Display in UI
     st.markdown(f"<div style='text-align:center; font-size:1.2rem; margin-bottom: 20px;'><strong>{emp_short}</strong> | {emp_role}</div>", unsafe_allow_html=True)
     m1, m2, m3 = st.columns(3)
     m1.metric("مبيعات معتمدة", f"{appr_sales:,.0f} ج.م")
     m2.metric("عروض مسودة", f"{draft_sales:,.0f} ج.م")
     m3.metric("الطلبات الناجحة", str(orders_count))
     
-    st.markdown("### 📝 التقييمات المسجلة في الفترة")
-    if filtered_evals:
-        for ev in reversed(filtered_evals):
-            st.info(f"**{ev['date']}**\n\n{ev['eval']}")
-    else:
-        st.warning("لا توجد تقييمات في هذه الفترة.")
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.1);'>", unsafe_allow_html=True)
+    st.markdown(smart_report_md)
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.1);'>", unsafe_allow_html=True)
 
-    st.markdown("<hr>", unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
-        st.download_button("📥 تحميل التقرير (Word)", data=html_report.encode('utf-8-sig'), file_name=f"Evaluation_{emp_short}.doc", mime="application/msword", use_container_width=True)
+        st.download_button("📥 تحميل التقرير (Word)", data=html_export.encode('utf-8-sig'), file_name=f"Evaluation_{emp_short}.doc", mime="application/msword", use_container_width=True)
     with c2:
-        st.download_button("🖨️ استخراج للطباعة (PDF)", data=(html_report + "<script>window.print();</script>").encode('utf-8-sig'), file_name=f"Evaluation_{emp_short}.html", mime="text/html", use_container_width=True)
+        st.download_button("🖨️ استخراج للطباعة (PDF)", data=(html_export + "<script>window.print();</script>").encode('utf-8-sig'), file_name=f"Evaluation_{emp_short}.html", mime="text/html", use_container_width=True)
 
 def render_ai():
     # ── ميزة تصدير المحادثة (Chat Export) ──
@@ -1856,7 +1855,7 @@ def render_ai():
                     </div>""", unsafe_allow_html=True)
             
             st.markdown("<hr style='border-color:rgba(255,255,255,0.1); margin: 30px 0;'>", unsafe_allow_html=True)
-            st.markdown(f"<div class='g-card-title' style='color:#00f2ff;'>{get_icon('folder', 22)} تقرير أداء وتقييم الموظف (للطباعة)</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='g-card-title' style='color:#00f2ff;'>{get_icon('folder', 22)} تقرير أداء وتقييم الموظف الذكي (للطباعة)</div>", unsafe_allow_html=True)
             
             emp_list = [u for u in st.session_state.all_chats.keys() if "المدير العام" not in u]
             if emp_list:
