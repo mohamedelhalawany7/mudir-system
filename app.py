@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v46.2 (CRASH PREVENTION FIXED)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v46.5 (ULTIMATE STABILITY)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -122,6 +122,11 @@ def init_state():
     url_ws = st.query_params.get("workspace")
     url_view = st.query_params.get("view")
 
+    if 'view' not in st.session_state:
+        st.session_state.view = 'workspace_login'
+    if 'current_user' not in st.session_state:
+        st.session_state.current_user = None
+
     if url_ws and 'workspace_key' not in st.session_state:
         if url_ws == "SUPER_ADMIN":
             st.session_state.workspace_key = "SUPER_ADMIN"
@@ -152,7 +157,9 @@ def init_state():
         'view': url_view if url_view else 'login', 
         'modal_open': False, 'modal_title': '', 'modal_data': {},
         'current_user': None, 
-        'growth_stream': None, 'last_radar_report': None, 'data_loaded': False
+        'growth_stream': None, 'last_radar_report': None, 'data_loaded': False,
+        'df_s': pd.DataFrame(), 'df_p': pd.DataFrame(), 'df_i': pd.DataFrame(),
+        'df_po': pd.DataFrame(), 'df_pol': pd.DataFrame(), 'is_real_data': False
     }
     
     for k, v in defaults.items():
@@ -692,9 +699,16 @@ html, body, [class*="css"] {
 
 init_state()
 
-if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login'] and st.session_state.current_user is not None:
+# تعريف الجداول بشكل عام كخط دفاعي ضد NameError
+df_s_master = st.session_state.get('df_s', pd.DataFrame())
+df_p_master = st.session_state.get('df_p', pd.DataFrame())
+df_i_master = st.session_state.get('df_i', pd.DataFrame())
+df_po_master = st.session_state.get('df_po', pd.DataFrame())
+df_pol_master = st.session_state.get('df_pol', pd.DataFrame())
+
+if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login'] and st.session_state.get('current_user'):
     CFG = st.session_state.app_config
-    if not st.session_state.data_loaded:
+    if not st.session_state.get('data_loaded'):
         with st.spinner('جاري تهيئة النواة وربط الخوادم لاستخراج بيانات Odoo...'):
             df_s_raw, df_p_raw, df_i_raw, df_po_raw, df_pol_raw, is_real = fetch_master_data(CFG.get('ODOO_URL',''), CFG.get('ODOO_DB',''), CFG.get('ODOO_USER',''), CFG.get('ODOO_PASS',''))
             st.session_state.df_s = df_s_raw
@@ -705,14 +719,15 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             st.session_state.is_real_data = is_real
             st.session_state.data_loaded = True
 
-    df_s_master = st.session_state.df_s
-    df_p_master = st.session_state.df_p
-    df_i_master = st.session_state.df_i
-    df_po_master = st.session_state.df_po
-    df_pol_master = st.session_state.df_pol
+            # تحديث المتغيرات العامة فور الجلب
+            df_s_master = st.session_state.df_s
+            df_p_master = st.session_state.df_p
+            df_i_master = st.session_state.df_i
+            df_po_master = st.session_state.df_po
+            df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v46.2</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v46.5</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         allowed_navs = []
@@ -734,14 +749,15 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
                 st.rerun()
 
         st.markdown("---")
-        if st.button("تسجيل الخروج", use_container_width=True):
-            st.session_state.current_user = None
-            st.session_state.view = 'login'
-            st.query_params["view"] = "login"
+        
+        # 🔴 إصلاح تسجيل الخروج (مسح كامل للذاكرة والرابط)
+        if st.button("🔴 تسجيل الخروج", use_container_width=True):
+            st.query_params.clear()
+            st.session_state.clear()
             st.rerun()
             
-        status_color = "#00ff82" if st.session_state.is_real_data else "#ff2d78"
-        st.markdown(f"""<div style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.05); border-radius:12px; padding:15px; text-align:center; margin-top:20px;"><div style="font-size:0.8rem; color:#64748b; margin-bottom:6px; font-weight:700;">حالة الاتصال المركزية</div><div style="color:{status_color}; font-weight:900; font-size:0.9rem; display:flex; align-items:center; justify-content:center;"><div class="status-dot" style="color:{status_color}; background:{status_color}; margin-left:8px;"></div>{'متصل بـ Odoo الحقيقي' if st.session_state.is_real_data else 'غير متصل (البيانات فارغة)'}</div></div>""", unsafe_allow_html=True)
+        status_color = "#00ff82" if st.session_state.get('is_real_data') else "#ff2d78"
+        st.markdown(f"""<div style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.05); border-radius:12px; padding:15px; text-align:center; margin-top:20px;"><div style="font-size:0.8rem; color:#64748b; margin-bottom:6px; font-weight:700;">حالة الاتصال المركزية</div><div style="color:{status_color}; font-weight:900; font-size:0.9rem; display:flex; align-items:center; justify-content:center;"><div class="status-dot" style="color:{status_color}; background:{status_color}; margin-left:8px;"></div>{'متصل بـ Odoo الحقيقي' if st.session_state.get('is_real_data') else 'غير متصل (البيانات فارغة)'}</div></div>""", unsafe_allow_html=True)
 
 def build_infographic_html(data: dict) -> str:
     kpis = data.get('kpis', [])
@@ -2161,16 +2177,23 @@ def render_super_admin():
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────────────────
-# محول العرض (Router)
+# محول العرض (Router الآمن - Crash-Proof)
 # ────────────────────────────────────────────────────────────
 view = st.session_state.get('view', 'login')
-if view == "workspace_login": render_workspace_login()
-elif view == "super_admin": render_super_admin()
-elif view == "login": render_login()
-elif view == "dashboard": render_dashboard()
-elif view == "departments": render_departments()
-elif view == "forecast": render_forecast()
-elif view == "ai": render_ai()
-elif view == "fusion": render_fusion()
-elif view == "territories": render_territories()
-elif view == "settings": render_settings()
+curr_user = st.session_state.get('current_user')
+
+if view == "workspace_login": 
+    render_workspace_login()
+elif view == "super_admin": 
+    render_super_admin()
+elif not curr_user or view == "login": 
+    render_login()
+else:
+    if view == "dashboard": render_dashboard()
+    elif view == "departments": render_departments()
+    elif view == "forecast": render_forecast()
+    elif view == "ai": render_ai()
+    elif view == "fusion": render_fusion()
+    elif view == "territories": render_territories()
+    elif view == "settings": render_settings()
+    else: render_dashboard()
