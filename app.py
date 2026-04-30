@@ -859,11 +859,21 @@ def map_po_state_ar(state_val):
 def style_dataframe(df):
     if df is None or df.empty: return df
     
-    # تحويل البيانات النصية المتشابكة بأمان قبل التلوين
     df_safe = df.copy()
-    for col in df_safe.select_dtypes(include=['object']).columns:
-        df_safe[col] = df_safe[col].astype(str)
-        
+    
+    # تحديد الأعمدة الرقمية التي نحتاج تلوينها أو تنسيقها
+    numeric_cols = ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'صاف الربح', 'الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة', 'هامش الربح %']
+    
+    # ضمان أن الأعمدة الرقمية هي بالفعل أرقام لتجنب أي انهيار ولتفعيل التلوين
+    for col in numeric_cols:
+        if col in df_safe.columns:
+            df_safe[col] = pd.to_numeric(df_safe[col], errors='coerce').fillna(0)
+
+    # تحويل باقي الأعمدة التي ليست أرقام إلى نصوص آمنة لمنع أخطاء التصدير
+    for col in df_safe.columns:
+        if col not in numeric_cols and df_safe[col].dtype == 'object':
+            df_safe[col] = df_safe[col].astype(str)
+            
     format_dict = {}
     for col in ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'صاف الربح']:
         if col in df_safe.columns: format_dict[col] = "{:,.0f} ج.م"
