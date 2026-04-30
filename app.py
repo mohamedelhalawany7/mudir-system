@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v42.2 (SMART URL ROUTING)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v42.3 (PIN & COLORS FIXED)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -809,7 +809,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
     df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v42.2</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v42.3</div></div>""", unsafe_allow_html=True)
         
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
@@ -872,7 +872,7 @@ def style_dataframe(df):
     if 'هامش الربح %' in df_safe.columns: format_dict['هامش الربح %'] = "{:.1f}%"
     
     # تحديد العمود الذي سيتم تطبيق الخريطة الحرارية عليه تلقائياً
-    target_cols = ['صافي الربح', 'صاف الربح', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الكمية المطلوبة']
+    target_cols = ['صافي الربح', 'صاف الربح', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الكمية المطلوبة', 'الإيرادات']
     target_col = next((c for c in target_cols if c in df_safe.columns), None)
     
     try:
@@ -1177,7 +1177,6 @@ def render_dashboard():
         clean_pol = clean_pol.sort_values('product_qty', ascending=False)
         clean_pol = clean_pol.rename(columns={'product_qty': 'الكمية المطلوبة', 'price_subtotal': 'إجمالي التكلفة (ج.م)'})
 
-    s_all = style_dataframe(clean_s.sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s)
     s_appr = style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'موافق عليه'].sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s)
     s_draft = style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'مسودة'].sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s)
     s_canc = style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'ملغي'].sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s)
