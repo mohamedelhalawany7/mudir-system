@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v42.5 (DEPARTMENTS DETAILS RESTORED)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v42.5 (DEPARTMENTS DETAILS RESTORED & HEATMAP SORTED)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -205,7 +205,7 @@ def get_base64_svg(icon_name, color="#00f2ff"):
     return f"data:image/svg+xml;base64,{b64}"
 
 # ============================================================
-# 2. التنسيقات العامة والـ CSS (محدثة للإخفاء التام لعلامات Streamlit وتصميم واتساب)
+# 2. التنسيقات العامة والـ CSS
 # ============================================================
 st.markdown("""
 <style>
@@ -455,52 +455,6 @@ ALL_NAV_ITEMS = [
     ("territories", "globe", "التحليل الجغرافي"),
     ("settings", "settings", "إعدادات النظام")
 ]
-
-def init_state():
-    # قراءة متغيرات الرابط المباشر
-    url_ws = st.query_params.get("workspace")
-    url_view = st.query_params.get("view")
-
-    # الدخول التلقائي للمساحة في حال وجودها بالرابط وتوفر رخصة سارية
-    if url_ws and 'workspace_key' not in st.session_state:
-        if url_ws == "SUPER_ADMIN":
-            st.session_state.workspace_key = "SUPER_ADMIN"
-            st.session_state.workspace_id = "SUPER_ADMIN"
-            st.session_state.view = url_view if url_view else 'super_admin'
-        else:
-            licenses = load_licenses()
-            ws_data = licenses.get('workspaces', {}).get(url_ws)
-            if ws_data and ws_data.get('status') == 'active':
-                expiry_str = ws_data.get('expiry_date')
-                if expiry_str:
-                    expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
-                    if datetime.now() <= expiry_date:
-                        st.session_state.workspace_key = url_ws
-                        st.session_state.workspace_id = url_ws
-                        st.session_state.app_config = load_config()
-                        st.session_state.view = url_view if url_view else 'login'
-
-    # في حال عدم وجود مساحة محددة
-    if 'workspace_key' not in st.session_state:
-        if st.session_state.get('view') != 'super_admin':
-            st.session_state.view = 'workspace_login'
-        return
-        
-    if 'app_config' not in st.session_state:
-        st.session_state.app_config = load_config()
-        
-    defaults = {
-        'view': url_view if url_view else 'login', 
-        'modal_open': False, 'modal_title': '', 'modal_data': {},
-        'current_user': None, 
-        'growth_stream': None, 'last_radar_report': None, 'data_loaded': False
-    }
-    
-    for k, v in defaults.items():
-        if k not in st.session_state: st.session_state[k] = v
-        
-    if 'all_chats' not in st.session_state:
-        st.session_state.all_chats = st.session_state.app_config.get('ALL_CHATS', {})
 
 def call_universal_ai(messages):
     api_key = st.session_state.app_config.get('AI_API_KEY', '').strip()
@@ -857,53 +811,55 @@ def map_po_state_ar(state_val):
     return val
 
 def style_dataframe(df):
-    if df is None: return pd.DataFrame()
-    if hasattr(df, 'data') and df.data.empty: return df
-    if not hasattr(df, 'data') and df.empty: return df
+    if df is None or df.empty: return df
     
-    # نسخة آمنة تماماً لحماية النظام من الانهيار
+    # تحويل البيانات بشكل آمن لضمان عدم الانهيار وتفعيل الألوان
     df_safe = df.data.copy() if hasattr(df, 'data') else df.copy()
     
-    numeric_cols = ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة', 'هامش الربح %', 'إجمالي العروض']
+    numeric_cols = ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'صاف الربح', 'الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة', 'هامش الربح %', 'إجمالي العروض']
     
-    # التنظيف الجذري للبيانات لضمان عمل الألوان في نوافذ الفلترة
-    for col in numeric_cols:
-        if col in df_safe.columns:
-            if df_safe[col].dtype == 'object':
-                df_safe[col] = df_safe[col].astype(str).str.replace(',', '', regex=False).str.replace(' ج.م', '', regex=False).str.replace('%', '', regex=False)
-            df_safe[col] = pd.to_numeric(df_safe[col], errors='coerce').fillna(0)
-
     for col in df_safe.columns:
         if col not in numeric_cols and df_safe[col].dtype == 'object':
             df_safe[col] = df_safe[col].astype(str)
 
     format_dict = {}
-    for col in ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح']:
-        if col in df_safe.columns: format_dict[col] = "{:,.0f} ج.م"
+    
+    # تحويل الأنواع وإضافة تنسيقات للعرض
+    for col in ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'صاف الربح']:
+        if col in df_safe.columns:
+            df_safe[col] = pd.to_numeric(df_safe[col], errors='coerce').fillna(0)
+            format_dict[col] = "{:,.0f} ج.م"
             
     for col in ['الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة', 'إجمالي العروض']:
-        if col in df_safe.columns: format_dict[col] = "{:,.0f}"
+        if col in df_safe.columns:
+            df_safe[col] = pd.to_numeric(df_safe[col], errors='coerce').fillna(0)
+            format_dict[col] = "{:,.0f}"
             
     if 'هامش الربح %' in df_safe.columns:
+        df_safe['هامش الربح %'] = pd.to_numeric(df_safe['هامش الربح %'], errors='coerce').fillna(0)
         format_dict['هامش الربح %'] = "{:.1f}%"
+
+    # تحديد الأعمدة المستهدفة لتطبيق التلوين الحراري
+    # هذه المؤشرات (الأعلى = لون أخضر أفضل)
+    positive_cols = ['صافي الربح', 'صاف الربح', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الإيرادات', 'إجمالي العروض', 'هامش الربح %']
+    # هذه المؤشرات (الأعلى = لون أحمر أسوأ)
+    negative_cols = ['ملغي (ج.م)', 'المصروفات', 'إجمالي التكلفة (ج.م)', 'مسودة (ج.م)']
     
-    target_cols = ['صافي الربح', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الكمية المطلوبة', 'الإيرادات', 'إجمالي العروض']
-    target_col = next((c for c in target_cols if c in df_safe.columns), None)
+    active_pos = [c for c in positive_cols if c in df_safe.columns]
+    active_neg = [c for c in negative_cols if c in df_safe.columns]
     
-    # الترتيب التلقائي من الأكبر للأصغر
-    if target_col:
-        df_safe = df_safe.sort_values(by=target_col, ascending=False).reset_index(drop=True)
-    
-    # تطبيق الخريطة الحرارية والتنسيقات بأمان مطلق
     try:
         styler = df_safe.style
-        if format_dict:
-            styler = styler.format(format_dict, na_rep="-")
-        if target_col:
-            styler = styler.background_gradient(subset=[target_col], cmap='RdYlGn')
-        return styler
+        # تطبيق التدرج اللوني على الأعمدة الإيجابية (الأخضر العالي)
+        if active_pos:
+            styler = styler.background_gradient(subset=active_pos, cmap='RdYlGn')
+        # تطبيق التدرج اللوني على الأعمدة السلبية (الأحمر العالي)
+        if active_neg:
+            styler = styler.background_gradient(subset=active_neg, cmap='RdYlGn_r')
+            
+        return styler.format(format_dict) if format_dict else styler
     except Exception:
-        return df_safe
+        return df_safe.style.format(format_dict) if format_dict else df_safe
 
 def build_infographic_html(data: dict) -> str:
     kpis = data.get('kpis', [])
@@ -1029,7 +985,18 @@ def render_filters_and_export(title, original_df_dict):
                         df = df[(temp_dt >= start_dt) & (temp_dt <= end_dt)]
                     except:
                         pass
-        # تطبيق الألوان بعد الفلترة مباشرة
+                        
+            # الترتيب التلقائي للبيانات تنازلياً قبل تطبيق الألوان
+            sort_candidates = ['صافي الربح', 'صاف الربح', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الكمية المطلوبة', 'الإيرادات', 'إجمالي العروض', 'إجمالي التكلفة (ج.م)', 'المصروفات']
+            sort_col = next((c for c in sort_candidates if c in df.columns), None)
+            if sort_col and not df.empty:
+                try:
+                    df[sort_col] = pd.to_numeric(df[sort_col], errors='coerce').fillna(0)
+                    df = df.sort_values(by=sort_col, ascending=False)
+                except:
+                    pass
+
+        # تطبيق الألوان بشكل ديناميكي بعد الفلترة والترتيب مباشرة
         filtered_dict[name] = style_dataframe(df)
         
     st.markdown("<hr style='border-color: rgba(255,255,255,0.1); margin: 25px 0;'>", unsafe_allow_html=True)
