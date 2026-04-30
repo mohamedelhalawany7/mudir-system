@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v47.2 (IMMUTABLE AUDIT LOG & SECURE ADMIN)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v47.3 (PERFECT WHATSAPP UI & SECURE ADMIN)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -307,8 +307,8 @@ def style_dataframe(df):
     if df_raw.empty: return df_raw
 
     # تعريف الأعمدة التي يجب أن تكون أرقاماً
-    currency_cols = ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'صاف الربح']
-    number_cols = ['الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة', 'إجمالي العروض', 'إجمالي الطلبات']
+    currency_cols = ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'قيمة (معتمد)', 'قيمة (مسودة)', 'قيمة (ملغي)', 'القيمة الكلية (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'صاف الربح']
+    number_cols = ['الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'العدد الكلي', 'الكمية المطلوبة', 'إجمالي العروض', 'إجمالي الطلبات']
     pct_cols = ['هامش الربح %']
     
     all_numeric = currency_cols + number_cols + pct_cols
@@ -676,28 +676,94 @@ html, body, [class*="css"] {
     border: 1px solid rgba(0, 242, 255, 0.4) !important; font-weight: 900 !important;
 }
 
-/* WhatsApp Chat Styles */
-[data-testid="stChatMessage"] { background: transparent !important; border: none !important; padding: 0 !important; margin-bottom: 12px !important; display: flex !important; flex-direction: column !important; }
+/* =====================================================================
+   WHATSAPP-STYLE CHAT UI (STRICT RTL, PERFECT ALIGNMENT)
+   ===================================================================== */
+[data-testid="stChatMessage"] { 
+    background: transparent !important; 
+    border: none !important; 
+    padding: 0 !important; 
+    margin-bottom: 12px !important; 
+    display: flex !important; 
+    width: 100% !important;
+}
 [data-testid="stChatAvatar"] { display: none !important; }
-[data-testid="stChatMessageContent"] { flex: 1 !important; padding: 0 !important; background: transparent !important; display: flex !important; flex-direction: column !important; width: 100% !important;}
 
-.chat-bubble { padding: 10px 14px !important; box-shadow: 0 1px 2px rgba(0,0,0,0.3) !important; font-family: 'Cairo', sans-serif !important; font-size: 1.05rem !important; line-height: 1.6 !important; max-width: 75% !important; width: fit-content !important; word-wrap: break-word !important; margin-bottom: 4px !important; }
-.chat-bubble p { margin-bottom: 0 !important; color: #e9edef !important; }
+[data-testid="stChatMessageContent"] { 
+    width: 100% !important; 
+    background: transparent !important; 
+    padding: 0 !important; 
+    display: flex !important; 
+    flex-direction: column !important; 
+}
 
-/* RTL: flex-start = right, flex-end = left */
-[data-testid="stChatMessage"]:has(.msg-user) [data-testid="stChatMessageContent"] { align-items: flex-start !important; }
-[data-testid="stChatMessage"]:has(.msg-user) .chat-bubble { background-color: #005c4b !important; border-radius: 12px 0 12px 12px !important; }
+.chat-bubble { 
+    padding: 10px 14px !important; 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Cairo", Helvetica, Arial, sans-serif !important; 
+    font-size: 1.05rem !important; 
+    line-height: 1.6 !important; 
+    word-wrap: break-word !important; 
+    white-space: pre-wrap !important; 
+    text-align: right !important; 
+    direction: rtl !important; 
+    width: fit-content !important; 
+    max-width: 80% !important; 
+    box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important; 
+    margin-bottom: 2px !important; 
+}
+.chat-bubble p { margin: 0 !important; color: #e9edef !important;}
+.chat-bubble h1, .chat-bubble h2, .chat-bubble h3 { margin-top: 5px !important; margin-bottom: 5px !important; color: #fff !important; }
+.chat-bubble ul, .chat-bubble ol { margin-right: 20px !important; padding-right: 15px !important; margin-bottom: 0 !important;}
+.chat-bubble li { margin-bottom: 4px !important; }
 
-[data-testid="stChatMessage"]:has(.msg-assistant) [data-testid="stChatMessageContent"] { align-items: flex-end !important; }
-[data-testid="stChatMessage"]:has(.msg-assistant) .chat-bubble { background-color: #202c33 !important; border-radius: 0 12px 12px 12px !important; }
+/* User Message (Right Side in RTL) */
+[data-testid="stChatMessage"]:has(.msg-user) [data-testid="stChatMessageContent"] { 
+    align-items: flex-start !important; 
+}
+[data-testid="stChatMessage"]:has(.msg-user) .chat-bubble { 
+    background-color: #005c4b !important; 
+    color: #e9edef !important; 
+    border-radius: 10px 0px 10px 10px !important; 
+}
+
+/* AI Message (Left Side in RTL) */
+[data-testid="stChatMessage"]:has(.msg-assistant) [data-testid="stChatMessageContent"] { 
+    align-items: flex-end !important; 
+}
+[data-testid="stChatMessage"]:has(.msg-assistant) .chat-bubble { 
+    background-color: #202c33 !important; 
+    color: #e9edef !important; 
+    border-radius: 0px 10px 10px 10px !important; 
+}
 
 /* Action Buttons Wrapper (Admin Only) */
-.chat-actions { display: flex !important; gap: 8px !important; direction: rtl !important; }
-[data-testid="stChatMessage"] div[data-testid="stHorizontalBlock"] { width: fit-content !important; gap: 4px !important; margin-top: 2px !important; }
-[data-testid="stChatMessage"] div.stButton > button { padding: 0 !important; font-size: 1.1rem !important; background: transparent !important; border: none !important; color: #8696a0 !important; width: 32px !important; height: 32px !important; min-height: 32px !important; box-shadow: none !important; display: flex !important; align-items: center !important; justify-content: center !important; border-radius: 50% !important; }
-[data-testid="stChatMessage"] div.stButton > button:hover { color: #00f2ff !important; background: rgba(255,255,255,0.05) !important; }
+.chat-actions { display: flex !important; gap: 8px !important; direction: rtl !important; width: fit-content !important;}
+[data-testid="stChatMessage"] [data-testid="stHorizontalBlock"] { 
+    gap: 0px !important; 
+    width: fit-content !important; 
+    direction: rtl !important; 
+    margin-top: 2px !important;
+}
+[data-testid="stChatMessage"] [data-testid="column"] { padding: 0 !important; width: fit-content !important; min-width: fit-content !important; flex: 0 0 auto !important; }
+[data-testid="stChatMessage"] div.stButton > button { 
+    background: transparent !important; 
+    border: none !important; 
+    color: #8696a0 !important; 
+    padding: 4px !important; 
+    min-height: 0 !important; 
+    height: auto !important; 
+    font-size: 1.1rem !important; 
+    box-shadow: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 50% !important;
+}
+[data-testid="stChatMessage"] div.stButton > button:hover { 
+    background: rgba(255,255,255,0.05) !important; 
+    color: #00f2ff !important; 
+}
 
-.stMarkdown div[dir="rtl"] p, .stMarkdown div[dir="rtl"] li { font-size: 1.05rem !important; line-height: 1.8 !important; color: #e9edef !important; margin-bottom: 0 !important; }
 .stMarkdown div[dir="rtl"] strong { color: #00f2ff !important; }
 
 .page-header { padding: 2.5rem 3rem; margin-bottom: 1rem; border-radius: var(--r); background: linear-gradient(135deg, #090912, #050508); border: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
@@ -758,7 +824,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v47.2</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v47.3</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         allowed_navs = []
@@ -911,7 +977,14 @@ def show_detailed_report(title: str, data: dict):
     
     if filtered_dict:
         st.markdown(f"""<div style="margin-top:25px; margin-bottom:15px; font-weight:900; font-size:1.1rem; color:var(--c-primary); display:flex; align-items:center; gap:8px;">{get_icon('table', 20)} استعراض السجل الشامل (بعد الفلترة)</div>""", unsafe_allow_html=True)
-        tabs = st.tabs(list(filtered_dict.keys()))
+        
+        tab_titles = []
+        for tab_name, df_val in filtered_dict.items():
+            raw_check = df_val.data if hasattr(df_val, 'data') else df_val
+            row_count = len(raw_check) if not raw_check.empty else 0
+            tab_titles.append(f"{tab_name} ({row_count})")
+            
+        tabs = st.tabs(tab_titles)
         for i, (tab_name, df_val) in enumerate(filtered_dict.items()):
             with tabs[i]:
                 raw_check = df_val.data if hasattr(df_val, 'data') else df_val
@@ -1077,26 +1150,36 @@ def render_dashboard():
     }
 
     if not clean_s.empty and 'العميل' in clean_s.columns:
-        c_appr_df = s_appr.groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'معتمد (ج.م)'}) if not s_appr.empty else pd.DataFrame(columns=['العميل', 'معتمد (ج.م)'])
-        c_draft_df = s_draft.groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'مسودة (ج.م)'}) if not s_draft.empty else pd.DataFrame(columns=['العميل', 'مسودة (ج.م)'])
-        c_canc_df = s_canc.groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'ملغي (ج.م)'}) if not s_canc.empty else pd.DataFrame(columns=['العميل', 'ملغي (ج.م)'])
-        c_count_df = clean_s.groupby('العميل')['رقم الطلب'].count().reset_index().rename(columns={'رقم الطلب': 'إجمالي العروض'}) if 'رقم الطلب' in clean_s.columns else pd.DataFrame(columns=['العميل', 'إجمالي العروض'])
+        c_count_all = clean_s.groupby('العميل')['رقم الطلب'].count().reset_index().rename(columns={'رقم الطلب': 'العدد الكلي'})
+        c_sum_all = clean_s.groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'القيمة الكلية (ج.م)'})
         
-        c_merged = c_count_df.merge(c_appr_df, on='العميل', how='left').merge(c_draft_df, on='العميل', how='left').merge(c_canc_df, on='العميل', how='left').fillna(0)
+        c_count_appr = s_appr.groupby('العميل')['رقم الطلب'].count().reset_index().rename(columns={'رقم الطلب': 'عدد (معتمد)'}) if not s_appr.empty else pd.DataFrame(columns=['العميل', 'عدد (معتمد)'])
+        c_sum_appr = s_appr.groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'قيمة (معتمد)'}) if not s_appr.empty else pd.DataFrame(columns=['العميل', 'قيمة (معتمد)'])
+        
+        c_count_draft = s_draft.groupby('العميل')['رقم الطلب'].count().reset_index().rename(columns={'رقم الطلب': 'عدد (مسودة)'}) if not s_draft.empty else pd.DataFrame(columns=['العميل', 'عدد (مسودة)'])
+        c_sum_draft = s_draft.groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'قيمة (مسودة)'}) if not s_draft.empty else pd.DataFrame(columns=['العميل', 'قيمة (مسودة)'])
+        
+        c_count_canc = s_canc.groupby('العميل')['رقم الطلب'].count().reset_index().rename(columns={'رقم الطلب': 'عدد (ملغي)'}) if not s_canc.empty else pd.DataFrame(columns=['العميل', 'عدد (ملغي)'])
+        c_sum_canc = s_canc.groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'قيمة (ملغي)'}) if not s_canc.empty else pd.DataFrame(columns=['العميل', 'قيمة (ملغي)'])
+        
+        c_merged = c_count_all.merge(c_sum_all, on='العميل', how='left') \
+                              .merge(c_count_appr, on='العميل', how='left').merge(c_sum_appr, on='العميل', how='left') \
+                              .merge(c_count_draft, on='العميل', how='left').merge(c_sum_draft, on='العميل', how='left') \
+                              .merge(c_count_canc, on='العميل', how='left').merge(c_sum_canc, on='العميل', how='left').fillna(0)
         
         if not clean_p.empty and 'اسم الجهة' in clean_p.columns:
             p_info = clean_p[['اسم الجهة', 'المدينة', 'الهاتف']].drop_duplicates(subset=['اسم الجهة']).rename(columns={'اسم الجهة': 'العميل'}) if 'المدينة' in clean_p.columns and 'الهاتف' in clean_p.columns else pd.DataFrame()
             if not p_info.empty:
                 c_merged = c_merged.merge(p_info, on='العميل', how='left').fillna('-')
 
-        c_cols = ['العميل', 'إجمالي العروض', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'المدينة', 'الهاتف']
+        c_cols = ['العميل', 'العدد الكلي', 'القيمة الكلية (ج.م)', 'عدد (معتمد)', 'قيمة (معتمد)', 'عدد (مسودة)', 'قيمة (مسودة)', 'عدد (ملغي)', 'قيمة (ملغي)', 'المدينة', 'الهاتف']
         c_merged = c_merged[[c for c in c_cols if c in c_merged.columns]]
 
         split_clients = {
-            "السجل الشامل للعملاء": style_dataframe(clean_p),
-            "الأقوى (معتمد)": style_dataframe(c_merged[['العميل', 'معتمد (ج.م)']]) if 'معتمد (ج.م)' in c_merged.columns else style_dataframe(pd.DataFrame()),
-            "حسب المسودة": style_dataframe(c_merged[['العميل', 'مسودة (ج.م)']]) if 'مسودة (ج.م)' in c_merged.columns else style_dataframe(pd.DataFrame()),
-            "الأكثر طلباً (عدد)": style_dataframe(c_merged[['العميل', 'إجمالي العروض']]) if 'إجمالي العروض' in c_merged.columns else style_dataframe(pd.DataFrame())
+            "التحليل الشامل للعملاء": style_dataframe(c_merged),
+            "الأقوى (معتمد)": style_dataframe(c_merged[['العميل', 'عدد (معتمد)', 'قيمة (معتمد)']]) if 'قيمة (معتمد)' in c_merged.columns else style_dataframe(pd.DataFrame()),
+            "حسب المسودة": style_dataframe(c_merged[['العميل', 'عدد (مسودة)', 'قيمة (مسودة)']]) if 'قيمة (مسودة)' in c_merged.columns else style_dataframe(pd.DataFrame()),
+            "العملاء الملغيين (خسائر)": style_dataframe(c_merged[['العميل', 'عدد (ملغي)', 'قيمة (ملغي)']]) if 'قيمة (ملغي)' in c_merged.columns else style_dataframe(pd.DataFrame())
         }
     else:
         split_clients = {"السجل الشامل للعملاء": style_dataframe(clean_p)}
@@ -1184,7 +1267,18 @@ def render_dashboard():
 
     st.markdown(f"<div style='margin-top: 30px; margin-bottom: 15px;'><div class='g-card-title' style='border: none; padding: 0;'>{get_icon('tabs', 24)} سجل العروض والتوريدات المباشر</div></div>", unsafe_allow_html=True)
     
-    tb_all, tb_appr, tb_draft, tb_canc = st.tabs(["الكل", "موافق عليه", "مسودة", "ملغي"])
+    count_all = len(clean_s) if not clean_s.empty else 0
+    count_appr = len(s_appr) if not s_appr.empty else 0
+    count_draft = len(s_draft) if not s_draft.empty else 0
+    count_canc = len(s_canc) if not s_canc.empty else 0
+
+    tb_all, tb_appr, tb_draft, tb_canc = st.tabs([
+        f"الكل ({count_all})", 
+        f"موافق عليه ({count_appr})", 
+        f"مسودة ({count_draft})", 
+        f"ملغي ({count_canc})"
+    ])
+    
     with tb_all:
         if not clean_s.empty: st.dataframe(split_sales_dict["السجل الشامل للعروض والطلبات"], use_container_width=True, hide_index=True)
         else: st.info("لا توجد بيانات متاحة في هذه الفترة.")
@@ -1266,7 +1360,7 @@ def render_departments():
     ).reset_index()
 
     final_table = pd.merge(summ_df_all, dept_summary[['القسم', 'المصروفات', 'صافي_الربح', 'هامش الربح %']], on='القسم', how='left').fillna(0)
-    final_table = final_table.rename(columns={'إيرادات_معتمدة': 'الإيرادات', 'صافي_الربح': 'صافي الربح'})
+    final_table = final_table.rename(columns={'إيرادات_معتمدة': 'الإيرادات', 'صافي_الربح': 'صاف الربح'})
 
     if st.button(f"📥 تحليل وتصدير تقرير الأقسام (Word / PDF)", use_container_width=True):
         export_data = {
@@ -2161,7 +2255,7 @@ def change_workspace_pin_dialog(ws_id):
 def render_super_admin():
     # تم حل مشكلة تسجيل الخروج بإضافة Sidebar للتحكم الآمن
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v47.2</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v47.3</div></div>""", unsafe_allow_html=True)
         st.markdown("---")
         if st.button("🔴 تسجيل الخروج وإغلاق", use_container_width=True, type="primary"):
             st.query_params.clear()
