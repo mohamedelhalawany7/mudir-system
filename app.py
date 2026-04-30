@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v42.3 (PIN & COLORS FIXED)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v42.4 (HEATMAP & STABILITY FIXED)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -809,7 +809,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
     df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v42.3</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v42.4</div></div>""", unsafe_allow_html=True)
         
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
@@ -859,30 +859,32 @@ def map_po_state_ar(state_val):
 def style_dataframe(df):
     if df is None or df.empty: return df
     
-    df_safe = df.copy()
+    # تحويل البيانات بشكل آمن لضمان عدم الانهيار وتفعيل الألوان
+    df_safe = df.data.copy() if hasattr(df, 'data') else df.copy()
     
-    # تحديد الأعمدة الرقمية التي نحتاج تلوينها أو تنسيقها
-    numeric_cols = ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'صاف الربح', 'الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة', 'هامش الربح %']
+    numeric_cols = ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'صاف الربح', 'الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة', 'هامش الربح %', 'إجمالي العروض']
     
-    # ضمان أن الأعمدة الرقمية هي بالفعل أرقام لتجنب أي انهيار ولتفعيل التلوين
-    for col in numeric_cols:
-        if col in df_safe.columns:
-            df_safe[col] = pd.to_numeric(df_safe[col], errors='coerce').fillna(0)
-
-    # تحويل باقي الأعمدة التي ليست أرقام إلى نصوص آمنة لمنع أخطاء التصدير
     for col in df_safe.columns:
         if col not in numeric_cols and df_safe[col].dtype == 'object':
             df_safe[col] = df_safe[col].astype(str)
-            
+
     format_dict = {}
     for col in ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'صاف الربح']:
-        if col in df_safe.columns: format_dict[col] = "{:,.0f} ج.م"
-    for col in ['الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة']:
-        if col in df_safe.columns: format_dict[col] = "{:,.0f}"
-    if 'هامش الربح %' in df_safe.columns: format_dict['هامش الربح %'] = "{:.1f}%"
+        if col in df_safe.columns:
+            df_safe[col] = pd.to_numeric(df_safe[col], errors='coerce').fillna(0)
+            format_dict[col] = "{:,.0f} ج.م"
+            
+    for col in ['الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة', 'إجمالي العروض']:
+        if col in df_safe.columns:
+            df_safe[col] = pd.to_numeric(df_safe[col], errors='coerce').fillna(0)
+            format_dict[col] = "{:,.0f}"
+            
+    if 'هامش الربح %' in df_safe.columns:
+        df_safe['هامش الربح %'] = pd.to_numeric(df_safe['هامش الربح %'], errors='coerce').fillna(0)
+        format_dict['هامش الربح %'] = "{:.1f}%"
     
-    # تحديد العمود الذي سيتم تطبيق الخريطة الحرارية عليه تلقائياً
-    target_cols = ['صافي الربح', 'صاف الربح', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الكمية المطلوبة', 'الإيرادات']
+    # تحديد العمود الذي سيتم تطبيق الخريطة الحرارية عليه
+    target_cols = ['صافي الربح', 'صاف الربح', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الكمية المطلوبة', 'الإيرادات', 'إجمالي العروض']
     target_col = next((c for c in target_cols if c in df_safe.columns), None)
     
     try:
@@ -932,7 +934,10 @@ def create_export_buttons(title, df_dict):
         raw_df = df_val.data if hasattr(df_val, 'data') else df_val
         if not raw_df.empty:
             has_data = True
-            table_html = f"<h3>{section}</h3>{raw_df.to_html(index=False)}"
+            safe_raw = raw_df.copy()
+            for col in safe_raw.select_dtypes(include=['object']).columns:
+                safe_raw[col] = safe_raw[col].astype(str)
+            table_html = f"<h3>{section}</h3>{safe_raw.to_html(index=False)}"
             html_content += table_html
             html_content_pdf += table_html
     
@@ -1187,19 +1192,19 @@ def render_dashboard():
         clean_pol = clean_pol.sort_values('product_qty', ascending=False)
         clean_pol = clean_pol.rename(columns={'product_qty': 'الكمية المطلوبة', 'price_subtotal': 'إجمالي التكلفة (ج.م)'})
 
+    s_all_df = style_dataframe(clean_s.sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s)
     s_appr = style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'موافق عليه'].sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s)
     s_draft = style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'مسودة'].sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s)
     s_canc = style_dataframe(clean_s[clean_s['الحالة (عربي)'] == 'ملغي'].sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s)
 
-    split_sales_dict = {"السجل الشامل للعروض والطلبات": clean_s, "موافق عليه": s_appr, "مسودة": s_draft, "ملغي": s_canc}
+    split_sales_dict = {"السجل الشامل للعروض والطلبات": s_all_df, "موافق عليه": s_appr, "مسودة": s_draft, "ملغي": s_canc}
 
-    po_all = style_dataframe(clean_po.sort_values('القيمة (ج.م)', ascending=False) if not clean_po.empty else clean_po)
     top_suppliers = pd.DataFrame()
     if not clean_po.empty:
         top_suppliers = clean_po[clean_po['الحالة'] == 'معتمد'].groupby('المورد')['القيمة (ج.م)'].sum().reset_index().sort_values('القيمة (ج.م)', ascending=False)
     
     split_po_dict = {
-        "السجل الشامل للمشتريات": clean_po,
+        "السجل الشامل للمشتريات": style_dataframe(clean_po),
         "أقوى الموردين": style_dataframe(top_suppliers) if not top_suppliers.empty else top_suppliers,
         "المنتجات / المواد الأكثر طلباً": style_dataframe(clean_pol) if not clean_pol.empty else clean_pol
     }
@@ -1230,24 +1235,24 @@ def render_dashboard():
         c_merged = c_merged[[c for c in c_cols if c in c_merged.columns]]
 
         split_clients = {
-            "السجل الشامل للعملاء": clean_p,
+            "السجل الشامل للعملاء": style_dataframe(clean_p),
             "الأقوى (معتمد)": style_dataframe(c_merged.sort_values('معتمد (ج.م)', ascending=False)),
             "حسب المسودة": style_dataframe(c_merged.sort_values('مسودة (ج.م)', ascending=False)),
             "حسب الملغي": style_dataframe(c_merged.sort_values('ملغي (ج.م)', ascending=False)),
             "الأكثر طلباً (عدد)": style_dataframe(c_merged.sort_values('إجمالي العروض', ascending=False))
         }
     else:
-        split_clients = {"السجل الشامل للعملاء": style_dataframe(clean_p) if not clean_p.empty else clean_p}
+        split_clients = {"السجل الشامل للعملاء": style_dataframe(clean_p)}
 
     split_stock = {}
     if not clean_i.empty:
         split_stock = {
-            "سجل المنتجات الشامل": clean_i,
+            "سجل المنتجات الشامل": style_dataframe(clean_i),
             "المنتجات الأكثر توفراً (الكمية)": style_dataframe(clean_i.sort_values('الكمية المتاحة', ascending=False)),
             "المنتجات الأغلى سعراً": style_dataframe(clean_i.sort_values('السعر (ج.م)', ascending=False))
         }
     else:
-        split_stock = {"الكل": clean_i}
+        split_stock = {"الكل": style_dataframe(clean_i)}
 
     render_live_ticker(st.session_state.df_s, st.session_state.df_p)
 
@@ -1323,21 +1328,21 @@ def render_dashboard():
 
     st.markdown(f"<div style='margin-top: 30px; margin-bottom: 15px;'><div class='g-card-title' style='border: none; padding: 0;'>{get_icon('tabs', 24)} سجل العروض والتوريدات المباشر</div></div>", unsafe_allow_html=True)
     
-    # في الشاشة الرئيسية نظهر السجلات الشاملة فقط للعرض السريع
-    s_all_df = style_dataframe(clean_s.sort_values('القيمة (ج.م)', ascending=False) if not clean_s.empty else clean_s)
-    
     tb_all, tb_appr, tb_draft, tb_canc = st.tabs(["الكل", "موافق عليه", "مسودة", "ملغي"])
     with tb_all:
         if not clean_s.empty: st.dataframe(s_all_df, use_container_width=True, hide_index=True)
         else: st.info("لا توجد بيانات متاحة في هذه الفترة.")
     with tb_appr:
-        if not s_appr.data.empty if hasattr(s_appr, 'data') else not s_appr.empty: st.dataframe(s_appr, use_container_width=True, hide_index=True)
+        raw_appr = s_appr.data if hasattr(s_appr, 'data') else s_appr
+        if not raw_appr.empty: st.dataframe(s_appr, use_container_width=True, hide_index=True)
         else: st.info("لا توجد طلبات موافق عليها في هذه الفترة.")
     with tb_draft:
-        if not s_draft.data.empty if hasattr(s_draft, 'data') else not s_draft.empty: st.dataframe(s_draft, use_container_width=True, hide_index=True)
+        raw_draft = s_draft.data if hasattr(s_draft, 'data') else s_draft
+        if not raw_draft.empty: st.dataframe(s_draft, use_container_width=True, hide_index=True)
         else: st.info("لا توجد مسودات في هذه الفترة.")
     with tb_canc:
-        if not s_canc.data.empty if hasattr(s_canc, 'data') else not s_canc.empty: st.dataframe(s_canc, use_container_width=True, hide_index=True)
+        raw_canc = s_canc.data if hasattr(s_canc, 'data') else s_canc
+        if not raw_canc.empty: st.dataframe(s_canc, use_container_width=True, hide_index=True)
         else: st.info("لا توجد طلبات ملغاة في هذه الفترة.")
 
     st.markdown("<br>", unsafe_allow_html=True)
