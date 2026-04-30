@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v44.0 (FLAWLESS KPI & HEATMAPS)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v45.0 (KPIs & PIN SECURITY FIXED)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -264,7 +264,6 @@ def extract_department_from_row(row):
 def style_dataframe(df):
     if df is None: return pd.DataFrame()
     
-    # الحصول على البيانات كـ DataFrame نظيف
     if hasattr(df, 'data'):
         df_raw = df.data.copy()
     else:
@@ -272,28 +271,22 @@ def style_dataframe(df):
 
     if df_raw.empty: return df_raw
 
-    # تعريف الأعمدة التي يجب أن تكون أرقاماً
     currency_cols = ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'صاف الربح']
     number_cols = ['الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'الكمية المطلوبة', 'إجمالي العروض', 'إجمالي الطلبات']
     pct_cols = ['هامش الربح %']
     
     all_numeric = currency_cols + number_cols + pct_cols
 
-    # 1. التنظيف الصارم للأرقام (إزالة الفواصل والنصوص مثل ج.م و %) قبل أي ترتيب أو تلوين
     for col in all_numeric:
         if col in df_raw.columns:
             if df_raw[col].dtype == object or df_raw[col].dtype.name == 'category':
-                # مسح كل شيء عدا الأرقام، السالب، والنقطة العشرية
                 df_raw[col] = df_raw[col].astype(str).str.replace(r'[^\d.-]', '', regex=True)
-            # تحويل إلى رقم فعلي
             df_raw[col] = pd.to_numeric(df_raw[col], errors='coerce').fillna(0)
             
-    # تحويل باقي الأعمدة لنصوص آمنة لمنع الانهيار
     for col in df_raw.columns:
         if col not in all_numeric:
             df_raw[col] = df_raw[col].fillna("").astype(str)
 
-    # تحديد العمود المستهدف للخريطة الحرارية (أهم عمود موجود في الجدول)
     target_cols_priority = ['صافي الربح', 'صاف الربح', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الكمية المطلوبة', 'الإيرادات', 'إجمالي العروض', 'إجمالي الطلبات']
     active_target = None
     for col in target_cols_priority:
@@ -301,11 +294,9 @@ def style_dataframe(df):
             active_target = col
             break
 
-    # 2. الترتيب التنازلي التلقائي بناءً على الأرقام الصافية (إذا وجد عمود مستهدف)
     if active_target:
         df_raw = df_raw.sort_values(by=active_target, ascending=False).reset_index(drop=True)
 
-    # 3. تجهيز قاموس التنسيقات ليظهر الـ ج.م والـ % بـعـد التلوين
     fmt = {}
     for c in currency_cols:
         if c in df_raw.columns: fmt[c] = "{:,.0f} ج.م"
@@ -314,7 +305,6 @@ def style_dataframe(df):
     for c in pct_cols:
         if c in df_raw.columns: fmt[c] = "{:.1f}%"
 
-    # 4. التلوين والتنسيق الآمن لمنع انهيار Streamlit
     try:
         styler = df_raw.style
         if active_target:
@@ -323,7 +313,6 @@ def style_dataframe(df):
             styler = styler.format(fmt)
         return styler
     except Exception as e:
-        # في أسوأ الظروف، إذا فشل التلوين، يرجع الجدول مرتباً ونظيفاً بدلاً من الانهيار
         return df_raw
 
 @st.cache_data(ttl=600, show_spinner=False)
