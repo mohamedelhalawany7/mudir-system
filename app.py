@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v48.2 (SMART AI EXECUTIVE REPORTS)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v48.3 (WHATSAPP PERFECT TYPOGRAPHY)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -697,23 +697,23 @@ html, body, [class*="css"] {
 }
 
 .chat-bubble { 
-    padding: 12px 18px !important; 
+    padding: 8px 12px !important; /* WhatsApp precise padding */
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Cairo", Helvetica, Arial, sans-serif !important; 
-    font-size: 1.1rem !important; /* Premium font size */
-    line-height: 1.7 !important; 
+    font-size: 15px !important; /* Standard readable size */
+    line-height: 20px !important; /* Smooth line height */
     word-wrap: break-word !important; 
     white-space: pre-wrap !important; 
     text-align: right !important; 
     direction: rtl !important; 
     width: fit-content !important; 
-    max-width: 80% !important; 
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important; 
+    max-width: 75% !important; 
+    box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important; 
     margin-bottom: 2px !important; 
 }
-.chat-bubble p { margin: 0 !important; color: #e9edef !important; font-size: 1.1rem !important;}
-.chat-bubble h1, .chat-bubble h2, .chat-bubble h3 { margin-top: 5px !important; margin-bottom: 5px !important; color: #fff !important; }
+.chat-bubble p { margin: 0 !important; color: #e9edef !important; font-size: 15px !important; line-height: 20px !important;}
+.chat-bubble h1, .chat-bubble h2, .chat-bubble h3 { margin-top: 5px !important; margin-bottom: 5px !important; color: #fff !important; font-size: 1.1rem !important;}
 .chat-bubble ul, .chat-bubble ol { margin-right: 20px !important; padding-right: 15px !important; margin-bottom: 0 !important;}
-.chat-bubble li { font-size: 1.1rem !important; line-height: 1.8 !important; margin-bottom: 4px !important; }
+.chat-bubble li { font-size: 15px !important; line-height: 20px !important; margin-bottom: 4px !important; }
 
 /* User Message (Right Side in RTL) */
 [data-testid="stChatMessage"]:has(.msg-user) [data-testid="stChatMessageContent"] { 
@@ -783,6 +783,7 @@ html, body, [class*="css"] {
 }
 
 .stMarkdown div[dir="rtl"] strong { color: #00f2ff !important; }
+.stMarkdown div[dir="rtl"] p, .stMarkdown div[dir="rtl"] li { font-size: 15px !important; line-height: 20px !important; color: #e9edef !important; margin-bottom: 0 !important; }
 
 .page-header { padding: 2.5rem 3rem; margin-bottom: 1rem; border-radius: var(--r); background: linear-gradient(135deg, #090912, #050508); border: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
 .ph-icon-wrap { background: rgba(0,242,255,0.05); border-radius: 16px; padding: 18px; border: 1px solid rgba(0,242,255,0.2); }
@@ -848,7 +849,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v48.2</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v48.3</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         allowed_navs = []
