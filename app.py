@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v46.2 (EMPTY STATE FIX)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v46.2 (CRASH PREVENTION FIXED)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -971,14 +971,18 @@ def render_dashboard():
 
     clean_p = df_p.copy() if not df_p.empty else pd.DataFrame()
     if not clean_p.empty:
-        clean_p = clean_p.sort_values('total_invoiced', ascending=False)
-        clean_p = clean_p.rename(columns={'name': 'اسم الجهة', 'city': 'المدينة', 'total_invoiced': 'إجمالي الفواتير (ج.م)', 'phone': 'الهاتف'})
+        if 'total_invoiced' in clean_p.columns:
+            clean_p = clean_p.sort_values('total_invoiced', ascending=False)
+        rename_dict_p = {'name': 'اسم الجهة', 'city': 'المدينة', 'total_invoiced': 'إجمالي الفواتير (ج.م)', 'phone': 'الهاتف'}
+        clean_p = clean_p.rename(columns={k:v for k,v in rename_dict_p.items() if k in clean_p.columns})
         clean_p = clean_p[[c for c in ['اسم الجهة', 'المدينة', 'إجمالي الفواتير (ج.م)', 'الهاتف'] if c in clean_p.columns]]
 
     clean_i = df_i.copy() if not df_i.empty else pd.DataFrame()
     if not clean_i.empty:
-        clean_i = clean_i.sort_values('qty_available', ascending=False)
-        clean_i = clean_i.rename(columns={'default_code': 'الكود', 'name': 'المنتج', 'qty_available': 'الكمية المتاحة', 'lst_price': 'السعر (ج.م)'})
+        if 'qty_available' in clean_i.columns:
+            clean_i = clean_i.sort_values('qty_available', ascending=False)
+        rename_dict_i = {'default_code': 'الكود', 'name': 'المنتج', 'qty_available': 'الكمية المتاحة', 'lst_price': 'السعر (ج.م)'}
+        clean_i = clean_i.rename(columns={k:v for k,v in rename_dict_i.items() if k in clean_i.columns})
         clean_i = clean_i[[c for c in ['الكود', 'المنتج', 'الكمية المتاحة', 'السعر (ج.م)'] if c in clean_i.columns]]
 
     clean_po = df_po.copy() if not df_po.empty else pd.DataFrame()
@@ -991,15 +995,22 @@ def render_dashboard():
 
     clean_pol = df_pol.copy() if not df_pol.empty else pd.DataFrame()
     if not clean_pol.empty:
-        clean_pol['المنتج / المادة'] = clean_pol['product_id'].apply(clean_odoo_m2o) if 'product_id' in clean_pol else ""
-        clean_pol = clean_pol.groupby('المنتج / المادة').agg({'product_qty': 'sum', 'price_subtotal': 'sum'}).reset_index()
-        clean_pol = clean_pol.sort_values('product_qty', ascending=False)
-        clean_pol = clean_pol.rename(columns={'product_qty': 'الكمية المطلوبة', 'price_subtotal': 'إجمالي التكلفة (ج.م)'})
+        if 'product_id' in clean_pol.columns:
+            clean_pol['المنتج / المادة'] = clean_pol['product_id'].apply(clean_odoo_m2o)
+            clean_pol = clean_pol.groupby('المنتج / المادة').agg({'product_qty': 'sum', 'price_subtotal': 'sum'}).reset_index()
+            if 'product_qty' in clean_pol.columns:
+                clean_pol = clean_pol.sort_values('product_qty', ascending=False)
+            clean_pol = clean_pol.rename(columns={'product_qty': 'الكمية المطلوبة', 'price_subtotal': 'إجمالي التكلفة (ج.م)'})
 
-    # تجهيز الجداول لتجنب خطأ فلترة جدول فارغ
-    s_appr = clean_s[clean_s['الحالة (عربي)'] == 'موافق عليه'] if not clean_s.empty and 'الحالة (عربي)' in clean_s.columns else pd.DataFrame()
-    s_draft = clean_s[clean_s['الحالة (عربي)'] == 'مسودة'] if not clean_s.empty and 'الحالة (عربي)' in clean_s.columns else pd.DataFrame()
-    s_canc = clean_s[clean_s['الحالة (عربي)'] == 'ملغي'] if not clean_s.empty and 'الحالة (عربي)' in clean_s.columns else pd.DataFrame()
+    # فلترة آمنة لتجنب انهيار الجداول الفارغة
+    if not clean_s.empty and 'الحالة (عربي)' in clean_s.columns:
+        s_appr = clean_s[clean_s['الحالة (عربي)'] == 'موافق عليه']
+        s_draft = clean_s[clean_s['الحالة (عربي)'] == 'مسودة']
+        s_canc = clean_s[clean_s['الحالة (عربي)'] == 'ملغي']
+    else:
+        s_appr = pd.DataFrame()
+        s_draft = pd.DataFrame()
+        s_canc = pd.DataFrame()
 
     split_sales_dict = {
         "السجل الشامل للعروض والطلبات": style_dataframe(clean_s), 
@@ -1009,7 +1020,8 @@ def render_dashboard():
     }
 
     top_suppliers = pd.DataFrame()
-    if not clean_po.empty: top_suppliers = clean_po[clean_po['الحالة'] == 'معتمد'].groupby('المورد')['القيمة (ج.م)'].sum().reset_index()
+    if not clean_po.empty and 'الحالة' in clean_po.columns and 'المورد' in clean_po.columns and 'القيمة (ج.م)' in clean_po.columns: 
+        top_suppliers = clean_po[clean_po['الحالة'] == 'معتمد'].groupby('المورد')['القيمة (ج.م)'].sum().reset_index()
     
     split_po_dict = {
         "السجل الشامل للمشتريات": style_dataframe(clean_po),
@@ -1017,26 +1029,27 @@ def render_dashboard():
         "المنتجات / المواد الأكثر طلباً": style_dataframe(clean_pol)
     }
 
-    if not clean_s.empty:
-        c_appr_df = clean_s[clean_s['الحالة (عربي)'] == 'موافق عليه'].groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'معتمد (ج.م)'})
-        c_draft_df = clean_s[clean_s['الحالة (عربي)'] == 'مسودة'].groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'مسودة (ج.م)'})
-        c_canc_df = clean_s[clean_s['الحالة (عربي)'] == 'ملغي'].groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'ملغي (ج.م)'})
-        c_count_df = clean_s.groupby('العميل')['رقم الطلب'].count().reset_index().rename(columns={'رقم الطلب': 'إجمالي العروض'})
+    if not clean_s.empty and 'العميل' in clean_s.columns:
+        c_appr_df = s_appr.groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'معتمد (ج.م)'}) if not s_appr.empty else pd.DataFrame(columns=['العميل', 'معتمد (ج.م)'])
+        c_draft_df = s_draft.groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'مسودة (ج.م)'}) if not s_draft.empty else pd.DataFrame(columns=['العميل', 'مسودة (ج.م)'])
+        c_canc_df = s_canc.groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'ملغي (ج.م)'}) if not s_canc.empty else pd.DataFrame(columns=['العميل', 'ملغي (ج.م)'])
+        c_count_df = clean_s.groupby('العميل')['رقم الطلب'].count().reset_index().rename(columns={'رقم الطلب': 'إجمالي العروض'}) if 'رقم الطلب' in clean_s.columns else pd.DataFrame(columns=['العميل', 'إجمالي العروض'])
         
         c_merged = c_count_df.merge(c_appr_df, on='العميل', how='left').merge(c_draft_df, on='العميل', how='left').merge(c_canc_df, on='العميل', how='left').fillna(0)
         
-        if not clean_p.empty:
-            p_info = clean_p[['اسم الجهة', 'المدينة', 'الهاتف']].drop_duplicates(subset=['اسم الجهة']).rename(columns={'اسم الجهة': 'العميل'})
-            c_merged = c_merged.merge(p_info, on='العميل', how='left').fillna('-')
+        if not clean_p.empty and 'اسم الجهة' in clean_p.columns:
+            p_info = clean_p[['اسم الجهة', 'المدينة', 'الهاتف']].drop_duplicates(subset=['اسم الجهة']).rename(columns={'اسم الجهة': 'العميل'}) if 'المدينة' in clean_p.columns and 'الهاتف' in clean_p.columns else pd.DataFrame()
+            if not p_info.empty:
+                c_merged = c_merged.merge(p_info, on='العميل', how='left').fillna('-')
 
         c_cols = ['العميل', 'إجمالي العروض', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'المدينة', 'الهاتف']
         c_merged = c_merged[[c for c in c_cols if c in c_merged.columns]]
 
         split_clients = {
             "السجل الشامل للعملاء": style_dataframe(clean_p),
-            "الأقوى (معتمد)": style_dataframe(c_merged[['العميل', 'معتمد (ج.م)']]),
-            "حسب المسودة": style_dataframe(c_merged[['العميل', 'مسودة (ج.م)']]),
-            "الأكثر طلباً (عدد)": style_dataframe(c_merged[['العميل', 'إجمالي العروض']])
+            "الأقوى (معتمد)": style_dataframe(c_merged[['العميل', 'معتمد (ج.م)']]) if 'معتمد (ج.م)' in c_merged.columns else style_dataframe(pd.DataFrame()),
+            "حسب المسودة": style_dataframe(c_merged[['العميل', 'مسودة (ج.م)']]) if 'مسودة (ج.م)' in c_merged.columns else style_dataframe(pd.DataFrame()),
+            "الأكثر طلباً (عدد)": style_dataframe(c_merged[['العميل', 'إجمالي العروض']]) if 'إجمالي العروض' in c_merged.columns else style_dataframe(pd.DataFrame())
         }
     else:
         split_clients = {"السجل الشامل للعملاء": style_dataframe(clean_p)}
@@ -1044,8 +1057,8 @@ def render_dashboard():
     if not clean_i.empty:
         split_stock = {
             "سجل المنتجات الشامل": style_dataframe(clean_i),
-            "المنتجات الأكثر توفراً (الكمية)": style_dataframe(clean_i[['المنتج', 'الكمية المتاحة']]),
-            "المنتجات الأغلى سعراً": style_dataframe(clean_i[['المنتج', 'السعر (ج.م)']])
+            "المنتجات الأكثر توفراً (الكمية)": style_dataframe(clean_i[['المنتج', 'الكمية المتاحة']]) if 'المنتج' in clean_i.columns and 'الكمية المتاحة' in clean_i.columns else style_dataframe(pd.DataFrame()),
+            "المنتجات الأغلى سعراً": style_dataframe(clean_i[['المنتج', 'السعر (ج.م)']]) if 'المنتج' in clean_i.columns and 'السعر (ج.م)' in clean_i.columns else style_dataframe(pd.DataFrame())
         }
     else:
         split_stock = {"الكل": style_dataframe(clean_i)}
