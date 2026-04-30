@@ -14,7 +14,7 @@ import re
 import base64
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v47.4 (COLOR RESTORE & PO DETAILED)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v47.5 (PERFECT WHATSAPP UI & RESPONSIVE FIX)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -298,7 +298,6 @@ def extract_department_from_row(row):
 def style_dataframe(df):
     if df is None: return pd.DataFrame()
     
-    # الحصول على البيانات كـ DataFrame نظيف
     if hasattr(df, 'data'):
         df_raw = df.data.copy()
     else:
@@ -306,28 +305,22 @@ def style_dataframe(df):
 
     if df_raw.empty: return df_raw
 
-    # تعريف الأعمدة التي يجب أن تكون أرقاماً
     currency_cols = ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'قيمة (معتمد)', 'قيمة (مسودة)', 'قيمة (ملغي)', 'القيمة الكلية (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'صاف الربح']
     number_cols = ['الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'العدد الكلي', 'الكمية المطلوبة', 'إجمالي العروض', 'إجمالي الطلبات']
     pct_cols = ['هامش الربح %']
     
     all_numeric = currency_cols + number_cols + pct_cols
 
-    # 1. التنظيف الصارم للأرقام (إزالة الفواصل والنصوص مثل ج.م و %) قبل أي ترتيب أو تلوين
     for col in all_numeric:
         if col in df_raw.columns:
             if df_raw[col].dtype == object or df_raw[col].dtype.name == 'category':
-                # مسح كل شيء عدا الأرقام، السالب، والنقطة العشرية
                 df_raw[col] = df_raw[col].astype(str).str.replace(r'[^\d.-]', '', regex=True)
-            # تحويل إلى رقم فعلي
             df_raw[col] = pd.to_numeric(df_raw[col], errors='coerce').fillna(0)
             
-    # تحويل باقي الأعمدة لنصوص آمنة لمنع الانهيار
     for col in df_raw.columns:
         if col not in all_numeric:
             df_raw[col] = df_raw[col].fillna("").astype(str)
 
-    # تحديد العمود المستهدف للخريطة الحرارية (أهم عمود موجود في الجدول)
     target_cols_priority = ['صافي الربح', 'صاف الربح', 'القيمة الكلية (ج.م)', 'قيمة (معتمد)', 'قيمة (مسودة)', 'قيمة (ملغي)', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الكمية المطلوبة', 'الإيرادات', 'العدد الكلي', 'إجمالي العروض', 'إجمالي الطلبات']
     active_target = None
     for col in target_cols_priority:
@@ -335,11 +328,9 @@ def style_dataframe(df):
             active_target = col
             break
 
-    # 2. الترتيب التنازلي التلقائي بناءً على الأرقام الصافية (إذا وجد عمود مستهدف)
     if active_target:
         df_raw = df_raw.sort_values(by=active_target, ascending=False).reset_index(drop=True)
 
-    # 3. تجهيز قاموس التنسيقات ليظهر الـ ج.م والـ % بـعـد التلوين
     fmt = {}
     for c in currency_cols:
         if c in df_raw.columns: fmt[c] = "{:,.0f} ج.م"
@@ -348,7 +339,6 @@ def style_dataframe(df):
     for c in pct_cols:
         if c in df_raw.columns: fmt[c] = "{:.1f}%"
 
-    # 4. التلوين والتنسيق الآمن لمنع انهيار Streamlit
     try:
         styler = df_raw.style
         if active_target:
@@ -357,7 +347,6 @@ def style_dataframe(df):
             styler = styler.format(fmt)
         return styler
     except Exception as e:
-        # في أسوأ الظروف، إذا فشل التلوين، يرجع الجدول مرتباً ونظيفاً بدلاً من الانهيار
         return df_raw
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -677,7 +666,7 @@ html, body, [class*="css"] {
 }
 
 /* =====================================================================
-   WHATSAPP-STYLE CHAT UI (STRICT RTL, PERFECT ALIGNMENT)
+   WHATSAPP-STYLE CHAT UI (STRICT RTL, PERFECT ALIGNMENT, NO OVERLAP)
    ===================================================================== */
 [data-testid="stChatMessage"] { 
     background: transparent !important; 
@@ -691,6 +680,7 @@ html, body, [class*="css"] {
 
 [data-testid="stChatMessageContent"] { 
     width: 100% !important; 
+    max-width: 100% !important;
     background: transparent !important; 
     padding: 0 !important; 
     display: flex !important; 
@@ -698,7 +688,7 @@ html, body, [class*="css"] {
 }
 
 .chat-bubble { 
-    padding: 10px 14px !important; 
+    padding: 12px 16px !important; 
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Cairo", Helvetica, Arial, sans-serif !important; 
     font-size: 1.05rem !important; 
     line-height: 1.6 !important; 
@@ -707,7 +697,7 @@ html, body, [class*="css"] {
     text-align: right !important; 
     direction: rtl !important; 
     width: fit-content !important; 
-    max-width: 80% !important; 
+    max-width: 85% !important; 
     box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important; 
     margin-bottom: 2px !important; 
 }
@@ -718,49 +708,67 @@ html, body, [class*="css"] {
 
 /* User Message (Right Side in RTL) */
 [data-testid="stChatMessage"]:has(.msg-user) [data-testid="stChatMessageContent"] { 
-    align-items: flex-start !important; 
+    align-items: flex-start !important; /* Right side due to RTL */
 }
 [data-testid="stChatMessage"]:has(.msg-user) .chat-bubble { 
     background-color: #005c4b !important; 
     color: #e9edef !important; 
-    border-radius: 10px 0px 10px 10px !important; 
+    border-radius: 12px 0px 12px 12px !important; 
 }
 
 /* AI Message (Left Side in RTL) */
 [data-testid="stChatMessage"]:has(.msg-assistant) [data-testid="stChatMessageContent"] { 
-    align-items: flex-end !important; 
+    align-items: flex-end !important; /* Left side due to RTL */
 }
 [data-testid="stChatMessage"]:has(.msg-assistant) .chat-bubble { 
     background-color: #202c33 !important; 
     color: #e9edef !important; 
-    border-radius: 0px 10px 10px 10px !important; 
+    border-radius: 0px 12px 12px 12px !important; 
 }
 
-/* Action Buttons Wrapper (Admin Only) */
-.chat-actions { display: flex !important; gap: 8px !important; direction: rtl !important; width: fit-content !important;}
+/* Action Buttons Layout (Prevent Overlap and Fix Zooming) */
 [data-testid="stChatMessage"] [data-testid="stHorizontalBlock"] { 
-    gap: 0px !important; 
+    gap: 8px !important; 
     width: fit-content !important; 
     direction: rtl !important; 
-    margin-top: 2px !important;
+    margin-top: 4px !important;
+    align-items: center !important;
+    padding: 0 5px !important;
 }
-[data-testid="stChatMessage"] [data-testid="column"] { padding: 0 !important; width: fit-content !important; min-width: fit-content !important; flex: 0 0 auto !important; }
+[data-testid="stChatMessage"]:has(.msg-user) [data-testid="stHorizontalBlock"] { 
+    align-self: flex-start !important; 
+}
+[data-testid="stChatMessage"]:has(.msg-assistant) [data-testid="stHorizontalBlock"] { 
+    align-self: flex-end !important; 
+}
+
+[data-testid="stChatMessage"] [data-testid="column"] { 
+    padding: 0 !important; 
+    width: fit-content !important; 
+    min-width: fit-content !important; 
+    flex: 0 0 auto !important; 
+}
+[data-testid="stChatMessage"] div.stButton {
+    width: fit-content !important;
+}
 [data-testid="stChatMessage"] div.stButton > button { 
     background: transparent !important; 
     border: none !important; 
     color: #8696a0 !important; 
-    padding: 4px !important; 
-    min-height: 0 !important; 
-    height: auto !important; 
+    padding: 0 !important; 
+    width: 34px !important; 
+    height: 34px !important; 
+    min-height: 34px !important; 
     font-size: 1.1rem !important; 
     box-shadow: none !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     border-radius: 50% !important;
+    transition: all 0.2s ease-in-out !important;
 }
 [data-testid="stChatMessage"] div.stButton > button:hover { 
-    background: rgba(255,255,255,0.05) !important; 
+    background: rgba(255,255,255,0.1) !important; 
     color: #00f2ff !important; 
 }
 
@@ -824,7 +832,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v47.4</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v47.5</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         allowed_navs = []
@@ -1733,8 +1741,7 @@ def render_ai():
                             st.markdown(f"<span class='msg-{m['role']}' style='display:none;'></span>", unsafe_allow_html=True)
                             st.markdown(f"<div class='chat-bubble' dir='rtl'>{m['content']}</div>", unsafe_allow_html=True)
                             
-                            st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
-                            c1, c2, c3 = st.columns([1, 1, 15])
+                            c1, c2 = st.columns([1, 1])
                             with c1:
                                 if st.button("✏️", key=f"gm_ed_{sel_emp}_{idx}", help="تعديل الرسالة"):
                                     edit_message_dialog(sel_emp, idx, m['content'])
@@ -1743,7 +1750,6 @@ def render_ai():
                                     st.session_state.all_chats[sel_emp].pop(idx)
                                     save_chats()
                                     st.rerun()
-                            st.markdown('</div>', unsafe_allow_html=True)
             else:
                 st.info("لا توجد محادثات نشطة للموظفين حتى الآن.")
 
@@ -1755,8 +1761,7 @@ def render_ai():
                         st.markdown(f"<span class='msg-{msg['role']}' style='display:none;'></span>", unsafe_allow_html=True)
                         st.markdown(f"<div class='chat-bubble' dir='rtl'>{msg['content']}</div>", unsafe_allow_html=True)
                         
-                        st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
-                        c1, c2, c3 = st.columns([1, 1, 15])
+                        c1, c2 = st.columns([1, 1])
                         with c1:
                             if st.button("✏️", key=f"ed_{curr_user}_{idx}", help="تعديل الرسالة"):
                                 edit_message_dialog(curr_user, idx, msg['content'])
@@ -1765,7 +1770,6 @@ def render_ai():
                                 st.session_state.all_chats[curr_user].pop(idx)
                                 save_chats()
                                 st.rerun()
-                        st.markdown('</div>', unsafe_allow_html=True)
                     
             user_input = st.chat_input("أصدر أوامرك، اطلب خططاً، أو استعلم عن البيانات...")
             
@@ -2284,7 +2288,7 @@ def change_workspace_pin_dialog(ws_id):
 def render_super_admin():
     # تم حل مشكلة تسجيل الخروج بإضافة Sidebar للتحكم الآمن
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v47.4</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v47.5</div></div>""", unsafe_allow_html=True)
         st.markdown("---")
         if st.button("🔴 تسجيل الخروج وإغلاق", use_container_width=True, type="primary"):
             st.query_params.clear()
