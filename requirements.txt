@@ -5,3 +5,4 @@ openai
 jinja2
 openpyxl
 prophet
+filelock
