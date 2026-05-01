@@ -1703,21 +1703,22 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
         اكتب تقرير إداري مكثف ومنظم بصيغة HTML (بدون استخدام Markdown نهائياً)، ليكون مناسباً للطباعة فوراً.
         استخدم العناوين (h3, h4) والفقرات (p) والقوائم (ul, li). 
         قسم التقرير إلى:
-        1. الخلاصة التنفيذية لأداء الموظف (بناءً على ردوده وإنجازاته المذكورة في الشات).
-        2. مدى التزامه بالمهام والأهداف (KPIs) وجودة التقارير التي قدمها بنفسه.
+        1. الخلاصة التنفيذية لأداء الموظف بناءً على ردوده وإنجازاته المذكورة في الشات.
+        2. مدى التزامه بالمهام والأهداف (KPIs) وجودة التقارير التي يقدمها بنفسه.
         3. نقاط القوة، ومجالات التحسين.
-        4. التقييم النهائي العام (درجة من 10) في شكل بارز ومبرر باختصار.
+        4. التقييم النهائي العام (من 10) في شكل بارز ومبرر باختصار.
 
-        تأكد ألا تفترض أي مبيعات أو أرقام خارجية، قيم فقط ما ذكره الموظف وصرح به.
+        تأكد ألا تفترض أي مبيعات خارجية، قيم فقط ما ذكره الموظف وصرح به.
         يجب أن يكون الكود HTML نظيف فقط وبدون Emojis.
         """
         try:
             smart_report_html = call_universal_ai([{"role": "user", "content": report_prompt}])
+            # Clean up if AI wrapped it in ```html
             smart_report_html = smart_report_html.replace('```html', '').replace('```', '').strip()
         except Exception as e:
             err_str = str(e)
             if "429" in err_str or "quota" in err_str.lower():
-                err_msg = "لقد استنفدت رصيد باقة الذكاء الاصطناعي المجانية (Quota Exceeded)، أو وصلت للحد الأقصى للطلبات في الدقيقة. يرجى الانتظار قليلاً أو مراجعة باقة الاشتراك."
+                err_msg = "لقد استنفدت رصيد باقة الذكاء الاصطناعي (الحد الأقصى للطلبات). يرجى الانتظار قليلاً أو مراجعة باقة الاشتراك."
             elif "401" in err_str or "auth" in err_str.lower():
                 err_msg = "مفتاح الربط (API Key) غير صحيح أو غير مفعل."
             else:
@@ -1725,20 +1726,19 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
 
             smart_report_html = f"""
             <div style="background-color: rgba(225, 29, 72, 0.1); border-right: 4px solid #e11d48; padding: 20px; border-radius: 8px; margin-top: 15px;">
-                <h3 style="color: #e11d48 !important; margin-top: 0 !important; display: flex; align-items: center; gap: 8px; border-bottom: none !important;">
+                <div style="color: #e11d48; font-size: 1.3rem; font-weight: 800; display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
                     ⚠️ تعذر إنشاء التقرير الذكي
-                </h3>
-                <p style="color: #e2e8f0; font-size: 15px; margin-bottom: 10px; font-weight: bold;">
+                </div>
+                <div style="color: #e2e8f0; font-size: 15px; margin-bottom: 15px; font-weight: 600;">
                     {err_msg}
-                </p>
+                </div>
                 <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(225, 29, 72, 0.2); color: #94a3b8; padding: 10px; border-radius: 6px; font-size: 12px; font-family: monospace; text-align: left; direction: ltr; max-height: 150px; overflow-y: auto;">
                     Error Details: {str(e)}
                 </div>
             </div>
             """
 
-    html_export = f"""
-    <!DOCTYPE html>
+    # --- Build HTML for Export (Word / PDF) with elegant fonts and styling ---
     <html dir="rtl" lang="ar">
     <head>
         <meta charset="utf-8">
@@ -1788,10 +1788,10 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
             </div>
         </div>
         <style>
-            .st-report-content h3 {{ color:#00a884; font-weight:700; margin-top:1.5rem; border-bottom:1px solid #202c33; padding-bottom:10px; }}
-            .st-report-content h4 {{ color:#00f2ff; font-weight:600; margin-top:1rem; }}
+            .ai-report-box h2, .ai-report-box h3 {{ color:#00a884; font-weight:700; margin-top:1.5rem; border-bottom:1px solid #202c33; padding-bottom:10px; }}
+            .ai-report-box h4 {{ color:#00f2ff; font-weight:600; margin-top:1rem; }}
         </style>
-        <div class="st-report-content" style="background: #0b141a; padding: 30px; border-radius: 12px; border-right: 4px solid #00a884; color: #e9edef; font-size: 1.05rem; line-height: 1.8;">
+        <div class="ai-report-box" style="background: #0b141a; padding: 30px; border-radius: 12px; border-right: 4px solid #00a884; color: #e9edef; font-size: 1.05rem; line-height: 1.8;">
             {smart_report_html}
         </div>
     </div>
