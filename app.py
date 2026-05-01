@@ -12,11 +12,11 @@ import json
 import os
 import re
 import base64
-import tempfile
-import shutil
+import firebase_admin
+from firebase_admin import credentials, firestore
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v48.5 (SMART EXECUTIVE REPORTS)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v48.5 (FIREBASE EDITION)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -26,11 +26,21 @@ st.set_page_config(
 )
 
 # ============================================================
-# 0. نظام الحفظ الديناميكي الآمن (Atomic Data Vault)
+# 0. نظام الحفظ السحابي الفولاذي (Firebase Firestore) - مضاد للسقوط 100%
 # ============================================================
-CONFIG_FILE = "mudir_config.json"
-LICENSES_FILE = "mudir_licenses.json"
 MASTER_ADMIN_CODE = "admin185710" # الكود السري الخاص بك لدخول لوحة تحكم التراخيص
+
+# تهيئة الاتصال بخزنة جوجل (مرة واحدة فقط)
+if not firebase_admin._apps:
+    try:
+        # قراءة المفتاح المخفي بأمان من سيرفر Streamlit
+        key_dict = json.loads(st.secrets["FIREBASE_JSON"])
+        cred = credentials.Certificate(key_dict)
+        firebase_admin.initialize_app(cred)
+    except Exception as e:
+        st.error("⚠️ خطأ في قراءة المفتاح السري من Streamlit Secrets. يرجى التأكد من أنك ألصقت المفتاح بشكل صحيح.")
+
+db = firestore.client()
 
 DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري شاطر جداً، خبرة سنين في المبيعات والتسويق وإدارة الشركات.
 شخصيتك: مصري أصيل، بتتكلم بلهجة مصرية طبيعية جداً جداً وبطريقة احترافية (كأنك مدير قاعد في مكتبه بيوجه فريقه)، حازم، جاد، معلم، ومبتسمحش في التقصير أو الأعذار. بتدي أوامر واضحة وتتابعها وتقيم الموظفين وتناقشهم في أوقات التنفيذ.
@@ -44,66 +54,10 @@ DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري
 6. التحكم في النظام: لو شفت إن في ضرورة ماسة لإنشاء مسودة عرض سعر لعميل لإنقاذ الموقف، أضف هذا الكود في نهاية رسالتك بالضبط:
 $$ACTION: CREATE_SO | العميل: [اسم العميل] | القيمة: [مبلغ تقديري]$$"""
 
-def get_workspace_file(ws_id=None):
-    target_id = ws_id if ws_id else st.session_state.get('workspace_id', 'default')
-    safe_id = "".join(c for c in str(target_id) if c.isalnum() or c in ('_', '-'))
-    return f"mudir_workspace_{safe_id}.json"
-
-def safe_json_read(filepath, default_val=None):
-    """قراءة آمنة مع نظام محاولات متكررة واسترجاع من النسخة الاحتياطية للحماية القصوى من الحذف"""
-    if default_val is None: default_val = {}
-    
-    # 1. محاولة قراءة الملف الأساسي
-    if os.path.exists(filepath):
-        for _ in range(5):
-            try:
-                with open(filepath, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            except json.JSONDecodeError:
-                break  # الملف معطوب أو فارغ، ننتقل للنسخة الاحتياطية
-            except Exception:
-                time.sleep(0.05)
-                
-    # 2. محاولة قراءة النسخة الاحتياطية التلقائية في حال حذف الأساسي أو تلفه
-    backup_path = filepath + ".bak"
-    if os.path.exists(backup_path):
-        for _ in range(5):
-            try:
-                with open(backup_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    # استعادة الملف الأساسي المحذوف فوراً من النسخة الاحتياطية
-                    safe_json_write(filepath, data, skip_backup=True)
-                    return data
-            except Exception:
-                time.sleep(0.05)
-                
-    return default_val
-
-def safe_json_write(filepath, data, skip_backup=False):
-    """كتابة ذرية (Atomic Write) مع إنشاء نسخة احتياطية (.bak) تلقائية تمنع ضياع البيانات أبداً"""
-    backup_path = filepath + ".bak"
-    
-    # 1. إنشاء نسخة احتياطية من الملف السليم قبل التعديل
-    if not skip_backup and os.path.exists(filepath):
-        try:
-            shutil.copy2(filepath, backup_path)
-        except Exception:
-            pass
-
-    # 2. الكتابة الذرية الآمنة
-    try:
-        dirname = os.path.dirname(filepath) or '.'
-        fd, temp_path = tempfile.mkstemp(dir=dirname, prefix="tmp_", suffix=".json", text=True)
-        with os.fdopen(fd, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
-        os.replace(temp_path, filepath)
-    except Exception:
-        # 3. محاولة بديلة في حالة فشل الكتابة الذرية (بسبب صلاحيات النظام)
-        try:
-            with open(filepath, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=4)
-        except Exception:
-            pass
+def get_workspace_doc():
+    ws_id = st.session_state.get('workspace_id', 'default')
+    safe_id = "".join(c for c in str(ws_id) if c.isalnum() or c in ('_', '-'))
+    return db.collection('Mudir_Workspaces').document(safe_id)
 
 def load_config():
     defaults = {
@@ -114,50 +68,67 @@ def load_config():
         'EVAL_HISTORY': {}, 'ALL_CHATS': {}, 'AUDIT_LOG': {} 
     }
     if 'workspace_id' in st.session_state:
-        ws_file = get_workspace_file()
-        saved_config = safe_json_read(ws_file, {})
-        defaults.update(saved_config)
+        try:
+            doc = get_workspace_doc().get()
+            if doc.exists:
+                defaults.update(doc.to_dict())
+        except Exception:
+            pass
     return defaults
 
 def save_config(cfg_dict):
     if 'workspace_id' in st.session_state:
-        ws_file = get_workspace_file()
-        safe_json_write(ws_file, cfg_dict)
+        try:
+            get_workspace_doc().set(cfg_dict, merge=True)
+        except Exception:
+            pass
 
 def save_chat_for_user(user_key):
-    """تحديث محادثة مستخدم واحد فقط لحماية محادثات باقي الموظفين أثناء الاستخدام المتزامن"""
+    """تحديث محادثة مستخدم واحد فقط لحماية محادثات باقي الموظفين (تزامن لحظي)"""
     if 'workspace_id' in st.session_state:
-        ws_file = get_workspace_file()
-        current_cfg = safe_json_read(ws_file, {})
-        if 'ALL_CHATS' not in current_cfg: current_cfg['ALL_CHATS'] = {}
+        chats = st.session_state.all_chats.get(user_key, [])
+        try:
+            get_workspace_doc().set({'ALL_CHATS': {user_key: chats}}, merge=True)
+        except Exception:
+            pass
         
-        current_cfg['ALL_CHATS'][user_key] = st.session_state.all_chats.get(user_key, [])
-        safe_json_write(ws_file, current_cfg)
-        
-        if 'app_config' in st.session_state:
-            st.session_state.app_config['ALL_CHATS'] = current_cfg['ALL_CHATS']
+        if 'app_config' not in st.session_state: st.session_state.app_config = {}
+        if 'ALL_CHATS' not in st.session_state.app_config: st.session_state.app_config['ALL_CHATS'] = {}
+        st.session_state.app_config['ALL_CHATS'][user_key] = chats
 
 def log_message(user, msg_dict):
     """تسجيل العمليات في السجل السري المنيع بشكل ذري وآمن"""
     if 'workspace_id' in st.session_state:
-        ws_file = get_workspace_file()
-        current_cfg = safe_json_read(ws_file, {})
-        if 'AUDIT_LOG' not in current_cfg: current_cfg['AUDIT_LOG'] = {}
-        if user not in current_cfg['AUDIT_LOG']: current_cfg['AUDIT_LOG'][user] = []
-        
         entry = msg_dict.copy()
         entry['timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        current_cfg['AUDIT_LOG'][user].append(entry)
         
-        safe_json_write(ws_file, current_cfg)
+        cfg = load_config()
+        if 'AUDIT_LOG' not in cfg: cfg['AUDIT_LOG'] = {}
+        if user not in cfg['AUDIT_LOG']: cfg['AUDIT_LOG'][user] = []
+        cfg['AUDIT_LOG'][user].append(entry)
+        
+        try:
+            get_workspace_doc().set({'AUDIT_LOG': {user: cfg['AUDIT_LOG'][user]}}, merge=True)
+        except Exception:
+            pass
+        
         if 'app_config' in st.session_state:
-            st.session_state.app_config['AUDIT_LOG'] = current_cfg['AUDIT_LOG']
+            st.session_state.app_config['AUDIT_LOG'] = cfg['AUDIT_LOG']
 
 def load_licenses():
-    return safe_json_read(LICENSES_FILE, {"workspaces": {}})
+    try:
+        doc = db.collection('Mudir_System').document('Licenses').get()
+        if doc.exists:
+            return doc.to_dict()
+    except Exception:
+        pass
+    return {"workspaces": {}}
 
 def save_licenses(data):
-    safe_json_write(LICENSES_FILE, data)
+    try:
+        db.collection('Mudir_System').document('Licenses').set(data, merge=True)
+    except Exception:
+        pass
 
 # ============================================================
 # أزرار القائمة الجانبية (Navigation Items)
@@ -171,7 +142,6 @@ ALL_NAV_ITEMS = [
     ("territories", "globe", "التحليل الجغرافي"),
     ("settings", "settings", "إعدادات النظام")
 ]
-
 # ============================================================
 # التوجيه الذكي للروابط (URL Routing & Initialization)
 # ============================================================
