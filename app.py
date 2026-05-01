@@ -15,7 +15,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v49.0 (NEON & FIREBASE EDITION)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v49.1 (NEON & INTERACTIVE)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -61,7 +61,7 @@ def get_workspace_doc(ws_id=None):
 def load_config():
     defaults = {
         'ODOO_URL': '', 'ODOO_DB': '', 'ODOO_USER': '', 'ODOO_PASS': '',
-        'AI_PROVIDER_URL': '[https://api.openai.com/v1](https://api.openai.com/v1)', 'AI_API_KEY': '',
+        'AI_PROVIDER_URL': 'https://api.openai.com/v1', 'AI_API_KEY': '',
         'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
         'MANAGER_PIN': '0000', 'EMPLOYEES': [], 'EVALUATIONS': {},
         'EVAL_HISTORY': {}, 'ALL_CHATS': {}, 'AUDIT_LOG': {} 
@@ -255,12 +255,7 @@ def get_icon(name: str, size: int = 24, color: str = "currentColor", class_name:
         "activity": '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'
     }
     path = svg_map.get(name, "")
-    return f'<svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" class="{class_name}" width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{path}</svg>'
-
-def get_base64_svg(icon_name, color="#00f2ff"):
-    svg_str = get_icon(icon_name, 24, color)
-    b64 = base64.b64encode(svg_str.encode('utf-8')).decode('utf-8')
-    return f"data:image/svg+xml;base64,{b64}"
+    return f'<svg xmlns="http://www.w3.org/2000/svg" class="{class_name}" width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{path}</svg>'
 
 def map_state_ar(state_val):
     val = str(state_val).lower()
@@ -475,15 +470,17 @@ def render_live_ticker(df_s, df_p):
     canc = df_s[df_s['state'] == 'cancel']['amount_total'].sum() if 'state' in df_s.columns else 0
     clients = len(df_p) if df_p is not None else 0
     
+    # استخدام Inline SVG مباشرة لضمان العمل على جميع المتصفحات
     ticker_text = "".join([
-        f'<div class="ticker-item"><img src="{get_base64_svg("rocket", "#00ff82")}" width="18" style="vertical-align:middle; margin-left:5px;"> إجمالي المبيعات المعتمدة: <span>{appr:,.0f} ج.م</span></div>',
-        f'<div class="ticker-item"><img src="{get_base64_svg("orders", "#ffd700")}" width="18" style="vertical-align:middle; margin-left:5px;"> عروض قيد الانتظار: <span>{draft:,.0f} ج.م</span></div>',
-        f'<div class="ticker-item"><img src="{get_base64_svg("bell", "#ff2d78")}" width="18" style="vertical-align:middle; margin-left:5px;"> نزيف مالي (ملغي): <span>{canc:,.0f} ج.م</span></div>',
-        f'<div class="ticker-item"><img src="{get_base64_svg("users", "#00f2ff")}" width="18" style="vertical-align:middle; margin-left:5px;"> إجمالي العملاء: <span>{clients} عميل</span></div>',
-        f'<div class="ticker-item"><img src="{get_base64_svg("bulb", "#ffd700")}" width="18" style="vertical-align:middle; margin-left:5px;"> النظام يعمل بأقصى طاقة استيعابية...</div>'
+        f'<div class="ticker-item"><span class="ticker-icon">{get_icon("rocket", 20, "#00ff82")}</span> إجمالي المبيعات المعتمدة: <span>{appr:,.0f} ج.م</span></div>',
+        f'<div class="ticker-item"><span class="ticker-icon">{get_icon("orders", 20, "#ffd700")}</span> عروض قيد الانتظار: <span>{draft:,.0f} ج.م</span></div>',
+        f'<div class="ticker-item"><span class="ticker-icon">{get_icon("bell", 20, "#ff2d78")}</span> نزيف مالي (ملغي): <span>{canc:,.0f} ج.م</span></div>',
+        f'<div class="ticker-item"><span class="ticker-icon">{get_icon("users", 20, "#00f2ff")}</span> إجمالي العملاء: <span>{clients} عميل</span></div>',
+        f'<div class="ticker-item"><span class="ticker-icon">{get_icon("bulb", 20, "#ffd700")}</span> النظام يعمل بأقصى طاقة استيعابية...</div>'
     ])
     
-    st.markdown(f'<div class="ticker-wrap"><div class="ticker-move">{ticker_text}{ticker_text}</div></div>', unsafe_allow_html=True)
+    # تكرار النص لضمان استمرارية الشريط بدون فواصل
+    st.markdown(f'<div class="ticker-wrap"><div class="ticker-move">{ticker_text}{ticker_text}{ticker_text}</div></div>', unsafe_allow_html=True)
 
 # ----------------------------------------------------
 # 5. شاشة مساحة العمل و تسجيل الدخول
@@ -595,11 +592,11 @@ def render_login():
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ============================================================
-# 6. شريط التنقل الجانبي (CSS) وستايلات النيون الجديدة
+# 6. شريط التنقل الجانبي (CSS) وستايلات النيون الجديدة مع حركات الماوس
 # ============================================================
 st.markdown("""
 <style>
-@import url('[https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Orbitron:wght@400;700;900&display=swap](https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Orbitron:wght@400;700;900&display=swap)');
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Orbitron:wght@400;700;900&display=swap');
 
 :root {
     --c-primary:   #00f2ff;
@@ -628,9 +625,6 @@ html, body, [class*="css"] {
 @keyframes fadeUp {
     0% { opacity: 0; transform: translateY(20px); }
     100% { opacity: 1; transform: translateY(0); }
-}
-.g-card, .page-header, [data-testid="stTabs"] {
-    animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 [data-testid="stAppViewBlockContainer"] {
@@ -676,28 +670,69 @@ html, body, [class*="css"] {
     border: 1px solid rgba(0, 242, 255, 0.4) !important; font-weight: 900 !important;
 }
 
-/* Employee Neon Cards Styles */
+/* =========================================================
+   Interactive Hover Effects & Neon Cards
+   ========================================================= */
+.g-card, .page-header, [data-testid="stTabs"] {
+    animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.g-card { 
+    background: var(--c-card); border: 1px solid rgba(255,255,255,0.06); 
+    border-radius: var(--r); padding: 1.8rem; margin-bottom: 1.5rem; 
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.g-card:hover {
+    border-color: rgba(0, 242, 255, 0.3);
+    box-shadow: 0 5px 20px rgba(0, 242, 255, 0.05);
+}
+.g-card-title { font-weight: 800; font-size: 1.2rem; color: #fff; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; } 
+
+.custom-metric { 
+    background: rgba(15,15,20,0.8); border: 1px solid rgba(255,255,255,0.05); 
+    border-radius: var(--r); padding: 1.2rem; display: flex; flex-direction: column; 
+    gap: 8px; overflow: hidden; animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
+    container-type: inline-size;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    cursor: default;
+}
+.custom-metric:hover {
+    transform: translateY(-5px) scale(1.02);
+    border-color: rgba(0, 242, 255, 0.5) !important;
+    box-shadow: 0 10px 25px rgba(0, 242, 255, 0.15) !important;
+}
+.cm-top { display: flex; justify-content: space-between; align-items: center; }
+.cm-label { color: #cbd5e1; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+.cm-val-wrapper { display: flex; align-items: baseline; width: 100%; white-space: nowrap; }
+.cm-val { 
+    font-family: 'Orbitron', sans-serif; color: #00f2ff; text-shadow: 0 0 12px rgba(0,242,255,0.6); 
+    font-weight: 900; font-size: clamp(0.9rem, 8cqi, 1.8rem); white-space: nowrap; 
+    transition: text-shadow 0.3s ease;
+}
+.custom-metric:hover .cm-val {
+    text-shadow: 0 0 20px rgba(0, 242, 255, 1) !important;
+}
+.cm-suf { font-size: 0.75rem; color: var(--c-dim); margin-right: 4px; font-family: 'Cairo', sans-serif; font-weight: 700; }
+
+/* Employee Neon Cards */
 .emp-card-neon {
     background: linear-gradient(145deg, #0b141a, #050a0d);
     border: 1px solid rgba(0, 242, 255, 0.2);
     border-radius: 12px;
     padding: 20px;
     box-shadow: 0 4px 15px rgba(0, 242, 255, 0.05);
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     margin-bottom: 15px;
     direction: rtl;
 }
 .emp-card-neon:hover {
-    box-shadow: 0 0 20px rgba(0, 242, 255, 0.2);
-    border: 1px solid rgba(0, 242, 255, 0.6);
-    transform: translateY(-2px);
+    transform: translateY(-4px);
+    border-color: rgba(0, 242, 255, 0.6);
+    box-shadow: 0 8px 25px rgba(0, 242, 255, 0.2);
 }
 .emp-header {
-    display: flex;
-    align-items: center;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-    padding-bottom: 10px;
-    margin-bottom: 15px;
+    display: flex; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05);
+    padding-bottom: 10px; margin-bottom: 15px;
 }
 .emp-avatar {
     width: 40px; height: 40px; border-radius: 50%;
@@ -707,102 +742,55 @@ html, body, [class*="css"] {
 }
 .emp-name { font-size: 1.2rem; font-weight: 800; color: #fff; }
 .emp-role { font-size: 0.9rem; color: #00ff82; font-weight: 600;}
-.emp-info-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-bottom: 15px;
-}
+.emp-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
 .emp-label { font-size: 0.8rem; color: var(--c-dim); margin-bottom: 2px;}
 .emp-value { font-size: 0.95rem; color: #e2e8f0; font-weight: 600;}
 .emp-pin-box {
     background: #000; border: 1px dashed var(--c-accent); color: var(--c-accent);
     padding: 4px 12px; border-radius: 6px; font-family: 'Orbitron', monospace;
-    font-weight: bold; letter-spacing: 2px; text-align: center;
-    display: inline-block;
+    font-weight: bold; letter-spacing: 2px; text-align: center; display: inline-block;
 }
+
+/* =========================================================
+   Fixed Ticker (Inline Flex & SVG)
+   ========================================================= */
+.ticker-wrap { 
+    width: 100%; overflow: hidden; background: rgba(0,0,0,0.6); 
+    padding: 12px 0; margin-bottom: 20px; border-bottom: 1px solid rgba(0,242,255,0.1);
+}
+.ticker-move { 
+    display: inline-flex; align-items: center; white-space: nowrap; 
+    padding-right: 100%; animation: ticker 40s linear infinite; 
+}
+@keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(100%); } }
+.ticker-item { 
+    display: inline-flex; align-items: center; padding: 0 2.5rem; 
+    font-size: 1rem; font-weight: 700; color: #e2e8f0; 
+}
+.ticker-item span { color: var(--c-primary); margin-left: 5px; font-family: 'Orbitron', sans-serif; }
+.ticker-icon { display: flex; align-items: center; margin-left: 8px; }
 
 /* Chat UI */
-[data-testid="stChatMessage"] { 
-    background: transparent !important; 
-    border: none !important; 
-    padding: 0 !important; 
-    margin-bottom: 12px !important; 
-    display: flex !important; 
-    width: 100% !important;
-}
+[data-testid="stChatMessage"] { background: transparent !important; border: none !important; padding: 0 !important; margin-bottom: 12px !important; display: flex !important; width: 100% !important;}
 [data-testid="stChatAvatar"] { display: none !important; }
-
-[data-testid="stChatMessageContent"] { 
-    width: 100% !important; 
-    max-width: 100% !important;
-    background: transparent !important; 
-    padding: 0 !important; 
-    display: flex !important; 
-    flex-direction: column !important; 
-}
-
-.chat-bubble { 
-    padding: 8px 12px !important;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Cairo", Helvetica, Arial, sans-serif !important; 
-    font-size: 14.2px !important;
-    line-height: 19px !important;
-    word-wrap: break-word !important; 
-    white-space: pre-wrap !important; 
-    text-align: right !important; 
-    direction: rtl !important; 
-    width: fit-content !important; 
-    max-width: 75% !important; 
-    box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important; 
-    margin-bottom: 2px !important; 
-}
+[data-testid="stChatMessageContent"] { width: 100% !important; max-width: 100% !important; background: transparent !important; padding: 0 !important; display: flex !important; flex-direction: column !important; }
+.chat-bubble { padding: 8px 12px !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Cairo", Helvetica, Arial, sans-serif !important; font-size: 14.2px !important; line-height: 19px !important; word-wrap: break-word !important; white-space: pre-wrap !important; text-align: right !important; direction: rtl !important; width: fit-content !important; max-width: 75% !important; box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important; margin-bottom: 2px !important; }
 .chat-bubble [data-testid="stMarkdownContainer"] { width: fit-content !important; }
 .chat-bubble p { display: inline-block !important; width: fit-content !important; margin: 0 !important; padding: 0 !important; color: #e9edef !important; font-size: 14.2px !important; line-height: 19px !important;}
 .chat-bubble h1, .chat-bubble h2, .chat-bubble h3 { margin-top: 5px !important; margin-bottom: 5px !important; color: #fff !important; font-size: 1.1rem !important;}
-
-[data-testid="stChatMessage"]:has(.msg-user) [data-testid="stChatMessageContent"] { 
-    align-items: flex-start !important; 
-}
-[data-testid="stChatMessage"]:has(.msg-user) .chat-bubble { 
-    background-color: #005c4b !important; 
-    color: #e9edef !important; 
-    border-radius: 12px 0px 12px 12px !important; 
-}
-
-[data-testid="stChatMessage"]:has(.msg-assistant) [data-testid="stChatMessageContent"] { 
-    align-items: flex-end !important; 
-}
-[data-testid="stChatMessage"]:has(.msg-assistant) .chat-bubble { 
-    background-color: #202c33 !important; 
-    color: #e9edef !important; 
-    border-radius: 0px 12px 12px 12px !important; 
-}
+[data-testid="stChatMessage"]:has(.msg-user) [data-testid="stChatMessageContent"] { align-items: flex-start !important; }
+[data-testid="stChatMessage"]:has(.msg-user) .chat-bubble { background-color: #005c4b !important; color: #e9edef !important; border-radius: 12px 0px 12px 12px !important; }
+[data-testid="stChatMessage"]:has(.msg-assistant) [data-testid="stChatMessageContent"] { align-items: flex-end !important; }
+[data-testid="stChatMessage"]:has(.msg-assistant) .chat-bubble { background-color: #202c33 !important; color: #e9edef !important; border-radius: 0px 12px 12px 12px !important; }
 
 .page-header { padding: 2.5rem 3rem; margin-bottom: 1rem; border-radius: var(--r); background: linear-gradient(135deg, #090912, #050508); border: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
 .ph-icon-wrap { background: rgba(0,242,255,0.05); border-radius: 16px; padding: 18px; border: 1px solid rgba(0,242,255,0.2); }
 .ph-title { font-size: 2.2rem; font-weight: 900; color: #fff; line-height: 1.2;}
 .ph-sub { color: #94a3b8; font-size: 1rem; margin-top: 8px; font-weight: 600;}
-
-.g-card { background: var(--c-card); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--r); padding: 1.8rem; margin-bottom: 1.5rem; }
-.g-card-title { font-weight: 800; font-size: 1.2rem; color: #fff; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; } 
-
-.custom-metric { background: rgba(15,15,20,0.8); border: 1px solid rgba(255,255,255,0.05); border-radius: var(--r); padding: 1.2rem; display: flex; flex-direction: column; gap: 8px; overflow: hidden; animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; container-type: inline-size;}
-.cm-top { display: flex; justify-content: space-between; align-items: center; }
-.cm-label { color: #cbd5e1; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
-.cm-val-wrapper { display: flex; align-items: baseline; width: 100%; white-space: nowrap; }
-.cm-val { font-family: 'Orbitron', sans-serif; color: #00f2ff; text-shadow: 0 0 12px rgba(0,242,255,0.6); font-weight: 900; font-size: clamp(0.9rem, 8cqi, 1.8rem); white-space: nowrap; }
-.cm-suf { font-size: 0.75rem; color: var(--c-dim); margin-right: 4px; font-family: 'Cairo', sans-serif; font-weight: 700; }
-
 .neon-forecast { font-family: 'Orbitron', sans-serif; color: #ffd700; text-shadow: 0 0 15px rgba(255,215,0,0.6); font-size: 2rem; font-weight: 900; }
 
 [data-testid="stDataFrame"] { border: 1px solid var(--c-border) !important; border-radius: var(--r-sm) !important; background: var(--c-bg2) !important; }
 [data-testid="stDataFrame"] th { background: rgba(0,242,255,0.08) !important; color: var(--c-primary) !important; font-weight: 800 !important; font-size: 0.9rem !important; }
-
-.ticker-wrap { width: 100%; overflow: hidden; background: rgba(0,0,0,0.5); padding: 8px 0; margin-bottom: 20px; }
-.ticker-move { display: inline-block; white-space: nowrap; padding-right: 100%; animation: ticker 40s linear infinite; }
-@keyframes ticker { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(100%, 0, 0); } }
-.ticker-item { display: inline-block; padding: 0 2rem; font-size: 0.95rem; font-weight: 700; color: #e2e8f0; }
-.ticker-item span { color: var(--c-primary); margin-left: 5px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -834,7 +822,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v49.0</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v49.1</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         allowed_navs = []
@@ -2153,9 +2141,9 @@ def render_fusion():
                     for idx, col in enumerate(cols_num[:4]):
                         with stats_cols[idx]:
                             st.markdown(f"""
-                            <div style="background:rgba(255,215,0,0.05); padding:15px; border-radius:8px; border:1px solid rgba(255,215,0,0.2); text-align:center;">
+                            <div class="custom-metric" style="background:rgba(255,215,0,0.05); border-color:rgba(255,215,0,0.2); text-align:center;">
                                 <div style="font-size:0.8rem; color:var(--c-dim); margin-bottom:5px;">متوسط ({col})</div>
-                                <div style="font-size:1.4rem; font-weight:bold; color:var(--c-gold);">{ext_df[col].mean():,.0f}</div>
+                                <div class="cm-val" style="font-size:1.4rem; color:var(--c-gold); text-shadow: none;">{ext_df[col].mean():,.0f}</div>
                             </div>
                             """, unsafe_allow_html=True)
                 
@@ -2170,7 +2158,7 @@ def render_fusion():
                         try:
                             messages = [{"role": "user", "content": fusion_prompt}]
                             response_text = call_universal_ai(messages)
-                            st.markdown("<div style='background:rgba(112,0,255,0.05); border:1px solid rgba(112,0,255,0.3); padding:25px; border-radius:15px; margin-top:20px;'>", unsafe_allow_html=True)
+                            st.markdown("<div class='g-card' style='background:rgba(112,0,255,0.05); border-color:rgba(112,0,255,0.3);'>", unsafe_allow_html=True)
                             st.markdown(f"<h3 style='color:#7000ff; margin-top:0; display:flex; align-items:center; gap:10px;'>{get_icon('dna', 28)} تقرير الاندماج فائق الدقة</h3>", unsafe_allow_html=True)
                             st.markdown(f"<div dir='rtl' style='text-align: right;'>\n\n{response_text}\n\n</div>", unsafe_allow_html=True)
                             st.markdown("</div>", unsafe_allow_html=True)
@@ -2462,7 +2450,7 @@ def render_settings():
         """)
         
     saved_url = CFG.get('AI_PROVIDER_URL', '')
-    url_presets = ["[https://openrouter.ai/api/v1](https://openrouter.ai/api/v1)", "[https://api.openai.com/v1](https://api.openai.com/v1)", "[https://api.x.ai/v1](https://api.x.ai/v1)", "[https://generativelanguage.googleapis.com/v1beta/openai/](https://generativelanguage.googleapis.com/v1beta/openai/)", ""]
+    url_presets = ["https://openrouter.ai/api/v1", "https://api.openai.com/v1", "https://api.x.ai/v1", "https://generativelanguage.googleapis.com/v1beta/openai/", ""]
     if saved_url not in url_presets: url_presets.insert(0, saved_url)
     url_options = list(dict.fromkeys(url_presets)) + ["مخصص (كتابة يدوية)..."]
     
@@ -2557,7 +2545,7 @@ def change_workspace_pin_dialog(ws_id):
         doc = doc_ref.get()
         ws_cfg = doc.to_dict() if doc.exists else {
             'ODOO_URL': '', 'ODOO_DB': '', 'ODOO_USER': '', 'ODOO_PASS': '',
-            'AI_PROVIDER_URL': '[https://api.openai.com/v1](https://api.openai.com/v1)', 'AI_API_KEY': '',
+            'AI_PROVIDER_URL': 'https://api.openai.com/v1', 'AI_API_KEY': '',
             'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
             'MANAGER_PIN': '0000', 'EMPLOYEES': [], 'EVALUATIONS': {}, 'ALL_CHATS': {} 
         }
@@ -2579,7 +2567,7 @@ def change_workspace_pin_dialog(ws_id):
 
 def render_super_admin():
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v49.0</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v49.1</div></div>""", unsafe_allow_html=True)
         st.markdown("---")
         if st.button("🔴 تسجيل الخروج وإغلاق", use_container_width=True, type="primary"):
             st.query_params.clear()
@@ -2680,7 +2668,7 @@ def render_super_admin():
             # 2. إنشاء مساحة الشركة
             initial_config = {
                 'ODOO_URL': '', 'ODOO_DB': '', 'ODOO_USER': '', 'ODOO_PASS': '',
-                'AI_PROVIDER_URL': '[https://api.openai.com/v1](https://api.openai.com/v1)', 'AI_API_KEY': '',
+                'AI_PROVIDER_URL': 'https://api.openai.com/v1', 'AI_API_KEY': '',
                 'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
                 'MANAGER_PIN': new_m_pin, 
                 'EMPLOYEES': [], 'EVALUATIONS': {}, 'ALL_CHATS': {}, 'AUDIT_LOG': {} 
