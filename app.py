@@ -13,6 +13,7 @@ import os
 import re
 import base64
 import tempfile
+import shutil
 
 # ============================================================
 # ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v48.5 (SMART EXECUTIVE REPORTS)
@@ -49,19 +50,47 @@ def get_workspace_file(ws_id=None):
     return f"mudir_workspace_{safe_id}.json"
 
 def safe_json_read(filepath, default_val=None):
-    """قراءة آمنة مع نظام محاولات متكررة للحماية من القراءات المتزامنة"""
+    """قراءة آمنة مع نظام محاولات متكررة واسترجاع من النسخة الاحتياطية للحماية القصوى من الحذف"""
     if default_val is None: default_val = {}
-    if not os.path.exists(filepath): return default_val
-    for _ in range(5):
-        try:
-            with open(filepath, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception:
-            time.sleep(0.05)
+    
+    # 1. محاولة قراءة الملف الأساسي
+    if os.path.exists(filepath):
+        for _ in range(5):
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except json.JSONDecodeError:
+                break  # الملف معطوب أو فارغ، ننتقل للنسخة الاحتياطية
+            except Exception:
+                time.sleep(0.05)
+                
+    # 2. محاولة قراءة النسخة الاحتياطية التلقائية في حال حذف الأساسي أو تلفه
+    backup_path = filepath + ".bak"
+    if os.path.exists(backup_path):
+        for _ in range(5):
+            try:
+                with open(backup_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    # استعادة الملف الأساسي المحذوف فوراً من النسخة الاحتياطية
+                    safe_json_write(filepath, data, skip_backup=True)
+                    return data
+            except Exception:
+                time.sleep(0.05)
+                
     return default_val
 
-def safe_json_write(filepath, data):
-    """كتابة ذرية (Atomic Write) لمنع تلف البيانات عند حفظ أكثر من موظف في نفس اللحظة"""
+def safe_json_write(filepath, data, skip_backup=False):
+    """كتابة ذرية (Atomic Write) مع إنشاء نسخة احتياطية (.bak) تلقائية تمنع ضياع البيانات أبداً"""
+    backup_path = filepath + ".bak"
+    
+    # 1. إنشاء نسخة احتياطية من الملف السليم قبل التعديل
+    if not skip_backup and os.path.exists(filepath):
+        try:
+            shutil.copy2(filepath, backup_path)
+        except Exception:
+            pass
+
+    # 2. الكتابة الذرية الآمنة
     try:
         dirname = os.path.dirname(filepath) or '.'
         fd, temp_path = tempfile.mkstemp(dir=dirname, prefix="tmp_", suffix=".json", text=True)
@@ -69,7 +98,12 @@ def safe_json_write(filepath, data):
             json.dump(data, f, ensure_ascii=False, indent=4)
         os.replace(temp_path, filepath)
     except Exception:
-        pass
+        # 3. محاولة بديلة في حالة فشل الكتابة الذرية (بسبب صلاحيات النظام)
+        try:
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+        except Exception:
+            pass
 
 def load_config():
     defaults = {
