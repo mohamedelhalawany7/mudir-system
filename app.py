@@ -896,17 +896,21 @@ def build_infographic_html(data: dict) -> str:
 # 5. نظام التصدير الموحد والتلوين الآمن 
 # ============================================================
 def create_export_buttons(title, df_dict):
+    css_style = """
+    <style>
+        body{font-family: Arial, sans-serif; direction: rtl; text-align: right; background-color: #ffffff; color: #000000;} 
+        table{border-collapse: collapse; width: 100%; margin-bottom: 25px; font-size: 14px;} 
+        th, td{border: 1px solid #aaaaaa; padding: 10px; text-align: center;} 
+        th{background-color: #00f2ff; color: #000000; font-weight: bold;} 
+        h1{color: #7000ff; text-align: center; border-bottom: 2px solid #00f2ff; padding-bottom: 10px;}
+        h3{color: #333333; margin-top: 30px; background-color: #f4f4f4; padding: 8px; border-radius: 5px;}
+        .footer{text-align: center; color: #666666; margin-top: 40px; font-size: 12px;}
+    </style>
+    """
+    
     html_content = f"""<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
     <head><meta charset='utf-8'><title>{title}</title>
-    <style>
-        body{{font-family: Arial, sans-serif; direction: rtl; text-align: right; background-color: #ffffff; color: #000000;}} 
-        table{{border-collapse: collapse; width: 100%; margin-bottom: 25px; font-size: 14px;}} 
-        th, td{{border: 1px solid #aaaaaa; padding: 10px; text-align: center;}} 
-        th{{background-color: #00f2ff; color: #000000; font-weight: bold;}} 
-        h1{{color: #7000ff; text-align: center; border-bottom: 2px solid #00f2ff; padding-bottom: 10px;}}
-        h3{{color: #333333; margin-top: 30px; background-color: #f4f4f4; padding: 8px; border-radius: 5px;}}
-        .footer{{text-align: center; color: #666666; margin-top: 40px; font-size: 12px;}}
-    </style>
+    {css_style}
     </head>
     <body>
         <h1>{title}</h1>
@@ -1739,23 +1743,29 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
             """
 
     # --- Build HTML for Export (Word / PDF) with elegant fonts and styling ---
+    css_export = """
+    <style>
+        body { font-family: 'Cairo', sans-serif; background-color: #f8fafc; padding: 40px; color: #1e293b; direction: rtl; text-align: right; line-height: 1.8; }
+        .report-container { max-width: 800px; margin: auto; background: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border-top: 8px solid #005c4b; }
+        .header { text-align: center; padding-bottom: 20px; border-bottom: 2px solid #e2e8f0; margin-bottom: 30px; }
+        .header h1 { color: #005c4b; font-size: 32px; font-weight: 800; margin: 0 0 10px 0; }
+        .report-content { background: #f8fafc; padding: 30px; border-radius: 12px; border-right: 4px solid #005c4b; color: #334155; }
+        .report-content h3 { color: #0f172a; margin-top: 0; font-size: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }
+        .report-content h4 { color: #005c4b; font-size: 18px; margin-top: 25px; }
+        .report-content p { font-size: 16px; margin-bottom: 15px; }
+        .report-content ul { padding-right: 20px; margin-bottom: 20px; }
+        .report-content li { margin-bottom: 8px; font-size: 16px; }
+        .footer { text-align: center; margin-top: 40px; color: #94a3b8; font-size: 13px; border-top: 1px solid #e2e8f0; padding-top: 20px; }
+    </style>
+    """
+
+    html_export = f"""
+    <!DOCTYPE html>
     <html dir="rtl" lang="ar">
     <head>
         <meta charset="utf-8">
-        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
-        <style>
-            body {{ font-family: 'Cairo', sans-serif; background-color: #f8fafc; padding: 40px; color: #1e293b; direction: rtl; text-align: right; line-height: 1.8; }}
-            .report-container {{ max-width: 800px; margin: auto; background: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border-top: 8px solid #005c4b; }}
-            .header {{ text-align: center; padding-bottom: 20px; border-bottom: 2px solid #e2e8f0; margin-bottom: 30px; }}
-            .header h1 {{ color: #005c4b; font-size: 32px; font-weight: 800; margin: 0 0 10px 0; }}
-            .report-content {{ background: #f8fafc; padding: 30px; border-radius: 12px; border-right: 4px solid #005c4b; color: #334155; }}
-            .report-content h3 {{ color: #0f172a; margin-top: 0; font-size: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }}
-            .report-content h4 {{ color: #005c4b; font-size: 18px; margin-top: 25px; }}
-            .report-content p {{ font-size: 16px; margin-bottom: 15px; }}
-            .report-content ul {{ padding-right: 20px; margin-bottom: 20px; }}
-            .report-content li {{ margin-bottom: 8px; font-size: 16px; }}
-            .footer {{ text-align: center; margin-top: 40px; color: #94a3b8; font-size: 13px; border-top: 1px solid #e2e8f0; padding-top: 20px; }}
-        </style>
+        <link href="[https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap](https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap)" rel="stylesheet">
+        {css_export}
     </head>
     <body>
         <div class="report-container">
@@ -1777,6 +1787,13 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
     </body></html>
     """
 
+    ui_css = """
+    <style>
+        .ai-report-box h2, .ai-report-box h3 { color:#00a884; font-weight:700; margin-top:1.5rem; border-bottom:1px solid #202c33; padding-bottom:10px; }
+        .ai-report-box h4 { color:#00f2ff; font-weight:600; margin-top:1rem; }
+    </style>
+    """
+
     st.markdown(f"""
     <div style="background-color: #111b21; border-radius: 16px; padding: 30px; border: 1px solid #202c33; box-shadow: 0 8px 32px rgba(0,0,0,0.4); direction: rtl; font-family: 'Cairo', sans-serif;">
         <div style="text-align: center; border-bottom: 2px solid #202c33; padding-bottom: 20px; margin-bottom: 30px;">
@@ -1787,10 +1804,7 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
                 يستند هذا التقرير حصرياً إلى المهام المسندة والتفاعلات والتقارير التي رفعها الموظف في النظام.
             </div>
         </div>
-        <style>
-            .ai-report-box h2, .ai-report-box h3 {{ color:#00a884; font-weight:700; margin-top:1.5rem; border-bottom:1px solid #202c33; padding-bottom:10px; }}
-            .ai-report-box h4 {{ color:#00f2ff; font-weight:600; margin-top:1rem; }}
-        </style>
+        {ui_css}
         <div class="ai-report-box" style="background: #0b141a; padding: 30px; border-radius: 12px; border-right: 4px solid #00a884; color: #e9edef; font-size: 1.05rem; line-height: 1.8;">
             {smart_report_html}
         </div>
