@@ -896,21 +896,17 @@ def build_infographic_html(data: dict) -> str:
 # 5. نظام التصدير الموحد والتلوين الآمن 
 # ============================================================
 def create_export_buttons(title, df_dict):
-    css_style = """
-    <style>
-        body{font-family: Arial, sans-serif; direction: rtl; text-align: right; background-color: #ffffff; color: #000000;} 
-        table{border-collapse: collapse; width: 100%; margin-bottom: 25px; font-size: 14px;} 
-        th, td{border: 1px solid #aaaaaa; padding: 10px; text-align: center;} 
-        th{background-color: #00f2ff; color: #000000; font-weight: bold;} 
-        h1{color: #7000ff; text-align: center; border-bottom: 2px solid #00f2ff; padding-bottom: 10px;}
-        h3{color: #333333; margin-top: 30px; background-color: #f4f4f4; padding: 8px; border-radius: 5px;}
-        .footer{text-align: center; color: #666666; margin-top: 40px; font-size: 12px;}
-    </style>
-    """
-    
     html_content = f"""<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
     <head><meta charset='utf-8'><title>{title}</title>
-    {css_style}
+    <style>
+        body{{font-family: Arial, sans-serif; direction: rtl; text-align: right; background-color: #ffffff; color: #000000;}} 
+        table{{border-collapse: collapse; width: 100%; margin-bottom: 25px; font-size: 14px;}} 
+        th, td{{border: 1px solid #aaaaaa; padding: 10px; text-align: center;}} 
+        th{{background-color: #00f2ff; color: #000000; font-weight: bold;}} 
+        h1{{color: #7000ff; text-align: center; border-bottom: 2px solid #00f2ff; padding-bottom: 10px;}}
+        h3{{color: #333333; margin-top: 30px; background-color: #f4f4f4; padding: 8px; border-radius: 5px;}}
+        .footer{{text-align: center; color: #666666; margin-top: 40px; font-size: 12px;}}
+    </style>
     </head>
     <body>
         <h1>{title}</h1>
@@ -1704,68 +1700,62 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
         {chats_str if chats_str else 'لا يوجد تفاعلات في هذه الفترة'}
 
         المطلوب:
-        اكتب محتوى التقرير فقط باستخدام وسوم HTML (مثل h3, h4, p, ul, li).
-        تحذير هام جداً: لا تقم بكتابة أي ترويسة (Header) تحتوي على اسم الموظف أو تاريخ التقرير، ولا تستخدم <h1> أو <h2> نهائياً ولا تستخدم html, head, body.
-        ابدأ فوراً بكتابة الأقسام التالية:
-        
-        <h3>1. الخلاصة التنفيذية لأداء الموظف</h3>
-        <p>...</p>
-        
-        <h3>2. مدى الالتزام بالمهام والأهداف (KPIs) وجودة التقارير</h3>
-        ...
-        
-        <h3>3. نقاط القوة ومجالات التحسين</h3>
-        ...
-        
-        <h3>4. التقييم النهائي العام</h3>
-        <div class="assessment-box">
-            <p class="assessment-score">الدرجة / 10</p>
-            <p>التبرير باختصار هنا...</p>
-        </div>
+        اكتب تقرير إداري مكثف ومنظم بصيغة HTML (بدون استخدام Markdown نهائياً)، ليكون مناسباً للطباعة فوراً.
+        استخدم العناوين (h3, h4) والفقرات (p) والقوائم (ul, li). 
+        قسم التقرير إلى:
+        1. الخلاصة التنفيذية لأداء الموظف بناءً على ردوده وإنجازاته المذكورة في الشات.
+        2. مدى التزامه بالمهام والأهداف (KPIs) وجودة التقارير التي يقدمها بنفسه.
+        3. نقاط القوة، ومجالات التحسين.
+        4. التقييم النهائي العام (من 10) في شكل بارز ومبرر باختصار.
 
         تأكد ألا تفترض أي مبيعات خارجية، قيم فقط ما ذكره الموظف وصرح به.
         يجب أن يكون الكود HTML نظيف فقط وبدون Emojis.
         """
         try:
             smart_report_html = call_universal_ai([{"role": "user", "content": report_prompt}])
+            # Clean up if AI wrapped it in ```html
             smart_report_html = smart_report_html.replace('```html', '').replace('```', '').strip()
-            
-            # فلتر التنظيف الإجباري (Auto-Purify): قص أي ترويسة يجتهد الذكاء الاصطناعي في كتابتها
-            # وإجبار التقرير على البدء من أول عنوان <h3>
-            match = re.search(r'(<h3.*)', smart_report_html, re.IGNORECASE | re.DOTALL)
-            if match:
-                smart_report_html = match.group(1)
-                
         except Exception as e:
             err_str = str(e)
             if "429" in err_str or "quota" in err_str.lower():
-                err_msg = "لقد استنفدت رصيد باقة الذكاء الاصطناعي المجانية (Quota Exceeded)، أو وصلت للحد الأقصى للطلبات في الدقيقة. يرجى الانتظار قليلاً أو مراجعة باقة الاشتراك."
+                err_msg = "لقد استنفدت رصيد باقة الذكاء الاصطناعي (الحد الأقصى للطلبات). يرجى الانتظار قليلاً أو مراجعة باقة الاشتراك."
+            elif "401" in err_str or "auth" in err_str.lower():
+                err_msg = "مفتاح الربط (API Key) غير صحيح أو غير مفعل."
+            else:
+                err_msg = "الخادم المركزي لا يستجيب في الوقت الحالي، يرجى المحاولة لاحقاً."
+
+            smart_report_html = f"""
+            <div style="background-color: rgba(225, 29, 72, 0.1); border-right: 4px solid #e11d48; padding: 20px; border-radius: 8px; margin-top: 15px;">
+                <div style="color: #e11d48; font-size: 1.3rem; font-weight: 800; display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                    ⚠️ تعذر إنشاء التقرير الذكي
+                </div>
+                <div style="color: #e2e8f0; font-size: 15px; margin-bottom: 15px; font-weight: 600;">
+                    {err_msg}
+                </div>
+                <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(225, 29, 72, 0.2); color: #94a3b8; padding: 10px; border-radius: 6px; font-size: 12px; font-family: monospace; text-align: left; direction: ltr; max-height: 150px; overflow-y: auto;">
+                    Error Details: {str(e)}
+                </div>
+            </div>
             """
 
     # --- Build HTML for Export (Word / PDF) with elegant fonts and styling ---
-    css_export = """
-    <style>
-        body { font-family: 'Cairo', sans-serif; background-color: #f8fafc; padding: 40px; color: #1e293b; direction: rtl; text-align: right; line-height: 1.8; }
-        .report-container { max-width: 800px; margin: auto; background: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border-top: 8px solid #005c4b; }
-        .header { text-align: center; padding-bottom: 20px; border-bottom: 2px solid #e2e8f0; margin-bottom: 30px; }
-        .header h1 { color: #005c4b; font-size: 32px; font-weight: 800; margin: 0 0 10px 0; }
-        .report-content { background: #f8fafc; padding: 30px; border-radius: 12px; border-right: 4px solid #005c4b; color: #334155; }
-        .report-content h3 { color: #0f172a; margin-top: 0; font-size: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }
-        .report-content h4 { color: #005c4b; font-size: 18px; margin-top: 25px; }
-        .report-content p { font-size: 16px; margin-bottom: 15px; }
-        .report-content ul { padding-right: 20px; margin-bottom: 20px; }
-        .report-content li { margin-bottom: 8px; font-size: 16px; }
-        .footer { text-align: center; margin-top: 40px; color: #94a3b8; font-size: 13px; border-top: 1px solid #e2e8f0; padding-top: 20px; }
-    </style>
-    """
-
-    html_export = f"""
-    <!DOCTYPE html>
     <html dir="rtl" lang="ar">
     <head>
         <meta charset="utf-8">
-        <link href="[https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap](https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap)" rel="stylesheet">
-        {css_export}
+        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
+        <style>
+            body {{ font-family: 'Cairo', sans-serif; background-color: #f8fafc; padding: 40px; color: #1e293b; direction: rtl; text-align: right; line-height: 1.8; }}
+            .report-container {{ max-width: 800px; margin: auto; background: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border-top: 8px solid #005c4b; }}
+            .header {{ text-align: center; padding-bottom: 20px; border-bottom: 2px solid #e2e8f0; margin-bottom: 30px; }}
+            .header h1 {{ color: #005c4b; font-size: 32px; font-weight: 800; margin: 0 0 10px 0; }}
+            .report-content {{ background: #f8fafc; padding: 30px; border-radius: 12px; border-right: 4px solid #005c4b; color: #334155; }}
+            .report-content h3 {{ color: #0f172a; margin-top: 0; font-size: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }}
+            .report-content h4 {{ color: #005c4b; font-size: 18px; margin-top: 25px; }}
+            .report-content p {{ font-size: 16px; margin-bottom: 15px; }}
+            .report-content ul {{ padding-right: 20px; margin-bottom: 20px; }}
+            .report-content li {{ margin-bottom: 8px; font-size: 16px; }}
+            .footer {{ text-align: center; margin-top: 40px; color: #94a3b8; font-size: 13px; border-top: 1px solid #e2e8f0; padding-top: 20px; }}
+        </style>
     </head>
     <body>
         <div class="report-container">
@@ -1787,13 +1777,6 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
     </body></html>
     """
 
-    ui_css = """
-    <style>
-        .ai-report-box h2, .ai-report-box h3 { color:#00a884; font-weight:700; margin-top:1.5rem; border-bottom:1px solid #202c33; padding-bottom:10px; }
-        .ai-report-box h4 { color:#00f2ff; font-weight:600; margin-top:1rem; }
-    </style>
-    """
-
     st.markdown(f"""
     <div style="background-color: #111b21; border-radius: 16px; padding: 30px; border: 1px solid #202c33; box-shadow: 0 8px 32px rgba(0,0,0,0.4); direction: rtl; font-family: 'Cairo', sans-serif;">
         <div style="text-align: center; border-bottom: 2px solid #202c33; padding-bottom: 20px; margin-bottom: 30px;">
@@ -1804,7 +1787,10 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
                 يستند هذا التقرير حصرياً إلى المهام المسندة والتفاعلات والتقارير التي رفعها الموظف في النظام.
             </div>
         </div>
-        {ui_css}
+        <style>
+            .ai-report-box h2, .ai-report-box h3 {{ color:#00a884; font-weight:700; margin-top:1.5rem; border-bottom:1px solid #202c33; padding-bottom:10px; }}
+            .ai-report-box h4 {{ color:#00f2ff; font-weight:600; margin-top:1rem; }}
+        </style>
         <div class="ai-report-box" style="background: #0b141a; padding: 30px; border-radius: 12px; border-right: 4px solid #00a884; color: #e9edef; font-size: 1.05rem; line-height: 1.8;">
             {smart_report_html}
         </div>
