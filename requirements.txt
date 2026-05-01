@@ -6,3 +6,4 @@ jinja2
 openpyxl
 prophet
 filelock
+firebase-admin
