@@ -25,18 +25,20 @@ st.set_page_config(
 )
 
 # ============================================================
-# 0. نظام الحفظ السحابي الفولاذي (Firebase Firestore) - مضاد للسقوط 100%
+# 0. نظام الحفظ السحابي الفولاذي (Firebase Firestore) - كشف الأعطال
 # ============================================================
 MASTER_ADMIN_CODE = "admin185710" # الكود السري الخاص بك لدخول لوحة تحكم التراخيص
 
-# تهيئة الاتصال بخزنة جوجل (مرة واحدة فقط)
+# تهيئة الاتصال بخزنة جوجل (مرة واحدة فقط) مع نظام كشف أعطال صارم
 if not firebase_admin._apps:
     try:
         key_dict = json.loads(st.secrets["FIREBASE_JSON"])
         cred = credentials.Certificate(key_dict)
         firebase_admin.initialize_app(cred)
     except Exception as e:
-        st.error("⚠️ خطأ في قراءة المفتاح السري من Streamlit Secrets. يرجى التأكد من أنك ألصقت المفتاح بشكل صحيح.")
+        st.error(f"⚠️ خطأ حرج في قراءة مفتاح Firebase من Streamlit Secrets: {e}")
+        st.info("يرجى التأكد من أنك نسخت محتوى ملف الـ JSON بالكامل بدون نقصان، ووضعته بين ثلاث علامات تنصيص ''' في الـ Secrets.")
+        st.stop() # إيقاف التطبيق تماماً حتى يتم إصلاح المفتاح
 
 db = firestore.client()
 
@@ -70,16 +72,16 @@ def load_config():
             doc = get_workspace_doc().get()
             if doc.exists:
                 defaults.update(doc.to_dict())
-        except Exception:
-            pass
+        except Exception as e:
+            st.error(f"خطأ في قراءة إعدادات مساحة العمل: {e}")
     return defaults
 
 def save_config(cfg_dict):
     if 'workspace_id' in st.session_state:
         try:
             get_workspace_doc().set(cfg_dict, merge=True)
-        except Exception:
-            pass
+        except Exception as e:
+            st.error(f"خطأ في حفظ إعدادات مساحة العمل: {e}")
 
 def save_chat_for_user(user_key):
     """تحديث محادثة مستخدم واحد فقط لحماية محادثات باقي الموظفين (تزامن لحظي)"""
@@ -87,8 +89,8 @@ def save_chat_for_user(user_key):
         chats = st.session_state.all_chats.get(user_key, [])
         try:
             get_workspace_doc().set({'ALL_CHATS': {user_key: chats}}, merge=True)
-        except Exception:
-            pass
+        except Exception as e:
+            st.error(f"خطأ في حفظ المحادثة: {e}")
         
         if 'app_config' not in st.session_state: st.session_state.app_config = {}
         if 'ALL_CHATS' not in st.session_state.app_config: st.session_state.app_config['ALL_CHATS'] = {}
@@ -107,8 +109,8 @@ def log_message(user, msg_dict):
         
         try:
             get_workspace_doc().set({'AUDIT_LOG': {user: cfg['AUDIT_LOG'][user]}}, merge=True)
-        except Exception:
-            pass
+        except Exception as e:
+            st.error(f"خطأ في حفظ السجل السري: {e}")
         
         if 'app_config' in st.session_state:
             st.session_state.app_config['AUDIT_LOG'] = cfg['AUDIT_LOG']
@@ -118,15 +120,13 @@ def load_licenses():
         doc = db.collection('Mudir_System').document('Licenses').get()
         if doc.exists:
             return doc.to_dict()
-    except Exception:
-        pass
+    except Exception as e:
+        st.error(f"⚠️ خطأ في قراءة التراخيص من الخادم السحابي: {e}")
     return {"workspaces": {}}
 
 def save_licenses(data):
-    try:
-        db.collection('Mudir_System').document('Licenses').set(data, merge=True)
-    except Exception:
-        pass
+    # تم إزالة كتم الأخطاء، الخطأ سيظهر في مكان استدعاء الدالة
+    db.collection('Mudir_System').document('Licenses').set(data, merge=True)
 
 # ============================================================
 # أزرار القائمة الجانبية (Navigation Items)
@@ -2314,8 +2314,8 @@ def render_settings():
                 current_cfg = get_workspace_doc().get().to_dict() or {}
                 current_cfg['EMPLOYEES'] = current_emps
                 get_workspace_doc().set(current_cfg, merge=True)
-            except Exception:
-                pass
+            except Exception as e:
+                st.error(f"خطأ في الحفظ: {e}")
             
             CFG['EMPLOYEES'] = current_emps
             st.rerun()
@@ -2355,8 +2355,8 @@ def render_settings():
                     current_cfg = get_workspace_doc().get().to_dict() or {}
                     current_cfg['EMPLOYEES'] = current_emps
                     get_workspace_doc().set(current_cfg, merge=True)
-                except Exception:
-                    pass
+                except Exception as e:
+                    st.error(f"خطأ في الحذف: {e}")
                 
                 CFG['EMPLOYEES'] = current_emps
                 st.rerun()
@@ -2447,8 +2447,8 @@ def render_settings():
                 uid = cm.authenticate(o_db, o_usr, o_pwd, {})
                 if uid: st.success("الاتصال بقاعدة البيانات ناجح وموثق!")
                 else: st.error("المصادقة مرفوضة. تأكد من البيانات.")
-        except Exception: 
-            st.error("السيرفر بتاع أودو مريح شوية حالياً، بس النظام هيشتغل على البيانات اللي متكيشة.")
+        except Exception as e: 
+            st.error(f"خطأ في الاتصال: {e}")
 
     st.markdown("<hr style='border-color:rgba(255,255,255,0.1); margin: 30px 0;'>", unsafe_allow_html=True)
     if st.button("حفظ الإعدادات وإعادة بناء النواة", type="primary", use_container_width=True):
@@ -2472,7 +2472,7 @@ def render_settings():
             time.sleep(1)
             st.rerun()
         except Exception as e:
-            st.error("حدث خطأ أثناء الحفظ على الخادم السحابي.")
+            st.error(f"حدث خطأ أثناء الحفظ على الخادم السحابي: {e}")
             
     st.markdown("<div style='text-align: center; color: var(--c-dim); font-size: 0.9rem; margin-top: 50px; font-weight: bold;'>Powered by محمد الحلواني</div>", unsafe_allow_html=True)
 
@@ -2494,8 +2494,9 @@ def change_workspace_pin_dialog(ws_id):
             'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
             'MANAGER_PIN': '0000', 'EMPLOYEES': [], 'EVALUATIONS': {}, 'ALL_CHATS': {} 
         }
-    except Exception:
+    except Exception as e:
         ws_cfg = {'MANAGER_PIN': '0000'}
+        st.error(f"خطأ: {e}")
         
     current_pin = ws_cfg.get('MANAGER_PIN', '0000')
     new_pin = st.text_input("الرقم السري (PIN) الجديد:", value=current_pin)
@@ -2506,8 +2507,8 @@ def change_workspace_pin_dialog(ws_id):
             st.success("تم تغيير الرمز السري بنجاح!")
             time.sleep(1)
             st.rerun()
-        except Exception:
-            st.error("حدث خطأ أثناء الحفظ.")
+        except Exception as e:
+            st.error(f"حدث خطأ أثناء الحفظ: {e}")
 
 def render_super_admin():
     # تم حل مشكلة تسجيل الخروج بإضافة Sidebar للتحكم الآمن
@@ -2550,8 +2551,8 @@ def render_super_admin():
             docs = db.collection('Mudir_Workspaces').stream()
             for doc in docs:
                 full_platform_backup["workspaces_db"][doc.id] = doc.to_dict()
-        except Exception:
-            pass
+        except Exception as e:
+            st.error(f"خطأ في قراءة مساحات العمل: {e}")
             
         mega_json_str = json.dumps(full_platform_backup, ensure_ascii=False, indent=4)
         st.download_button(
@@ -2574,8 +2575,8 @@ def render_super_admin():
                     st.success("تم استعادة المنصة بالكامل بنجاح!")
                     time.sleep(1)
                     st.rerun()
-                except Exception:
-                    st.error("ملف الخزنة تالف أو غير صالح.")
+                except Exception as e:
+                    st.error(f"ملف الخزنة تالف أو غير صالح: {e}")
     st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -2610,7 +2611,6 @@ def render_super_admin():
                 "created_on": datetime.now().strftime("%Y-%m-%d"),
                 "max_devices": int(max_dev)
             }
-            save_licenses(licenses)
             
             # 2. إنشاء مساحة الشركة
             initial_config = {
@@ -2620,13 +2620,16 @@ def render_super_admin():
                 'MANAGER_PIN': new_m_pin, 
                 'EMPLOYEES': [], 'EVALUATIONS': {}, 'ALL_CHATS': {}, 'AUDIT_LOG': {} 
             }
-            try:
-                db.collection('Mudir_Workspaces').document(safe_id).set(initial_config)
-            except: pass
             
-            st.success(f"تم إنشاء ترخيص الشركة بنجاح! المستخدمين: {max_dev} | الانتهاء: {expiry}")
-            time.sleep(1)
-            st.rerun()
+            try:
+                save_licenses(licenses)
+                db.collection('Mudir_Workspaces').document(safe_id).set(initial_config)
+                st.success(f"تم إنشاء ترخيص الشركة بنجاح! المستخدمين: {max_dev} | الانتهاء: {expiry}")
+                time.sleep(2)
+                st.rerun()
+            except Exception as e:
+                st.error(f"حدث خطأ أثناء حفظ البيانات في Firebase: {e}")
+                
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("<div class='g-card'>", unsafe_allow_html=True)
@@ -2691,11 +2694,4 @@ elif view == "super_admin":
 elif not curr_user or view == "login": 
     render_login()
 else:
-    if view == "dashboard": render_dashboard()
-    elif view == "departments": render_departments()
-    elif view == "forecast": render_forecast()
-    elif view == "ai": render_ai()
-    elif view == "fusion": render_fusion()
-    elif view == "territories": render_territories()
-    elif view == "settings": render_settings()
-    else: render_dashboard()
+    if view == "dashboard": render_dashboard
