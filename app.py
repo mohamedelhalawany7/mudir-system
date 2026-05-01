@@ -15,7 +15,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v48.5 (FIREBASE EDITION)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v49.0 (NEON & FIREBASE EDITION)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -29,7 +29,6 @@ st.set_page_config(
 # ============================================================
 MASTER_ADMIN_CODE = "admin185710" # الكود السري الخاص بك لدخول لوحة تحكم التراخيص
 
-# تهيئة الاتصال بخزنة جوجل (مرة واحدة فقط) مع نظام كشف أعطال صارم
 if not firebase_admin._apps:
     try:
         key_dict = json.loads(st.secrets["FIREBASE_JSON"])
@@ -38,7 +37,7 @@ if not firebase_admin._apps:
     except Exception as e:
         st.error(f"⚠️ خطأ حرج في قراءة مفتاح Firebase من Streamlit Secrets: {e}")
         st.info("يرجى التأكد من أنك نسخت محتوى ملف الـ JSON بالكامل بدون نقصان، ووضعته بين ثلاث علامات تنصيص ''' في الـ Secrets.")
-        st.stop() # إيقاف التطبيق تماماً حتى يتم إصلاح المفتاح
+        st.stop()
 
 db = firestore.client()
 
@@ -62,7 +61,7 @@ def get_workspace_doc(ws_id=None):
 def load_config():
     defaults = {
         'ODOO_URL': '', 'ODOO_DB': '', 'ODOO_USER': '', 'ODOO_PASS': '',
-        'AI_PROVIDER_URL': 'https://api.openai.com/v1', 'AI_API_KEY': '',
+        'AI_PROVIDER_URL': '[https://api.openai.com/v1](https://api.openai.com/v1)', 'AI_API_KEY': '',
         'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
         'MANAGER_PIN': '0000', 'EMPLOYEES': [], 'EVALUATIONS': {},
         'EVAL_HISTORY': {}, 'ALL_CHATS': {}, 'AUDIT_LOG': {} 
@@ -84,7 +83,6 @@ def save_config(cfg_dict):
             st.error(f"خطأ في حفظ إعدادات مساحة العمل: {e}")
 
 def save_chat_for_user(user_key):
-    """تحديث محادثة مستخدم واحد فقط لحماية محادثات باقي الموظفين (تزامن لحظي)"""
     if 'workspace_id' in st.session_state:
         chats = st.session_state.all_chats.get(user_key, [])
         try:
@@ -97,7 +95,6 @@ def save_chat_for_user(user_key):
         st.session_state.app_config['ALL_CHATS'][user_key] = chats
 
 def log_message(user, msg_dict):
-    """تسجيل العمليات في السجل السري المنيع بشكل ذري وآمن"""
     if 'workspace_id' in st.session_state:
         entry = msg_dict.copy()
         entry['timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -125,7 +122,6 @@ def load_licenses():
     return {"workspaces": {}}
 
 def save_licenses(data):
-    # تم إزالة كتم الأخطاء، الخطأ سيظهر في مكان استدعاء الدالة
     db.collection('Mudir_System').document('Licenses').set(data, merge=True)
 
 # ============================================================
@@ -259,7 +255,7 @@ def get_icon(name: str, size: int = 24, color: str = "currentColor", class_name:
         "activity": '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'
     }
     path = svg_map.get(name, "")
-    return f'<svg xmlns="http://www.w3.org/2000/svg" class="{class_name}" width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{path}</svg>'
+    return f'<svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" class="{class_name}" width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{path}</svg>'
 
 def get_base64_svg(icon_name, color="#00f2ff"):
     svg_str = get_icon(icon_name, 24, color)
@@ -599,16 +595,11 @@ def render_login():
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ============================================================
-# 6. شريط التنقل الجانبي (CSS)
+# 6. شريط التنقل الجانبي (CSS) وستايلات النيون الجديدة
 # ============================================================
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Orbitron:wght@400;700;900&display=swap');
-
-/* تم إظهار الشريط العلوي مؤقتاً لتتمكن من عمل مسح للذاكرة Clear Cache */
-/* #MainMenu {visibility: hidden !important; display: none !important;} */
-/* header {visibility: hidden !important; display: none !important;} */
-/* [data-testid="manage-app-button"] {display: none !important;} */
+@import url('[https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Orbitron:wght@400;700;900&display=swap](https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Orbitron:wght@400;700;900&display=swap)');
 
 :root {
     --c-primary:   #00f2ff;
@@ -648,7 +639,7 @@ html, body, [class*="css"] {
     overflow-x: hidden !important;
 }
 
-/* Sidebar Styles & Overlap Fix for RTL */
+/* Sidebar Styles */
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg, #05050c 0%, #030306 100%) !important;
     border-left: 1px solid var(--c-border) !important; 
@@ -685,9 +676,53 @@ html, body, [class*="css"] {
     border: 1px solid rgba(0, 242, 255, 0.4) !important; font-weight: 900 !important;
 }
 
-/* =====================================================================
-   WHATSAPP-STYLE CHAT UI (STRICT RTL, PERFECT ALIGNMENT, NO OVERLAP)
-   ===================================================================== */
+/* Employee Neon Cards Styles */
+.emp-card-neon {
+    background: linear-gradient(145deg, #0b141a, #050a0d);
+    border: 1px solid rgba(0, 242, 255, 0.2);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0, 242, 255, 0.05);
+    transition: all 0.3s ease;
+    margin-bottom: 15px;
+    direction: rtl;
+}
+.emp-card-neon:hover {
+    box-shadow: 0 0 20px rgba(0, 242, 255, 0.2);
+    border: 1px solid rgba(0, 242, 255, 0.6);
+    transform: translateY(-2px);
+}
+.emp-header {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
+.emp-avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: rgba(0, 242, 255, 0.1); border: 1px solid var(--c-primary);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--c-primary); font-weight: bold; margin-left: 15px;
+}
+.emp-name { font-size: 1.2rem; font-weight: 800; color: #fff; }
+.emp-role { font-size: 0.9rem; color: #00ff82; font-weight: 600;}
+.emp-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+.emp-label { font-size: 0.8rem; color: var(--c-dim); margin-bottom: 2px;}
+.emp-value { font-size: 0.95rem; color: #e2e8f0; font-weight: 600;}
+.emp-pin-box {
+    background: #000; border: 1px dashed var(--c-accent); color: var(--c-accent);
+    padding: 4px 12px; border-radius: 6px; font-family: 'Orbitron', monospace;
+    font-weight: bold; letter-spacing: 2px; text-align: center;
+    display: inline-block;
+}
+
+/* Chat UI */
 [data-testid="stChatMessage"] { 
     background: transparent !important; 
     border: none !important; 
@@ -708,10 +743,10 @@ html, body, [class*="css"] {
 }
 
 .chat-bubble { 
-    padding: 8px 12px !important; /* WhatsApp precise padding */
+    padding: 8px 12px !important;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Cairo", Helvetica, Arial, sans-serif !important; 
-    font-size: 14.2px !important; /* Standard readable size */
-    line-height: 19px !important; /* Smooth line height */
+    font-size: 14.2px !important;
+    line-height: 19px !important;
     word-wrap: break-word !important; 
     white-space: pre-wrap !important; 
     text-align: right !important; 
@@ -721,16 +756,12 @@ html, body, [class*="css"] {
     box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important; 
     margin-bottom: 2px !important; 
 }
-/* shrink wrap fix for streamlit markdown */
 .chat-bubble [data-testid="stMarkdownContainer"] { width: fit-content !important; }
 .chat-bubble p { display: inline-block !important; width: fit-content !important; margin: 0 !important; padding: 0 !important; color: #e9edef !important; font-size: 14.2px !important; line-height: 19px !important;}
 .chat-bubble h1, .chat-bubble h2, .chat-bubble h3 { margin-top: 5px !important; margin-bottom: 5px !important; color: #fff !important; font-size: 1.1rem !important;}
-.chat-bubble ul, .chat-bubble ol { margin-right: 20px !important; padding-right: 15px !important; margin-bottom: 0 !important;}
-.chat-bubble li { font-size: 14.2px !important; line-height: 19px !important; margin-bottom: 4px !important; }
 
-/* User Message (Right Side in RTL) */
 [data-testid="stChatMessage"]:has(.msg-user) [data-testid="stChatMessageContent"] { 
-    align-items: flex-start !important; /* Right side due to RTL */
+    align-items: flex-start !important; 
 }
 [data-testid="stChatMessage"]:has(.msg-user) .chat-bubble { 
     background-color: #005c4b !important; 
@@ -738,65 +769,14 @@ html, body, [class*="css"] {
     border-radius: 12px 0px 12px 12px !important; 
 }
 
-/* AI Message (Left Side in RTL) */
 [data-testid="stChatMessage"]:has(.msg-assistant) [data-testid="stChatMessageContent"] { 
-    align-items: flex-end !important; /* Left side due to RTL */
+    align-items: flex-end !important; 
 }
 [data-testid="stChatMessage"]:has(.msg-assistant) .chat-bubble { 
     background-color: #202c33 !important; 
     color: #e9edef !important; 
     border-radius: 0px 12px 12px 12px !important; 
 }
-
-/* Action Buttons Layout (Prevent Overlap and Fix Zooming) */
-.chat-actions { display: flex !important; gap: 8px !important; direction: rtl !important; width: fit-content !important;}
-[data-testid="stChatMessage"] [data-testid="stHorizontalBlock"] { 
-    gap: 8px !important; 
-    width: fit-content !important; 
-    direction: rtl !important; 
-    margin-top: 4px !important;
-    align-items: center !important;
-    padding: 0 5px !important;
-}
-[data-testid="stChatMessage"]:has(.msg-user) [data-testid="stHorizontalBlock"] { 
-    align-self: flex-start !important; 
-}
-[data-testid="stChatMessage"]:has(.msg-assistant) [data-testid="stHorizontalBlock"] { 
-    align-self: flex-end !important; 
-}
-
-[data-testid="stChatMessage"] [data-testid="column"] { 
-    padding: 0 !important; 
-    width: fit-content !important; 
-    min-width: fit-content !important; 
-    flex: 0 0 auto !important; 
-}
-[data-testid="stChatMessage"] div.stButton {
-    width: fit-content !important;
-}
-[data-testid="stChatMessage"] div.stButton > button { 
-    background: transparent !important; 
-    border: none !important; 
-    color: #8696a0 !important; 
-    padding: 0 !important; 
-    width: 34px !important; 
-    height: 34px !important; 
-    min-height: 34px !important; 
-    font-size: 1.1rem !important; 
-    box-shadow: none !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    border-radius: 50% !important;
-    transition: all 0.2s ease-in-out !important;
-}
-[data-testid="stChatMessage"] div.stButton > button:hover { 
-    background: rgba(255,255,255,0.1) !important; 
-    color: #ff2d78 !important; 
-}
-
-.stMarkdown div[dir="rtl"] strong { color: #00f2ff !important; }
-.stMarkdown div[dir="rtl"] p, .stMarkdown div[dir="rtl"] li { font-size: 14.2px !important; line-height: 19px !important; color: #e9edef !important; margin-bottom: 0 !important; }
 
 .page-header { padding: 2.5rem 3rem; margin-bottom: 1rem; border-radius: var(--r); background: linear-gradient(135deg, #090912, #050508); border: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
 .ph-icon-wrap { background: rgba(0,242,255,0.05); border-radius: 16px; padding: 18px; border: 1px solid rgba(0,242,255,0.2); }
@@ -806,18 +786,12 @@ html, body, [class*="css"] {
 .g-card { background: var(--c-card); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--r); padding: 1.8rem; margin-bottom: 1.5rem; }
 .g-card-title { font-weight: 800; font-size: 1.2rem; color: #fff; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; } 
 
-.delta-pos { color: #00ff82; font-size: 0.85rem; font-weight: 800; margin-left: 8px; background: rgba(0,255,130,0.1); padding: 2px 8px; border-radius: 99px; }
-.delta-neg { color: #ff2d78; font-size: 0.85rem; font-weight: 800; margin-left: 8px; background: rgba(255,45,120,0.1); padding: 2px 8px; border-radius: 99px; }
-.delta-neu { color: #cbd5e1; font-size: 0.85rem; font-weight: 800; margin-left: 8px; background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 99px; }
-
-/* Custom Metric Dashboard Card - Auto Shrink for Large Numbers */
 .custom-metric { background: rgba(15,15,20,0.8); border: 1px solid rgba(255,255,255,0.05); border-radius: var(--r); padding: 1.2rem; display: flex; flex-direction: column; gap: 8px; overflow: hidden; animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; container-type: inline-size;}
 .cm-top { display: flex; justify-content: space-between; align-items: center; }
 .cm-label { color: #cbd5e1; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
 .cm-val-wrapper { display: flex; align-items: baseline; width: 100%; white-space: nowrap; }
 .cm-val { font-family: 'Orbitron', sans-serif; color: #00f2ff; text-shadow: 0 0 12px rgba(0,242,255,0.6); font-weight: 900; font-size: clamp(0.9rem, 8cqi, 1.8rem); white-space: nowrap; }
 .cm-suf { font-size: 0.75rem; color: var(--c-dim); margin-right: 4px; font-family: 'Cairo', sans-serif; font-weight: 700; }
-.cm-delta { margin-left: auto; flex-shrink: 0; }
 
 .neon-forecast { font-family: 'Orbitron', sans-serif; color: #ffd700; text-shadow: 0 0 15px rgba(255,215,0,0.6); font-size: 2rem; font-weight: 900; }
 
@@ -834,7 +808,6 @@ html, body, [class*="css"] {
 
 init_state()
 
-# تعريف الجداول بشكل عام كخط دفاعي ضد NameError
 df_s_master = st.session_state.get('df_s', pd.DataFrame())
 df_p_master = st.session_state.get('df_p', pd.DataFrame())
 df_i_master = st.session_state.get('df_i', pd.DataFrame())
@@ -854,7 +827,6 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             st.session_state.is_real_data = is_real
             st.session_state.data_loaded = True
 
-            # تحديث المتغيرات العامة فور الجلب
             df_s_master = st.session_state.df_s
             df_p_master = st.session_state.df_p
             df_i_master = st.session_state.df_i
@@ -862,7 +834,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v48.5</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v49.0</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         allowed_navs = []
@@ -885,7 +857,6 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
 
         st.markdown("---")
         
-        # 🔴 إصلاح تسجيل الخروج (مسح كامل للذاكرة والرابط)
         if st.button("🔴 تسجيل الخروج", use_container_width=True):
             st.query_params.clear()
             st.session_state.clear()
@@ -907,7 +878,7 @@ def build_infographic_html(data: dict) -> str:
 # 5. نظام التصدير الموحد والتلوين الآمن 
 # ============================================================
 def create_export_buttons(title, df_dict):
-    html_content = f"""<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+    html_content = f"""<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='[http://www.w3.org/TR/REC-html40](http://www.w3.org/TR/REC-html40)'>
     <head><meta charset='utf-8'><title>{title}</title>
     <style>
         body{{font-family: Arial, sans-serif; direction: rtl; text-align: right; background-color: #ffffff; color: #000000;}} 
@@ -1401,7 +1372,6 @@ def render_departments():
     t_df['القسم'] = t_df['القسم'].apply(clean_department_name)
     t_df['الحالة (عربي)'] = t_df['state'].apply(map_state_ar)
 
-    # تجهيز سجل العمليات التفصيلي ليرتبط بالأقسام
     clean_s = t_df.copy()
     if not clean_s.empty:
         clean_s['العميل'] = clean_s['partner_id'].apply(clean_odoo_m2o) if 'partner_id' in clean_s else ""
@@ -1715,7 +1685,7 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
         {chats_str if chats_str else 'لا يوجد سجل محادثات في هذه الفترة'}
 
         المطلوب:
-        اكتب تقرير إداري مكثف ومنظم بصيغة HTML (بدون استخدام Markdown)، ليكون مناسباً للطباعة فوراً.
+        اكتب تقرير إداري مكثف ومنظم بصيغة HTML (بدون استخدام Markdown نهائياً، أخرج كود HTML فقط وبدون أن تضعه داخل علامات ```html).
         استخدم العناوين (h2, h3) والفقرات (p) والقوائم (ul, li). 
         قسم التقرير إلى:
         1. الخلاصة التنفيذية.
@@ -1724,12 +1694,12 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
         4. نقاط القوة ومجالات التحسين.
         5. التقييم النهائي العام (من 10) في شكل بارز.
 
-        يجب أن يكون الكود HTML نظيف فقط وبدون Emojis.
+        يجب أن يكون الكود HTML نظيف فقط وبدون Emojis. لا تستخدم خلفيات أو ألوان داخل الكود، استخدم الهيكل فقط، أنا سأقوم بتلوينه بالـ CSS الخاص بي.
         """
         try:
             smart_report_html = call_universal_ai([{"role": "user", "content": report_prompt}])
-            # Clean up if AI wrapped it in ```html
-            smart_report_html = smart_report_html.replace('```html', '').replace('```', '').strip()
+            # Clean up if AI still wraps it in ```html despite instructions
+            smart_report_html = re.sub(r'```html|```', '', smart_report_html).strip()
         except Exception as e:
             smart_report_html = f"""
             <div style='text-align: center; padding: 40px; background-color: #ffeef2; border-radius: 12px; border: 1px solid #ff2d78;'>
@@ -1753,8 +1723,7 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
             .header {{ text-align: center; padding-bottom: 20px; border-bottom: 2px solid #e2e8f0; margin-bottom: 30px; }}
             .header h1 {{ color: #005c4b; font-size: 32px; font-weight: 800; margin: 0 0 10px 0; }}
             .report-content {{ background: #f8fafc; padding: 30px; border-radius: 12px; border-right: 4px solid #005c4b; color: #334155; }}
-            .report-content h2 {{ color: #0f172a; margin-top: 0; font-size: 22px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px; }}
-            .report-content h3 {{ color: #005c4b; font-size: 18px; margin-top: 25px; }}
+            .report-content h2, .report-content h3 {{ color: #0f172a; margin-top: 0; font-size: 22px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px; }}
             .report-content p {{ font-size: 16px; margin-bottom: 15px; }}
             .report-content ul {{ padding-right: 20px; margin-bottom: 20px; }}
             .report-content li {{ margin-bottom: 8px; font-size: 16px; }}
@@ -1789,17 +1758,64 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
     </body></html>
     """
 
-    # --- Streamlit UI Display ---
+    # --- Streamlit UI Display (Neon Style) ---
     st.markdown(f"""
-    <div style="background-color: #111b21; border-radius: 16px; padding: 30px; border: 1px solid #202c33; box-shadow: 0 8px 32px rgba(0,0,0,0.4); direction: rtl; font-family: 'Cairo', sans-serif;">
-        <div style="text-align: center; border-bottom: 2px solid #202c33; padding-bottom: 20px; margin-bottom: 30px;">
-            <h2 style="color: #00a884; font-weight: 800; font-size: 2rem; margin: 0 0 10px 0;">التقرير الإداري الشامل</h2>
-            <div style="color: #e9edef; font-size: 1.2rem;"><strong>{emp_short}</strong> <span style="color:#8696a0;">| {emp_role}</span></div>
-            <div style="color: #8696a0; font-size: 0.9rem; margin-top: 5px;">الفترة المحددة: {start_date} إلى {end_date}</div>
+    <style>
+        .neon-report-wrapper {{
+            background: linear-gradient(180deg, #04080a 0%, #0b141a 100%);
+            border-radius: 16px;
+            padding: 30px;
+            border: 1px solid rgba(0, 242, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 242, 255, 0.1);
+            direction: rtl;
+            font-family: 'Cairo', sans-serif;
+            color: #e2e8f0;
+        }}
+        .neon-report-header {{
+            text-align: center;
+            border-bottom: 1px solid rgba(0, 242, 255, 0.2);
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }}
+        .neon-report-header h2 {{
+            color: #00f2ff;
+            text-shadow: 0 0 10px rgba(0, 242, 255, 0.6);
+            font-weight: 900;
+            font-size: 2.2rem;
+            margin: 0 0 10px 0;
+            letter-spacing: 1px;
+        }}
+        .neon-report-body {{
+            background: rgba(0, 0, 0, 0.3);
+            padding: 30px;
+            border-radius: 12px;
+            border-right: 4px solid #00ff82;
+            font-size: 1.05rem;
+            line-height: 1.8;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
+        }}
+        .neon-report-body h2, .neon-report-body h3 {{
+            color: #00ff82 !important;
+            font-weight: 800 !important;
+            border-bottom: 1px dashed rgba(0, 255, 130, 0.3);
+            padding-bottom: 8px;
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+        }}
+        .neon-report-body p {{ color: #cbd5e1; }}
+        .neon-report-body ul li {{ color: #e2e8f0; margin-bottom: 8px; }}
+        .neon-report-body strong {{ color: #fff; background: rgba(0,242,255,0.1); padding: 2px 5px; border-radius: 4px; }}
+    </style>
+
+    <div class="neon-report-wrapper">
+        <div class="neon-report-header">
+            <h2>التقرير الاستراتيجي للأداء</h2>
+            <div style="color: #00ff82; font-size: 1.3rem; font-weight: bold; margin-bottom: 5px;">{emp_short} <span style="color:#64748b; font-weight: normal;">| {emp_role}</span></div>
+            <div style="color: #64748b; font-size: 0.95rem; font-family: 'Orbitron', sans-serif;">DATA RANGE: {start_date} // {end_date}</div>
         </div>
         
-        <div style="background: #0b141a; padding: 30px; border-radius: 12px; border-right: 4px solid #00a884; color: #e9edef; font-size: 1.05rem; line-height: 1.8;">
-            {smart_report_html.replace('h2>', 'h3 style="color:#00a884; font-weight:700; margin-top:1.5rem; border-bottom:1px solid #202c33; padding-bottom:10px;">').replace('h3>', 'h4 style="color:#00f2ff; font-weight:600; margin-top:1rem;">')}
+        <div class="neon-report-body">
+            {smart_report_html}
         </div>
     </div>
     <br>
@@ -2130,7 +2146,6 @@ def render_fusion():
             st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 20px 0;'>", unsafe_allow_html=True)
 
             with st.container():
-                # مسح إحصائي تلقائي (Auto-Data Scan)
                 st.markdown(f"<div class='g-card-title' style='margin-top:20px; color:var(--c-gold);'>{get_icon('activity', 22)} المسح الإحصائي المبدئي للبيانات</div>", unsafe_allow_html=True)
                 cols_num = ext_df.select_dtypes(include=[np.number]).columns
                 if not cols_num.empty:
@@ -2228,10 +2243,48 @@ def render_territories():
 # ────────────────────────────────────────────────────────────
 # 7.8 إعدادات النظام و "خزنة البيانات" (Settings & Data Vault)
 # ────────────────────────────────────────────────────────────
+@st.dialog("تعديل بيانات الموظف")
+def edit_employee_dialog(emp_index, current_emps, view_options):
+    emp = current_emps[emp_index]
+    
+    st.markdown(f"<h3 style='color:var(--c-primary); margin-top:0;'>تعديل الموظف: {emp['name']}</h3>", unsafe_allow_html=True)
+    
+    edited_name = st.text_input("اسم الموظف", value=emp.get('name', ''))
+    edited_role = st.text_input("الوظيفة / القسم", value=emp.get('role', ''))
+    edited_pin = st.text_input("الرقم السري (PIN)", value=emp.get('pin', '0000'))
+    edited_desc = st.text_area("الوصف الوظيفي والأهداف (KPIs)", value=emp.get('job_desc', ''))
+    
+    # Reverse lookup for views
+    reverse_views = {v: k for k, v in view_options.items()}
+    current_views_labels = [reverse_views.get(v) for v in emp.get('views', []) if v in reverse_views]
+    
+    edited_views = st.multiselect("الشاشات المسموحة", list(view_options.keys()), default=current_views_labels)
+    
+    if st.button("💾 حفظ التعديلات", type="primary", use_container_width=True):
+        if edited_name and edited_role and edited_pin and edited_views:
+            current_emps[emp_index] = {
+                'name': edited_name,
+                'role': edited_role,
+                'pin': edited_pin,
+                'job_desc': edited_desc,
+                'views': [view_options[k] for k in edited_views]
+            }
+            try:
+                current_cfg = get_workspace_doc().get().to_dict() or {}
+                current_cfg['EMPLOYEES'] = current_emps
+                get_workspace_doc().set(current_cfg, merge=True)
+                st.session_state.app_config['EMPLOYEES'] = current_emps
+                st.success("تم تحديث بيانات الموظف بنجاح!")
+                time.sleep(1)
+                st.rerun()
+            except Exception as e:
+                st.error(f"حدث خطأ أثناء الحفظ: {e}")
+        else:
+            st.warning("يرجى ملء جميع البيانات الأساسية واختيار شاشة واحدة على الأقل.")
+
 def render_settings():
     st.markdown(f"""<div class="page-header"><div class="ph-icon-wrap">{get_icon("settings", 46, "#00f2ff")}</div><div><div class="ph-title">إعدادات النواة المركزية</div><div class="ph-sub">إصدار COMMANDER: إدارة شاملة للبيانات، الخوادم، وهيكل الموظفين</div></div></div>""", unsafe_allow_html=True)
 
-    # جلب الحد الأقصى للمستخدمين من الترخيص
     licenses = load_licenses()
     ws_id = st.session_state.get('workspace_key', '')
     ws_data = licenses.get('workspaces', {}).get(ws_id, {})
@@ -2274,96 +2327,111 @@ def render_settings():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # --- 2. إدارة الموظفين (HR Module) ---
-    st.markdown(f"<div class='g-card-title'>{get_icon('users', 22)} نظام إدارة الموظفين والصلاحيات (الحد الأقصى المسموح: {max_devices} مستخدم)</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='g-card-title'>{get_icon('users', 22)} هيكل الفريق والبطاقات التعريفية (الحد الأقصى: {max_devices} مستخدم)</div>", unsafe_allow_html=True)
     
     current_emps = CFG.get('EMPLOYEES', [])
+    view_options = {i[2]: i[0] for i in ALL_NAV_ITEMS if i[0] not in ['settings']}
+    
     st.info(f"تم استهلاك {len(current_emps)} من أصل {max_devices} مستخدم مسموح به في رخصة شركتك.")
     
-    st.markdown("<div style='background:rgba(255,255,255,0.02); padding:20px; border-radius:12px; border:1px solid rgba(255,255,255,0.05); margin-bottom:20px;'>", unsafe_allow_html=True)
-    with st.form("add_emp_form", clear_on_submit=True):
-        st.markdown("**➕ إضافة موظف جديد:**")
-        c_emp1, c_emp2, c_emp3 = st.columns([2, 2, 2])
-        with c_emp1: new_emp_name = st.text_input("اسم الموظف", placeholder="مثال: أحمد محمود")
-        with c_emp2: new_emp_role = st.text_input("الوظيفة / القسم", placeholder="مثال: مبيعات هاتفية")
-        with c_emp3: new_emp_pin = st.text_input("الرقم السري للموظف (PIN)", placeholder="مثال: 1234")
-        
-        new_emp_desc = st.text_area("الوصف الوظيفي والأهداف (KPIs)", placeholder="اكتب هنا مهام الموظف وما تتوقعه منه، ليقوم الذكاء الاصطناعي بمتابعته وتوجيهه بناءً عليها...")
-        
-        view_options = {i[2]: i[0] for i in ALL_NAV_ITEMS if i[0] not in ['settings']}
-        new_emp_views = st.multiselect("الشاشات المسموحة", list(view_options.keys()), default=["مكتب المدير"])
-
-        submit_emp = st.form_submit_button("إضافة الموظف للنظام", use_container_width=True, type="primary")
-
-    if submit_emp:
-        if len(current_emps) >= max_devices:
-            st.error("🚫 عذراً! لقد وصلت للحد الأقصى لعدد المستخدمين المسموح به في رخصتك الحالية. لا يمكنك إضافة المزيد. يرجى التواصل مع الإدارة العليا للترقية.")
-        elif any(emp['name'].strip().lower() == new_emp_name.strip().lower() for emp in current_emps):
-            st.error("🚫 عذراً! يوجد موظف مسجل بنفس هذا الاسم مسبقاً. يرجى استخدام اسم مختلف (أو إضافة لقب) لمنع التداخل في المهام والمحادثات.")
-        elif new_emp_name and new_emp_role and new_emp_views and new_emp_pin:
-            view_keys = [view_options[k] for k in new_emp_views]
-            current_emps.append({
-                'name': new_emp_name, 
-                'role': new_emp_role, 
-                'pin': new_emp_pin, 
-                'job_desc': new_emp_desc,
-                'views': view_keys
-            })
+    with st.expander("➕ إضافة موظف جديد", expanded=False):
+        with st.form("add_emp_form", clear_on_submit=True):
+            c_emp1, c_emp2, c_emp3 = st.columns([2, 2, 2])
+            with c_emp1: new_emp_name = st.text_input("اسم الموظف", placeholder="مثال: أحمد محمود")
+            with c_emp2: new_emp_role = st.text_input("الوظيفة / القسم", placeholder="مثال: مبيعات هاتفية")
+            with c_emp3: new_emp_pin = st.text_input("الرقم السري للموظف (PIN)", placeholder="مثال: 1234")
             
-            # حماية دمج التعديلات عند الحفظ
-            try:
-                current_cfg = get_workspace_doc().get().to_dict() or {}
-                current_cfg['EMPLOYEES'] = current_emps
-                get_workspace_doc().set(current_cfg, merge=True)
-            except Exception as e:
-                st.error(f"خطأ في الحفظ: {e}")
+            new_emp_desc = st.text_area("الوصف الوظيفي والأهداف (KPIs)", placeholder="اكتب هنا مهام الموظف وما تتوقعه منه، ليقوم الذكاء الاصطناعي بمتابعته وتوجيهه بناءً عليها...")
             
-            CFG['EMPLOYEES'] = current_emps
-            st.rerun()
-        else:
-            st.warning("أدخل كافة البيانات (الاسم، الوظيفة، الرمز السري) واختر شاشة واحدة على الأقل.")
-    st.markdown("</div>", unsafe_allow_html=True)
+            new_emp_views = st.multiselect("الشاشات المسموحة", list(view_options.keys()), default=["مكتب المدير"])
+            submit_emp = st.form_submit_button("إضافة الموظف للنظام", use_container_width=True, type="primary")
+
+        if submit_emp:
+            if len(current_emps) >= max_devices:
+                st.error("🚫 عذراً! لقد وصلت للحد الأقصى لعدد المستخدمين المسموح به في رخصتك الحالية. لا يمكنك إضافة المزيد. يرجى التواصل مع الإدارة العليا للترقية.")
+            elif any(emp['name'].strip().lower() == new_emp_name.strip().lower() for emp in current_emps):
+                st.error("🚫 عذراً! يوجد موظف مسجل بنفس هذا الاسم مسبقاً. يرجى استخدام اسم مختلف (أو إضافة لقب) لمنع التداخل في المهام والمحادثات.")
+            elif new_emp_name and new_emp_role and new_emp_views and new_emp_pin:
+                view_keys = [view_options[k] for k in new_emp_views]
+                current_emps.append({
+                    'name': new_emp_name, 
+                    'role': new_emp_role, 
+                    'pin': new_emp_pin, 
+                    'job_desc': new_emp_desc,
+                    'views': view_keys
+                })
                 
-    if current_emps:
-        st.markdown("**📋 قائمة الموظفين المسجلين وصلاحياتهم:**")
-        for i, emp in enumerate(current_emps):
-            views_str = ", ".join([v for k, v in view_options.items() if emp.get('views') and view_options[k] in emp['views']])
-            pin_display = emp.get('pin', '0000')
-            desc_display = emp.get('job_desc', 'لا يوجد وصف.')
-            
-            st.markdown(f"""
-            <div style="background:rgba(15,15,20,0.6); padding:15px; border-radius:10px; border-right: 4px solid var(--c-primary); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
-                <div style="flex:1;">
-                    <div style="font-size:1.1rem; font-weight:bold; color:#fff; margin-bottom:5px;">
-                        {emp['name']} <span style="font-size:0.85rem; font-weight:normal; color:var(--c-dim);">({emp['role']})</span>
-                    </div>
-                    <div style="font-size:0.85rem; color:#e2e8f0; margin-bottom:5px;">
-                        <span style="color:var(--c-primary);">الشاشات:</span> {views_str}
-                    </div>
-                    <div style="font-size:0.85rem; color:#cbd5e1; line-height:1.4;">
-                        <span style="color:#00ff82;">المهام (KPIs):</span> {desc_display}
-                    </div>
-                </div>
-                <div style="text-align:left; min-width:120px;">
-                    <div style="background:rgba(255,215,0,0.1); color:#ffd700; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:0.9rem; margin-bottom:10px; text-align:center; border:1px solid rgba(255,215,0,0.3);">
-                        PIN: {pin_display}
-                    </div>
-            """, unsafe_allow_html=True)
-            
-            if st.button(f"حذف {emp['name']}", key=f"del_emp_{i}", use_container_width=True):
-                current_emps.pop(i)
                 try:
                     current_cfg = get_workspace_doc().get().to_dict() or {}
                     current_cfg['EMPLOYEES'] = current_emps
                     get_workspace_doc().set(current_cfg, merge=True)
                 except Exception as e:
-                    st.error(f"خطأ في الحذف: {e}")
+                    st.error(f"خطأ في الحفظ: {e}")
                 
                 CFG['EMPLOYEES'] = current_emps
                 st.rerun()
+            else:
+                st.warning("أدخل كافة البيانات (الاسم، الوظيفة، الرمز السري) واختر شاشة واحدة على الأقل.")
                 
-            st.markdown("</div></div>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    if current_emps:
+        st.markdown("**📋 بطاقات الموظفين (Cyberpunk UI):**")
+        
+        # Display employees in a structured Grid (2 columns)
+        emp_cols = st.columns(2)
+        
+        for i, emp in enumerate(current_emps):
+            views_str = " | ".join([k for k, v in view_options.items() if emp.get('views') and view_options.get(k) in emp['views']])
+            pin_display = emp.get('pin', '0000')
+            desc_display = emp.get('job_desc', 'لا يوجد وصف مخصص.')
+            
+            with emp_cols[i % 2]:
+                st.markdown(f"""
+                <div class="emp-card-neon">
+                    <div class="emp-header">
+                        <div class="emp-avatar">{emp['name'][:1]}</div>
+                        <div style="margin-right: 15px;">
+                            <div class="emp-name">{emp['name']}</div>
+                            <div class="emp-role">{emp['role']}</div>
+                        </div>
+                    </div>
+                    <div class="emp-info-grid">
+                        <div>
+                            <div class="emp-label">رمز الدخول السري:</div>
+                            <div class="emp-pin-box">✱✱{pin_display[-2:] if len(pin_display)>2 else pin_display}</div>
+                        </div>
+                        <div>
+                            <div class="emp-label">الصلاحيات والشاشات:</div>
+                            <div class="emp-value" style="font-size:0.8rem; line-height: 1.4;">{views_str}</div>
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <div class="emp-label">مؤشرات الأداء (KPIs):</div>
+                        <div class="emp-value" style="font-size:0.85rem; color:#94a3b8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{desc_display}</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Action Buttons side by side
+                btn_col1, btn_col2 = st.columns(2)
+                with btn_col1:
+                    if st.button(f"✏️ تعديل {emp['name']}", key=f"edit_emp_{i}", use_container_width=True):
+                        edit_employee_dialog(i, current_emps, view_options)
+                with btn_col2:
+                    if st.button(f"🗑️ إزالة {emp['name']}", key=f"del_emp_{i}", use_container_width=True, type="secondary"):
+                        current_emps.pop(i)
+                        try:
+                            current_cfg = get_workspace_doc().get().to_dict() or {}
+                            current_cfg['EMPLOYEES'] = current_emps
+                            get_workspace_doc().set(current_cfg, merge=True)
+                        except Exception as e:
+                            st.error(f"خطأ في الحذف: {e}")
+                        CFG['EMPLOYEES'] = current_emps
+                        st.rerun()
+                st.markdown("<br>", unsafe_allow_html=True)
     else:
-        st.markdown("<div style='color:var(--c-dim); font-size:0.9rem;'>لا يوجد موظفين مسجلين حالياً.</div>", unsafe_allow_html=True)
+        st.markdown("<div style='color:var(--c-dim); font-size:0.9rem; text-align:center; padding: 20px; border: 1px dashed rgba(255,255,255,0.1); border-radius: 12px;'>لا يوجد موظفين مسجلين حالياً بالهيكل.</div>", unsafe_allow_html=True)
 
     st.markdown("<br><hr style='border-color:rgba(255,255,255,0.05)'><br>", unsafe_allow_html=True)
 
@@ -2453,7 +2521,6 @@ def render_settings():
     st.markdown("<hr style='border-color:rgba(255,255,255,0.1); margin: 30px 0;'>", unsafe_allow_html=True)
     if st.button("حفظ الإعدادات وإعادة بناء النواة", type="primary", use_container_width=True):
         
-        # حفظ الإعدادات بدون المساس بقوائم المحادثات أو التقييمات الموجودة مسبقاً
         try:
             current_cfg = get_workspace_doc().get().to_dict() or {}
             current_cfg.update({
@@ -2511,9 +2578,8 @@ def change_workspace_pin_dialog(ws_id):
             st.error(f"حدث خطأ أثناء الحفظ: {e}")
 
 def render_super_admin():
-    # تم حل مشكلة تسجيل الخروج بإضافة Sidebar للتحكم الآمن
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v48.5</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v49.0</div></div>""", unsafe_allow_html=True)
         st.markdown("---")
         if st.button("🔴 تسجيل الخروج وإغلاق", use_container_width=True, type="primary"):
             st.query_params.clear()
@@ -2536,7 +2602,6 @@ def render_super_admin():
     if 'workspaces' not in licenses:
         licenses['workspaces'] = {}
 
-    # ─── خزنة المنصة الشاملة (Super Vault) ───
     st.markdown("<div class='g-card'>", unsafe_allow_html=True)
     st.markdown(f"<div class='g-card-title' style='color:#00ff82;'>{get_icon('database', 22)} الخزنة الشاملة للمنصة (Super Vault Backup)</div>", unsafe_allow_html=True)
     st.info("لحماية بيانات كل الشركات دفعة واحدة من ضياع السيرفرات، قم بتحميل هذا الملف أسبوعياً.")
