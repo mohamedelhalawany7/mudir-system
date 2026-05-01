@@ -1655,20 +1655,40 @@ def render_forecast():
 # ────────────────────────────────────────────────────────────
 # 7.4 مكتب المدير (COMMANDER OMNISCIENT MEMORY - PERFECT RTL & NO EMOJI)
 # ────────────────────────────────────────────────────────────
-@st.dialog("تقرير تقييم الأداء التفصيلي (الذكي)", width="large")
+@st.dialog("تقرير تقييم الأداء التفصيلي", width="large")
 def show_employee_report_dialog(emp_full_name, start_date, end_date):
     emp_short = emp_full_name.split(" - ")[0].strip()
     emp_role = emp_full_name.split(" - ")[1].strip() if " - " in emp_full_name else ""
     
+    # 1. Get KPIs
     emp_data = next((e for e in CFG.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == emp_full_name), None)
     kpis = emp_data.get('job_desc', 'لا يوجد مهام مسجلة') if emp_data else 'لا يوجد'
     
+    # 2. Get Sales Performance
+    appr_sales, draft_sales, orders_count = 0, 0, 0
+    if not df_s_master.empty and 'user_id' in df_s_master.columns and 'date_order' in df_s_master.columns:
+        s_df = df_s_master.copy()
+        s_df['المسؤول'] = s_df['user_id'].apply(clean_odoo_m2o)
+        emp_s = s_df[s_df['المسؤول'].str.contains(emp_short, na=False, case=False)]
+        
+        try:
+            start_dt = pd.to_datetime(start_date)
+            end_dt = pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+            emp_s = emp_s[(emp_s['date_order'] >= start_dt) & (emp_s['date_order'] <= end_dt)]
+            
+            appr_sales = emp_s[emp_s['state'].isin(['sale', 'done'])]['amount_total'].sum()
+            draft_sales = emp_s[emp_s['state'].isin(['draft', 'sent'])]['amount_total'].sum()
+            orders_count = len(emp_s[emp_s['state'].isin(['sale', 'done'])])
+        except: pass
+            
+    # 3. Get Evals & Chats
     eval_history = CFG.get('EVAL_HISTORY', {}).get(emp_full_name, [])
     filtered_evals = []
     for ev in eval_history:
         try:
             ev_date = datetime.strptime(ev['date'], "%Y-%m-%d %H:%M").date()
-            if start_date <= ev_date <= end_date: filtered_evals.append(ev)
+            if start_date <= ev_date <= end_date:
+                filtered_evals.append(ev)
         except: pass
         
     audit_log = CFG.get('AUDIT_LOG', {}).get(emp_full_name, [])
@@ -1676,10 +1696,12 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
     for al in audit_log:
         try:
             al_date = datetime.strptime(al['timestamp'], "%Y-%m-%d %H:%M:%S").date()
-            if start_date <= al_date <= end_date: activities.append(al)
+            if start_date <= al_date <= end_date:
+                activities.append(al)
         except: pass
 
-    with st.spinner("جاري تحليل محادثات وتقارير الموظف استخباراتياً..."):
+    # Generate Smart Report
+    with st.spinner("جاري تحليل البيانات وتوليد التقرير الذكي بواسطة الذكاء الاصطناعي..."):
         evals_str = "\n".join([f"[{e['date']}] {e['eval']}" for e in filtered_evals])
         chats_str = "\n".join([f"[{c['timestamp']}] {'الموظف' if c.get('role')=='user' else 'المدير'}: {c.get('content','')}" for c in activities])
         
@@ -1687,28 +1709,30 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
         if len(chats_str) > 3000: chats_str = "..." + chats_str[-3000:]
 
         report_prompt = f"""
-        أنت خبير تقييم أداء وموارد بشرية (HR Executive). 
-        قم بكتابة تقرير أداء ذكي وملخص شامل للموظف بناءً على سجلات المحادثة والتقارير المرفوعة فقط بينه وبين الإدارة:
+        أنت خبير تقييم أداء (HR Executive). قم بكتابة تقرير أداء ذكي وملخص لموظف بناءً على البيانات التالية:
         - اسم الموظف: {emp_short}
         - الوظيفة: {emp_role}
-        - الأهداف والمهام المطلوبة منه (KPIs): {kpis}
+        - المبيعات المعتمدة (في الفترة): {appr_sales:,.0f} ج.م
+        - العروض المعلقة (في الفترة): {draft_sales:,.0f} ج.م
+        - الطلبات الناجحة: {orders_count}
+        - الأهداف المطلوبة (KPIs): {kpis}
 
-        سجل التقييمات السابقة التي تم إعطاؤها له من قبل النظام:
-        {evals_str if evals_str else 'لا يوجد تقييمات سابقة في هذه الفترة'}
+        سجل التقييمات السابقة (مستخرجة من الذكاء الاصطناعي):
+        {evals_str if evals_str else 'لا يوجد'}
 
-        مقتطفات من تفاعلات الموظف والتقارير التي قدمها للإدارة عبر الشات في هذه الفترة (وهي المصدر *الوحيد* لتقييم أدائه):
-        {chats_str if chats_str else 'لا يوجد تفاعلات في هذه الفترة'}
+        مقتطفات من تفاعلات الموظف (الشات):
+        {chats_str if chats_str else 'لا يوجد'}
 
         المطلوب:
-        اكتب تقرير إداري مكثف ومنظم بصيغة HTML (بدون استخدام Markdown نهائياً)، ليكون مناسباً للطباعة فوراً.
-        استخدم العناوين (h3, h4) والفقرات (p) والقوائم (ul, li). 
+        اكتب تقرير إداري مكثف ومنظم بصيغة HTML (بدون استخدام Markdown)، ليكون مناسباً للطباعة فوراً.
+        استخدم العناوين (h2, h3) والفقرات (p) والقوائم (ul, li). 
         قسم التقرير إلى:
-        1. الخلاصة التنفيذية لأداء الموظف بناءً على ردوده وإنجازاته المذكورة في الشات.
-        2. مدى التزامه بالمهام والأهداف (KPIs) وجودة التقارير التي يقدمها بنفسه.
-        3. نقاط القوة، ومجالات التحسين.
-        4. التقييم النهائي العام (من 10) في شكل بارز ومبرر باختصار.
+        1. الخلاصة التنفيذية.
+        2. تقييم أداء المبيعات/المهام.
+        3. التزام الموظف والتفاعلات.
+        4. نقاط القوة ومجالات التحسين.
+        5. التقييم النهائي العام (من 10) في شكل بارز.
 
-        تأكد ألا تفترض أي مبيعات خارجية، قيم فقط ما ذكره الموظف وصرح به.
         يجب أن يكون الكود HTML نظيف فقط وبدون Emojis.
         """
         try:
@@ -1716,41 +1740,28 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
             # Clean up if AI wrapped it in ```html
             smart_report_html = smart_report_html.replace('```html', '').replace('```', '').strip()
         except Exception as e:
-            err_str = str(e)
-            if "429" in err_str or "quota" in err_str.lower():
-                err_msg = "لقد استنفدت رصيد باقة الذكاء الاصطناعي (الحد الأقصى للطلبات). يرجى الانتظار قليلاً أو مراجعة باقة الاشتراك."
-            elif "401" in err_str or "auth" in err_str.lower():
-                err_msg = "مفتاح الربط (API Key) غير صحيح أو غير مفعل."
-            else:
-                err_msg = "الخادم المركزي لا يستجيب في الوقت الحالي، يرجى المحاولة لاحقاً."
-
-            smart_report_html = f"""
-            <div style="background-color: rgba(225, 29, 72, 0.1); border-right: 4px solid #e11d48; padding: 20px; border-radius: 8px; margin-top: 15px;">
-                <div style="color: #e11d48; font-size: 1.3rem; font-weight: 800; display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
-                    ⚠️ تعذر إنشاء التقرير الذكي
-                </div>
-                <div style="color: #e2e8f0; font-size: 15px; margin-bottom: 15px; font-weight: 600;">
-                    {err_msg}
-                </div>
-                <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(225, 29, 72, 0.2); color: #94a3b8; padding: 10px; border-radius: 6px; font-size: 12px; font-family: monospace; text-align: left; direction: ltr; max-height: 150px; overflow-y: auto;">
-                    Error Details: {str(e)}
-                </div>
-            </div>
-            """
+            smart_report_html = f"<p style='color: #ff2d78; font-weight: bold;'>حدث خطأ أثناء توليد التقرير الذكي من الخادم. يرجى المحاولة لاحقاً.</p><p style='font-size: 0.9rem; color: #8696a0;'>تفاصيل الخطأ التقني (لتزويد الدعم الفني بها): {str(e)}</p>"
 
     # --- Build HTML for Export (Word / PDF) with elegant fonts and styling ---
+    html_export = f"""
+    <!DOCTYPE html>
     <html dir="rtl" lang="ar">
     <head>
         <meta charset="utf-8">
-        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
+        <link href="[https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap](https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap)" rel="stylesheet">
         <style>
             body {{ font-family: 'Cairo', sans-serif; background-color: #f8fafc; padding: 40px; color: #1e293b; direction: rtl; text-align: right; line-height: 1.8; }}
             .report-container {{ max-width: 800px; margin: auto; background: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border-top: 8px solid #005c4b; }}
             .header {{ text-align: center; padding-bottom: 20px; border-bottom: 2px solid #e2e8f0; margin-bottom: 30px; }}
             .header h1 {{ color: #005c4b; font-size: 32px; font-weight: 800; margin: 0 0 10px 0; }}
+            .info-box {{ background: #f1f5f9; padding: 15px 25px; border-radius: 12px; margin-bottom: 30px; font-size: 16px; color: #334155; display: flex; justify-content: space-between; font-weight: 600; border: 1px solid #cbd5e1;}}
+            .metrics-table {{ width: 100%; border-collapse: separate; border-spacing: 15px; margin-bottom: 30px; }}
+            .metrics-table td {{ background: #ffffff; padding: 20px; border-radius: 12px; text-align: center; border: 1px solid #e2e8f0; width: 33.33%; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }}
+            .m-title {{ font-size: 14px; color: #64748b; font-weight: 600; margin-bottom: 5px; text-transform: uppercase; }}
+            .m-val {{ font-size: 26px; font-weight: 800; color: #005c4b; }}
             .report-content {{ background: #f8fafc; padding: 30px; border-radius: 12px; border-right: 4px solid #005c4b; color: #334155; }}
-            .report-content h3 {{ color: #0f172a; margin-top: 0; font-size: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }}
-            .report-content h4 {{ color: #005c4b; font-size: 18px; margin-top: 25px; }}
+            .report-content h2 {{ color: #0f172a; margin-top: 0; font-size: 22px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px; }}
+            .report-content h3 {{ color: #005c4b; font-size: 18px; margin-top: 25px; }}
             .report-content p {{ font-size: 16px; margin-bottom: 15px; }}
             .report-content ul {{ padding-right: 20px; margin-bottom: 20px; }}
             .report-content li {{ margin-bottom: 8px; font-size: 16px; }}
@@ -1760,47 +1771,87 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
     <body>
         <div class="report-container">
             <div class="header">
-                <h1>تقرير تقييم الأداء والمتابعة</h1>
-                <div style="color: #64748b; font-size: 15px;">نظام MUDIR OS الاستراتيجي للإدارة</div>
+                <h1>تقرير الأداء والتقييم الشامل</h1>
+                <div style="color: #64748b; font-size: 15px;">نظام MUDIR OS الاستراتيجي</div>
             </div>
-            <table width="100%" style="margin-bottom: 30px; background: #f1f5f9; border-radius: 12px; border: 1px solid #cbd5e1; padding: 15px;">
+            
+            <table width="100%" style="margin-bottom: 20px; background: #f1f5f9; border-radius: 12px; border: 1px solid #cbd5e1; padding: 15px;">
                 <tr>
-                    <td style="text-align: right; font-size: 16px; color: #334155; width: 50%;"><strong>الموظف:</strong> {emp_short} <br> <strong>المسمى الوظيفي:</strong> {emp_role}</td>
-                    <td style="text-align: left; font-size: 16px; color: #334155; width: 50%; direction: rtl;"><strong>فترة التقييم:</strong><br>{start_date} / {end_date}</td>
+                    <td style="text-align: right; font-size: 16px; color: #334155; width: 33%;"><strong>الموظف:</strong> {emp_short}</td>
+                    <td style="text-align: center; font-size: 16px; color: #334155; width: 33%;"><strong>الوظيفة:</strong> {emp_role}</td>
+                    <td style="text-align: left; font-size: 16px; color: #334155; width: 33%; direction: rtl;"><strong>الفترة:</strong> {start_date} / {end_date}</td>
                 </tr>
             </table>
+
+            <table class="metrics-table">
+                <tr>
+                    <td>
+                        <div class="m-title">مبيعات معتمدة</div>
+                        <div class="m-val" style="color: #059669;">{appr_sales:,.0f} ج.م</div>
+                    </td>
+                    <td>
+                        <div class="m-title">عروض مسودة</div>
+                        <div class="m-val" style="color: #d97706;">{draft_sales:,.0f} ج.م</div>
+                    </td>
+                    <td>
+                        <div class="m-title">طلبات ناجحة</div>
+                        <div class="m-val" style="color: #2563eb;">{orders_count}</div>
+                    </td>
+                </tr>
+            </table>
+
             <div class="report-content">
                 {smart_report_html}
             </div>
-            <div class="footer">تم استخراج هذا التقرير آلياً بواسطة محرك الذكاء الاصطناعي بناءً على محادثات وتقارير الموظف - MUDIR OS<br>تاريخ الاستخراج: {datetime.now().strftime('%Y-%m-%d %H:%M')}</div>
+
+            <div class="footer">
+                تم استخراج هذا التقرير آلياً بواسطة محرك الذكاء الاصطناعي - MUDIR OS<br>
+                تاريخ الاستخراج: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+            </div>
         </div>
     </body></html>
     """
 
+    # --- Streamlit UI Display ---
     st.markdown(f"""
     <div style="background-color: #111b21; border-radius: 16px; padding: 30px; border: 1px solid #202c33; box-shadow: 0 8px 32px rgba(0,0,0,0.4); direction: rtl; font-family: 'Cairo', sans-serif;">
         <div style="text-align: center; border-bottom: 2px solid #202c33; padding-bottom: 20px; margin-bottom: 30px;">
-            <h2 style="color: #00a884; font-weight: 800; font-size: 2rem; margin: 0 0 10px 0;">التقرير الإداري وتقييم الأداء</h2>
+            <h2 style="color: #00a884; font-weight: 800; font-size: 2rem; margin: 0 0 10px 0;">التقرير الإداري الشامل</h2>
             <div style="color: #e9edef; font-size: 1.2rem;"><strong>{emp_short}</strong> <span style="color:#8696a0;">| {emp_role}</span></div>
-            <div style="color: #8696a0; font-size: 0.9rem; margin-top: 5px;">الفترة المحددة للتحليل: {start_date} إلى {end_date}</div>
-            <div style="color: #00f2ff; font-size: 0.85rem; margin-top: 10px; background: rgba(0,242,255,0.1); padding: 5px; border-radius: 5px;">
-                يستند هذا التقرير حصرياً إلى المهام المسندة والتفاعلات والتقارير التي رفعها الموظف في النظام.
+            <div style="color: #8696a0; font-size: 0.9rem; margin-top: 5px;">الفترة المحددة: {start_date} إلى {end_date}</div>
+        </div>
+        
+        <div style="text-align: center; color: #8696a0; font-size: 0.8rem; margin-bottom: 20px; margin-top: -15px;">
+            * ملحوظة: الأصفار في مبيعات الموظف تعني أن اسمه المسجل بالنظام هنا يختلف عن اسم (مندوب المبيعات) في Odoo.
+        </div>
+        
+        <div style="display: flex; gap: 15px; margin-bottom: 30px;">
+            <div style="flex: 1; background: #202c33; padding: 20px; border-radius: 12px; text-align: center;">
+                <div style="color: #8696a0; font-size: 0.9rem; font-weight: 600; margin-bottom: 5px;">مبيعات معتمدة</div>
+                <div style="color: #00a884; font-size: 1.8rem; font-weight: 800;">{appr_sales:,.0f} <span style="font-size: 1rem;">ج.م</span></div>
+            </div>
+            <div style="flex: 1; background: #202c33; padding: 20px; border-radius: 12px; text-align: center;">
+                <div style="color: #8696a0; font-size: 0.9rem; font-weight: 600; margin-bottom: 5px;">عروض مسودة</div>
+                <div style="color: #ffd700; font-size: 1.8rem; font-weight: 800;">{draft_sales:,.0f} <span style="font-size: 1rem;">ج.م</span></div>
+            </div>
+            <div style="flex: 1; background: #202c33; padding: 20px; border-radius: 12px; text-align: center;">
+                <div style="color: #8696a0; font-size: 0.9rem; font-weight: 600; margin-bottom: 5px;">الطلبات الناجحة</div>
+                <div style="color: #00f2ff; font-size: 1.8rem; font-weight: 800;">{orders_count}</div>
             </div>
         </div>
-        <style>
-            .ai-report-box h2, .ai-report-box h3 {{ color:#00a884; font-weight:700; margin-top:1.5rem; border-bottom:1px solid #202c33; padding-bottom:10px; }}
-            .ai-report-box h4 {{ color:#00f2ff; font-weight:600; margin-top:1rem; }}
-        </style>
-        <div class="ai-report-box" style="background: #0b141a; padding: 30px; border-radius: 12px; border-right: 4px solid #00a884; color: #e9edef; font-size: 1.05rem; line-height: 1.8;">
-            {smart_report_html}
+
+        <div style="background: #0b141a; padding: 30px; border-radius: 12px; border-right: 4px solid #00a884; color: #e9edef; font-size: 1.05rem; line-height: 1.8;">
+            {smart_report_html.replace('h2>', 'h3 style="color:#00a884; font-weight:700; margin-top:1.5rem; border-bottom:1px solid #202c33; padding-bottom:10px;">').replace('h3>', 'h4 style="color:#00f2ff; font-weight:600; margin-top:1rem;">')}
         </div>
     </div>
     <br>
     """, unsafe_allow_html=True)
 
     c1, c2 = st.columns(2)
-    with c1: st.download_button("📥 حفظ التقرير (Word)", data=html_export.encode('utf-8-sig'), file_name=f"Report_{emp_short}.doc", mime="application/msword", use_container_width=True)
-    with c2: st.download_button("🖨️ استخراج للطباعة (PDF)", data=(html_export + "<script>window.print();</script>").encode('utf-8-sig'), file_name=f"Report_{emp_short}.html", mime="text/html", use_container_width=True)
+    with c1:
+        st.download_button("📥 حفظ التقرير (Word)", data=html_export.encode('utf-8-sig'), file_name=f"Performance_Report_{emp_short}.doc", mime="application/msword", use_container_width=True)
+    with c2:
+        st.download_button("🖨️ استخراج للطباعة (PDF)", data=(html_export + "<script>window.print();</script>").encode('utf-8-sig'), file_name=f"Performance_Report_{emp_short}.html", mime="text/html", use_container_width=True)
 
 def render_ai():
     # ── ميزة تصدير المحادثة (Chat Export) ──
@@ -2666,3 +2717,5 @@ else:
     elif view == "territories": render_territories()
     elif view == "settings": render_settings()
     else: render_dashboard()
+
+
