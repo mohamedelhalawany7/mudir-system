@@ -2694,4 +2694,11 @@ elif view == "super_admin":
 elif not curr_user or view == "login": 
     render_login()
 else:
-    if view == "dashboard": render_dashboard
+    if view == "dashboard": render_dashboard()
+    elif view == "departments": render_departments()
+    elif view == "forecast": render_forecast()
+    elif view == "ai": render_ai()
+    elif view == "fusion": render_fusion()
+    elif view == "territories": render_territories()
+    elif view == "settings": render_settings()
+    else: render_dashboard()
