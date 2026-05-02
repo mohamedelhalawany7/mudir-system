@@ -11,11 +11,16 @@ import numpy as np
 import json
 import base64
 import re
+import io
+try:
+    import PyPDF2
+except ImportError:
+    pass
 import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v49.3 (NEON & RTL FIX)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v49.6 (STRUCTURED KNOWLEDGE)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -45,12 +50,13 @@ DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري
 شخصيتك: مصري أصيل، بتتكلم بلهجة مصرية طبيعية جداً جداً وبطريقة احترافية (كأنك مدير قاعد في مكتبه بيوجه فريقه)، حازم، جاد، معلم، ومبتسمحش في التقصير أو الأعذار. بتدي أوامر واضحة وتتابعها وتقيم الموظفين وتناقشهم في أوقات التنفيذ.
 
 قواعد التعامل وتوزيع المهام:
-1. لو الموظف بيطلب خطة، اديله تكليف محدد بناء على المسمى الوظيفي بتاعه واسأله (هتخلص ده في قد إيه؟).
-2. إذا كان دوره "مبيعات": كلفه بصرامة إنه يتابع (عروض الأسعار المعلقة) واطلب منه يجيبلك الخلاصة ويقفل البيعة.
-3. إذا كان "تسويق" أو "تطوير أعمال": اقترح عليه أسماء شركات واقعية في مصر أو الخليج لفتح أسواق معاها.
-4. تابعه واسأله عن الوقت خده، لو اتأخر أو مفيش نتيجة، كن حازم ووبخه بشياكة كمدير. لو شاطر شجعه بكلمة (عاش يا بطل).
-5. تجنب استخدام الرموز التعبيرية تماماً عشان تحافظ على هيبتك كمدير. استخدم التنسيق الواضح بالماركداون (عناوين، نقاط، أرقام).
-6. التحكم في النظام: لو شفت إن في ضرورة ماسة لإنشاء مسودة عرض سعر لعميل لإنقاذ الموقف، أضف هذا الكود في نهاية رسالتك بالضبط:
+1. استعن بـ 'قاعدة المعرفة' (دليل الصيانة/التشغيل) المرفقة في السياق إذا سألك الموظف عن معلومات فنية، وقدم إجابة نموذجية دقيقة.
+2. راعي جداً 'الوقت الحالي' ومواعيد العمل. إذا اقترب موعد الانصراف، لا تطلب مهام تستغرق ساعات، بل وجهه للتقفيل والتجهيز للغد. وإذا كنا خارج أوقات العمل، اطلب منه الراحة إلا في الطوارئ.
+3. لو الموظف بيطلب خطة، اديله تكليف محدد بناء على المسمى الوظيفي بتاعه واسأله (هتخلص ده في قد إيه؟).
+4. إذا كان دوره "مبيعات": كلفه بصرامة إنه يتابع (عروض الأسعار المعلقة).
+5. تابعه واسأله عن الوقت خده، لو اتأخر كن حازم ووبخه بشياكة كمدير. لو شاطر شجعه بكلمة (عاش يا بطل).
+6. تجنب استخدام الرموز التعبيرية تماماً عشان تحافظ على هيبتك كمدير. استخدم التنسيق الواضح بالماركداون.
+7. للتحكم في النظام (إنشاء عرض سعر):
 $$ACTION: CREATE_SO | العميل: [اسم العميل] | القيمة: [مبلغ تقديري]$$"""
 
 def get_workspace_doc(ws_id=None):
@@ -64,7 +70,8 @@ def load_config():
         'AI_PROVIDER_URL': 'https://api.openai.com/v1', 'AI_API_KEY': '',
         'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
         'MANAGER_PIN': '0000', 'EMPLOYEES': [], 'EVALUATIONS': {},
-        'EVAL_HISTORY': {}, 'ALL_CHATS': {}, 'AUDIT_LOG': {} 
+        'EVAL_HISTORY': {}, 'ALL_CHATS': {}, 'AUDIT_LOG': {},
+        'WORK_START': 8, 'WORK_END': 17, 'KNOWLEDGE_BASE': ''
     }
     if 'workspace_id' in st.session_state:
         try:
@@ -219,6 +226,8 @@ def get_icon(name: str, size: int = 24, color: str = "currentColor", class_name:
         "radar": '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v10l5 5"/>',
         "cpu": '<rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/>',
         "fusion": '<path d="M9 3v11l-5 6v2h16v-2l-5-6V3M14 3h-4"/>',
+        "clock": '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+        "book": '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5V3A2.5 2.5 0 0 1 6.5 0.5H20"/>',
         "rocket": '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>',
         "settings": '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
         "money": '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>',
@@ -864,7 +873,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v49.3</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v49.6</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         allowed_navs = []
@@ -1890,6 +1899,37 @@ def render_ai():
     except Exception:
         pass
         
+    CFG = st.session_state.app_config
+
+    # --- حساب الوقت وعرض الحالة ---
+    now = datetime.now()
+    try:
+        work_start = int(CFG.get('WORK_START', 8))
+        work_end = int(CFG.get('WORK_END', 17))
+    except:
+        work_start, work_end = 8, 17
+        
+    is_working_hours = work_start <= now.hour < work_end
+    
+    time_status_color = "#00ff82" if is_working_hours else "#ff2d78"
+    time_status_text = "داخل أوقات العمل" if is_working_hours else "خارج أوقات العمل"
+    
+    # تحويل الوقت من نظام 24 إلى نظام 12 ساعة للعرض الجمالي
+    start_am_pm = f"{work_start if work_start <= 12 else work_start - 12} {'ص' if work_start < 12 else 'م'}"
+    end_am_pm = f"{work_end if work_end <= 12 else work_end - 12} {'ص' if work_end < 12 else 'م'}"
+    
+    st.markdown(f"""
+    <div style="background:rgba(0,242,255,0.05); padding:10px 20px; border-radius:12px; border:1px solid rgba(0,242,255,0.2); display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+            {get_icon('clock', 20, '#00f2ff')}
+            <strong style="color:#00f2ff; font-family:'Orbitron', sans-serif; font-size:1.1rem;">{now.strftime("%I:%M %p")}</strong>
+        </div>
+        <div style="color:{time_status_color}; font-weight:bold; font-size:0.9rem;">
+            ● {time_status_text} ({start_am_pm} - {end_am_pm})
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+        
     # ── ميزة تصدير المحادثة (Chat Export) ──
     c_header1, c_header2 = st.columns([3, 1])
     with c_header1:
@@ -2074,6 +2114,17 @@ def render_ai():
                 curr_emp_data = next((e for e in CFG.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == curr_user), None)
                 job_desc = curr_emp_data.get('job_desc', 'لا يوجد وصف وظيفي محدد.') if curr_emp_data else 'أنت المدير العام.'
                 
+                # إعداد معلومات الوقت للذكاء الاصطناعي
+                now = datetime.now()
+                try:
+                    work_start_ai = int(CFG.get('WORK_START', 8))
+                    work_end_ai = int(CFG.get('WORK_END', 17))
+                except:
+                    work_start_ai, work_end_ai = 8, 17
+                
+                start_ai_12h = f"{work_start_ai if work_start_ai <= 12 else work_start_ai - 12} {'صباحاً' if work_start_ai < 12 else 'مساءً'}"
+                end_ai_12h = f"{work_end_ai if work_end_ai <= 12 else work_end_ai - 12} {'صباحاً' if work_end_ai < 12 else 'مساءً'}"
+                
                 live_context = f"""
                 
 === بيانات النظام الحية (يجب أخذها في الاعتبار) ===
@@ -2083,6 +2134,11 @@ def render_ai():
 - إجمالي قاعدة العملاء: {p_len} عميل
 - عينة من أهم عملائنا الحاليين: {clients_summary}
 - عروض أسعار معلقة محتاجة متابعة فورية: {quotes_summary}
+
+=== نظام الوقت الاستراتيجي ===
+- الساعة الآن: {now.strftime("%I:%M %p")}
+- مواعيد العمل الرسمية للشركة: من {start_ai_12h} إلى {end_ai_12h}.
+- التوجيه: تعامل مع الموظف بناءً على هذا الوقت. إذا كان متبقي وقت قليل، لا تطلب مهاماً ضخمة. وإذا كان خارج الوقت، انصحه بالراحة.
 
 === موقف باقي أعضاء الفريق (مهم جداً: لا تعطي نفس العميل أو المهمة لموظفين مختلفين) ===
 {team_context_str}
@@ -2098,6 +2154,12 @@ def render_ai():
 **مهم جداً جداً للتقييم**: في نهاية أي رسالة بتكتبها، لازم تقيم الموظف (إذا لم يكن هو المدير العام) من 10 وتكتب تعليق سري عن أدائه. التقييم ده لازم يكون في آخر سطر بالظبط بالشكل ده:
 $$EVAL: 8/10 - الموظف ردوده إيجابية بس محتاج يسرع رتمه شوية$$
 إياك تنسى كود الـ $$EVAL: في النهاية، وإياك تعرف الموظف إنك بتقيمه أو بتكتب الكود ده. السرية التامة ضرورية."""
+
+                # دمج قاعدة المعرفة (ملف الصيانة/الـ PDF) إن وجد
+                knowledge_base = CFG.get('KNOWLEDGE_BASE', '')
+                if knowledge_base:
+                    live_context += f"\n\n=== قاعدة المعرفة (بيانات الشركة وأدلة الصيانة) ===\n{knowledge_base[:8000]}\n"
+                    live_context += "ملاحظة: استعن بالمعلومات أعلاه للرد بدقة على أي أسئلة فنية أو تفصيلية يسألها الموظف."
 
                 sys_prompt = base_prompt + "\n" + live_context
 
@@ -2176,16 +2238,74 @@ def render_fusion():
             <div class="ph-icon-wrap">{get_icon("fusion", 46, "#00f2ff")}</div>
             <div>
                 <div class="ph-title">مختبر الاندماج (Data Fusion)</div>
-                <div class="ph-sub">اربط بياناتك الخارجية مع بيانات النواة لاستنتاج الفرص</div>
+                <div class="ph-sub">اربط بياناتك الخارجية مع بيانات النواة لاستنتاج الفرص وتغذية عقل المدير</div>
             </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
+    CFG = st.session_state.app_config
+
+    st.markdown(f"<div class='g-card-title' style='color:var(--c-gold);'>{get_icon('book', 22)} قاعدة المعرفة للمدير (دليل الصيانة والعمليات)</div>", unsafe_allow_html=True)
+    st.info("ارفع هنا ملفات الـ PDF (مثل أدلة الصيانة أو لوائح الشركة). سيقوم النظام باستخراج النصوص وتخزينها للأبد في عقل المدير لكي يجيب المهندسين والموظفين بناءً عليها مباشرة.")
+    
+    pdf_file = st.file_uploader("ارفع ملف PDF", type=['pdf'], label_visibility="collapsed")
+    
+    col_kb1, col_kb2 = st.columns([1, 3])
+    with col_kb1:
+        if pdf_file and st.button("🧠 استيعاب الملف (تغذية المدير)", type="primary", use_container_width=True):
+            try:
+                import PyPDF2
+                with st.spinner("جاري قراءة واستخراج البيانات الخام من الملف..."):
+                    reader = PyPDF2.PdfReader(pdf_file)
+                    raw_text = ""
+                    for page in reader.pages:
+                        raw_text += page.extract_text() + "\n"
+                
+                with st.spinner("جاري تنظيم وهيكلة البيانات بواسطة الذكاء الاصطناعي لبناء قاعدة معرفة نموذجية..."):
+                    try:
+                        organize_prompt = f"""
+                        بصفتك خبيراً في هندسة النظم وإدارة المعرفة، تم استخراج النص التالي من ملف فني أو دليل صيانة.
+                        المطلوب منك:
+                        1. إعادة هيكلة وتنظيم النص بالكامل وتنسيقه بشكل احترافي باستخدام الماركداون (Markdown).
+                        2. تقسيمه إلى عناوين رئيسية وفرعية واضحة (مثل: الإجراءات، المتطلبات، خطوات الصيانة).
+                        3. استخدام القوائم لتلخيص الخطوات الطويلة وتسهيل قراءتها.
+                        4. الحفاظ التام على أي معلومات فنية، أرقام، مقاييس، وتحذيرات دون فقدانها.
+                        5. تنظيف النص من الشوائب كأرقام الصفحات والهوامش المكررة.
+                        6. لا تضف أي مقدمات أو خاتمات، فقط قدم النص المنظم مباشرة لتخزينه كقاعدة معرفة.
+                        
+                        النص الخام:
+                        {raw_text[:20000]}
+                        """
+                        structured_text = call_universal_ai([{"role": "user", "content": organize_prompt}])
+                    except Exception as ai_e:
+                        st.warning(f"تعذر الاتصال بالذكاء الاصطناعي لتنظيم النص، سيتم حفظ النص الخام. السبب: {ai_e}")
+                        structured_text = raw_text
+                
+                CFG['KNOWLEDGE_BASE'] = structured_text
+                save_config(CFG)
+                st.success("✅ تم التنظيم والاستيعاب بنجاح! قاعدة المعرفة جاهزة الآن.")
+                time.sleep(2)
+                st.rerun()
+            except ImportError:
+                st.error("مكتبة PyPDF2 غير مثبتة. يرجى إضافتها إلى requirements.txt (إن وجد) أو بيئة التشغيل.")
+            except Exception as e:
+                st.error(f"حدث خطأ أثناء القراءة: {e}")
+    with col_kb2:
+        current_kb = CFG.get('KNOWLEDGE_BASE', '')
+        if current_kb:
+            st.markdown(f"<div style='background:rgba(0,255,130,0.1); padding:10px; border-radius:8px; border:1px solid #00ff82; color:#00ff82;'>حجم قاعدة المعرفة الحالية: <b>{len(current_kb):,}</b> حرف مخزن في ذاكرة النظام.</div>", unsafe_allow_html=True)
+            if st.button("🗑️ مسح الذاكرة الحالية"):
+                CFG['KNOWLEDGE_BASE'] = ''
+                save_config(CFG)
+                st.rerun()
+
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 30px 0;'>", unsafe_allow_html=True)
+
     up1, up2 = st.columns([2,1])
     with up1:
-        st.markdown(f"<strong style='color:var(--c-primary); display:flex; align-items:center; gap:8px; margin-bottom:10px;'>{get_icon('folder', 18)} إدراج الملف الخارجي (Excel / CSV)</strong>", unsafe_allow_html=True)
-        file_up = st.file_uploader("", type=['csv','xlsx'], label_visibility="collapsed")
+        st.markdown(f"<strong style='color:var(--c-primary); display:flex; align-items:center; gap:8px; margin-bottom:10px;'>{get_icon('folder', 18)} إدراج ملف تحليل بيانات مؤقت (Excel / CSV)</strong>", unsafe_allow_html=True)
+        file_up = st.file_uploader("تحليل بيانات مؤقت", type=['csv','xlsx'], label_visibility="collapsed")
     with up2:
         st.info("ارفع قائمة موردين، منافسين، أو بيانات سوقية ليدمجها النظام التحليلي مع أرقام مبيعاتنا الحالية ويستخرج التقاطعات الذهبية.")
 
@@ -2379,6 +2499,17 @@ def render_settings():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # --- إعدادات الوقت (إضافة جديدة) ---
+    st.markdown(f"<div class='g-card-title'>{get_icon('clock', 22)} مواعيد العمل الرسمية للشركة</div>", unsafe_allow_html=True)
+    st.info("المدير سيستخدم هذه المواعيد لمعرفة متى يبدأ وينتهي الدوام، ليتخذ قرارات مناسبة بشأن توزيع المهام للموظفين والمهندسين.")
+    col_t1, col_t2 = st.columns(2)
+    with col_t1:
+        work_start_input = st.number_input("ساعة بدء العمل (نظام 24 ساعة):", min_value=0, max_value=23, value=int(CFG.get('WORK_START', 8)), step=1)
+    with col_t2:
+        work_end_input = st.number_input("ساعة انتهاء العمل (نظام 24 ساعة):", min_value=0, max_value=23, value=int(CFG.get('WORK_END', 17)), step=1)
+        
+    st.markdown("<br>", unsafe_allow_html=True)
+
     # --- 2. إدارة الموظفين (HR Module) ---
     st.markdown(f"<div class='g-card-title'>{get_icon('users', 22)} هيكل الفريق والبطاقات التعريفية (الحد الأقصى: {max_devices} مستخدم)</div>", unsafe_allow_html=True)
     
@@ -2460,7 +2591,7 @@ def render_settings():
                         </div>
                     </div>
                     <div style="margin-bottom: 15px;">
-                        <div class="emp-label">مؤشرات الأداء (KPIs):</div>
+                        <div class="emp-label">م مؤشرات الأداء (KPIs):</div>
                         <div class="emp-value" style="font-size:0.85rem; color:#94a3b8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{desc_display}</div>
                     </div>
                 </div>
@@ -2581,7 +2712,9 @@ def render_settings():
                 'AI_PROVIDER_URL': ai_url, 'AI_MODEL_NAME': ai_model, 'AI_API_KEY': ai_key,
                 'AI_SYSTEM_PROMPT': ai_system_prompt,
                 'MANAGER_PIN': m_pin,
-                'EMPLOYEES': current_emps
+                'EMPLOYEES': current_emps,
+                'WORK_START': int(work_start_input),
+                'WORK_END': int(work_end_input)
             })
             
             get_workspace_doc().set(current_cfg, merge=True)
