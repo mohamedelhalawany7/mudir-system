@@ -3,7 +3,7 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
-from openai import OpenAI  
+from openai import OpenAI
 from datetime import datetime, timedelta
 import time
 import random
