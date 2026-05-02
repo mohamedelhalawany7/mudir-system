@@ -15,7 +15,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v49.1 (NEON & INTERACTIVE)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v49.3 (NEON & RTL FIX)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -316,7 +316,7 @@ def style_dataframe(df):
 
     if df_raw.empty: return df_raw
 
-    currency_cols = ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'قيمة (معتمد)', 'قيمة (مسودة)', 'قيمة (ملغي)', 'القيمة الكلية (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صافي الربح', 'صاف الربح']
+    currency_cols = ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'قيمة (معتمد)', 'قيمة (مسودة)', 'قيمة (ملغي)', 'القيمة الكلية (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صاف الربح', 'صافي الربح']
     number_cols = ['الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'العدد الكلي', 'الكمية المطلوبة', 'إجمالي العروض', 'إجمالي الطلبات']
     pct_cols = ['هامش الربح %']
     
@@ -864,7 +864,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v49.2</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v49.3</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         allowed_navs = []
@@ -908,7 +908,7 @@ def build_infographic_html(data: dict) -> str:
 # 5. نظام التصدير الموحد والتلوين الآمن 
 # ============================================================
 def create_export_buttons(title, df_dict):
-    html_content = f"""<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='[http://www.w3.org/TR/REC-html40](http://www.w3.org/TR/REC-html40)'>
+    html_content = f"""<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
     <head><meta charset='utf-8'><title>{title}</title>
     <style>
         body{{font-family: Arial, sans-serif; direction: rtl; text-align: right; background-color: #ffffff; color: #000000;}} 
@@ -1822,17 +1822,33 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
             font-size: 1.05rem;
             line-height: 1.8;
             box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
+            direction: rtl !important;
+            text-align: right !important;
         }}
-        .neon-report-body h2, .neon-report-body h3 {{
+        .neon-report-body h2, .neon-report-body h3, .neon-report-body h4 {{
             color: #00ff82 !important;
             font-weight: 800 !important;
             border-bottom: 1px dashed rgba(0, 255, 130, 0.3);
             padding-bottom: 8px;
             margin-top: 1.5rem;
             margin-bottom: 1rem;
+            text-align: right !important;
         }}
-        .neon-report-body p {{ color: #cbd5e1; }}
-        .neon-report-body ul li {{ color: #e2e8f0; margin-bottom: 8px; }}
+        .neon-report-body p, .neon-report-body ul, .neon-report-body li, .neon-report-body span, .neon-report-body div {{
+            color: #cbd5e1;
+            direction: rtl !important;
+            text-align: right !important;
+        }}
+        .neon-report-body ul {{
+            padding-right: 25px !important;
+            list-style-type: disc !important;
+        }}
+        .neon-report-body li {{ 
+            color: #e2e8f0 !important; 
+            margin-bottom: 8px !important; 
+            display: list-item !important;
+            list-style-position: outside !important;
+        }}
         .neon-report-body strong {{ color: #fff; background: rgba(0,242,255,0.1); padding: 2px 5px; border-radius: 4px; }}
     </style>
 
@@ -1843,7 +1859,7 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
             <div style="color: #64748b; font-size: 0.95rem; font-family: 'Orbitron', sans-serif;">DATA RANGE: {start_date} // {end_date}</div>
         </div>
         
-        <div class="neon-report-body">
+        <div class="neon-report-body" dir="rtl">
             {smart_report_html}
         </div>
     </div>
@@ -2608,7 +2624,7 @@ def change_workspace_pin_dialog(ws_id):
 
 def render_super_admin():
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v49.1</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v49.3</div></div>""", unsafe_allow_html=True)
         st.markdown("---")
         if st.button("🔴 تسجيل الخروج وإغلاق", use_container_width=True, type="primary"):
             st.query_params.clear()
