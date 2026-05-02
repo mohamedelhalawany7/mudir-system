@@ -7,4 +7,5 @@ openpyxl
 prophet
 filelock
 firebase-admin
-
+PyPDF2
+pytz
