@@ -1787,97 +1787,92 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
     </body></html>
     """
 
-    # --- Streamlit UI Display (Neon Style) ---
-    st.markdown(f"""
-    <style>
-        .neon-report-wrapper {{
-            background: linear-gradient(180deg, #04080a 0%, #0b141a 100%);
-            border-radius: 16px;
-            padding: 30px;
-            border: 1px solid rgba(0, 242, 255, 0.3);
-            box-shadow: 0 0 20px rgba(0, 242, 255, 0.1);
-            direction: rtl !important;
-            text-align: right !important;
-            font-family: 'Cairo', sans-serif;
-        }}
-        .neon-report-header {{
-            text-align: center !important;
-            border-bottom: 1px solid rgba(0, 242, 255, 0.2);
-            padding-bottom: 20px;
-            margin-bottom: 30px;
-        }}
-        .neon-report-header h2 {{
-            color: #00f2ff !important;
-            text-shadow: 0 0 10px rgba(0, 242, 255, 0.6) !important;
-            font-weight: 900 !important;
-            font-size: 2.2rem !important;
-            margin: 0 0 10px 0 !important;
-            letter-spacing: 1px !important;
-        }}
-        .neon-report-body {{
-            background: rgba(0, 0, 0, 0.3);
-            padding: 30px;
-            border-radius: 12px;
-            border-right: 4px solid #00ff82;
-            font-size: 1.05rem;
-            line-height: 1.8;
-            box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
-            direction: rtl !important;
-            text-align: right !important;
-        }}
-        
-        /* السطر ده هو الحل السحري لإجبار كل نصوص الذكاء الاصطناعي على اللون والمحاذاة */
-        .neon-report-body * {{
-            direction: rtl !important;
-            text-align: right !important;
-            color: #e2e8f0 !important;
-        }}
-        
-        .neon-report-body h1, .neon-report-body h2, .neon-report-body h3, .neon-report-body h4 {{
-            color: #00ff82 !important;
-            font-weight: 800 !important;
-            border-bottom: 1px dashed rgba(0, 255, 130, 0.3) !important;
-            padding-bottom: 8px !important;
-            margin-top: 1.5rem !important;
-            margin-bottom: 1rem !important;
-        }}
-        
-        .neon-report-body ul, .neon-report-body ol {{
-            padding-right: 25px !important;
-            margin-right: 15px !important;
-            list-style-type: disc !important;
-        }}
-        
-        .neon-report-body li {{ 
-            margin-bottom: 10px !important; 
-            display: list-item !important;
-            list-style-position: outside !important;
-        }}
-        
-        /* إعطاء لون مميز للكلمات البارزة عشان التقرير مايكونش باهت */
-        .neon-report-body strong, .neon-report-body b {{ 
-            color: #00f2ff !important; 
-            background: rgba(0,242,255,0.1) !important; 
-            padding: 2px 6px !important; 
-            border-radius: 4px !important;
-            font-weight: 900 !important;
-        }}
-    </style>
-
-    <div class="neon-report-wrapper" dir="rtl">
-        <div class="neon-report-header">
-            <h2>التقرير الاستراتيجي للأداء</h2>
-            <div style="color: #00ff82; font-size: 1.3rem; font-weight: bold; margin-bottom: 5px;">{emp_short} <span style="color:#64748b; font-weight: normal;">| {emp_role}</span></div>
-            <div style="color: #64748b; font-size: 0.95rem; font-family: 'Orbitron', sans-serif;">DATA RANGE: {start_date} // {end_date}</div>
+    # --- الحل النووي: العزل التام للمعاينة لتفادي مشكلات Streamlit ---
+    st.markdown("### معاينة التقرير المباشرة:")
+    
+    neon_preview_html = f"""
+    <!DOCTYPE html>
+    <html dir="rtl" lang="ar">
+    <head>
+        <meta charset="utf-8">
+        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Orbitron:wght@700&display=swap" rel="stylesheet">
+        <style>
+            body {{
+                margin: 0;
+                padding: 10px;
+                background-color: #0b141a; /* لون متناسق مع التطبيق لمنع التباين المزعج */
+                color: #e2e8f0;
+                font-family: 'Cairo', sans-serif;
+                direction: rtl;
+                text-align: right;
+            }}
+            .neon-report-wrapper {{
+                background: linear-gradient(180deg, #04080a 0%, #0b141a 100%);
+                border-radius: 16px;
+                padding: 30px;
+                border: 1px solid rgba(0, 242, 255, 0.3);
+                box-shadow: 0 0 20px rgba(0, 242, 255, 0.1);
+            }}
+            .neon-report-header {{
+                text-align: center;
+                border-bottom: 1px solid rgba(0, 242, 255, 0.2);
+                padding-bottom: 20px;
+                margin-bottom: 30px;
+            }}
+            .neon-report-header h2 {{
+                color: #00f2ff;
+                text-shadow: 0 0 10px rgba(0, 242, 255, 0.6);
+                font-weight: 900;
+                font-size: 2.2rem;
+                margin: 0 0 10px 0;
+            }}
+            .neon-report-body {{
+                background: rgba(0, 0, 0, 0.3);
+                padding: 30px;
+                border-radius: 12px;
+                border-right: 4px solid #00ff82;
+                font-size: 1.1rem;
+                line-height: 1.8;
+                box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
+            }}
+            .neon-report-body h1, .neon-report-body h2, .neon-report-body h3, .neon-report-body h4 {{
+                color: #00ff82;
+                font-weight: 800;
+                border-bottom: 1px dashed rgba(0, 255, 130, 0.3);
+                padding-bottom: 8px;
+                margin-top: 1.5rem;
+                margin-bottom: 1rem;
+            }}
+            .neon-report-body ul, .neon-report-body ol {{
+                padding-right: 25px;
+            }}
+            .neon-report-body li {{
+                margin-bottom: 10px;
+            }}
+            .neon-report-body strong, .neon-report-body b {{
+                color: #00f2ff;
+                background: rgba(0, 242, 255, 0.1);
+                padding: 2px 6px;
+                border-radius: 4px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="neon-report-wrapper">
+            <div class="neon-report-header">
+                <h2>التقرير الاستراتيجي للأداء</h2>
+                <div style="color: #00ff82; font-size: 1.3rem; font-weight: bold; margin-bottom: 5px;">{emp_short} <span style="color:#64748b; font-weight: normal;">| {emp_role}</span></div>
+                <div style="color: #64748b; font-size: 0.95rem; font-family: 'Orbitron', sans-serif;">DATA RANGE: {start_date} // {end_date}</div>
+            </div>
+            <div class="neon-report-body">
+                {smart_report_html}
+            </div>
         </div>
-        
-        <!-- الفولاذ: استخدام inline-styles لضمان عدم كسر التنسيق من الواجهة الأساسية -->
-        <div class="neon-report-body" dir="rtl" style="text-align: right; color: #e2e8f0;">
-            {smart_report_html}
-        </div>
-    </div>
-    <br>
-    """, unsafe_allow_html=True)
+    </body>
+    </html>
+    """
+    
+    st.components.v1.html(neon_preview_html, height=650, scrolling=True)
 
     c1, c2 = st.columns(2)
     with c1:
