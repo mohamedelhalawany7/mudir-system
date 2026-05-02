@@ -5,7 +5,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 from openai import OpenAI  
 from datetime import datetime, timedelta
-import pytz
 import time
 import random
 import numpy as np
@@ -13,10 +12,25 @@ import json
 import base64
 import re
 import io
+
+# محاولة استيراد مكتبات الوقت بأمان لتجنب انهيار التطبيق
+try:
+    from zoneinfo import ZoneInfo
+    HAS_ZONEINFO = True
+except ImportError:
+    HAS_ZONEINFO = False
+
+try:
+    import pytz
+    HAS_PYTZ = True
+except ImportError:
+    HAS_PYTZ = False
+
 try:
     import PyPDF2
 except ImportError:
     pass
+    
 import firebase_admin
 from firebase_admin import credentials, firestore
 
@@ -47,16 +61,22 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-# --- دالة مساعدة لضبط المنطقة الزمنية (Timezone) ---
+# --- دالة مساعدة لضبط المنطقة الزمنية (Timezone) بأمان ---
 def get_local_now():
     tz_str = 'Africa/Cairo'
     if 'app_config' in st.session_state:
         tz_str = st.session_state.app_config.get('TIMEZONE', 'Africa/Cairo')
+    
     try:
-        tz = pytz.timezone(tz_str)
-        return datetime.now(tz).replace(tzinfo=None)
+        if HAS_ZONEINFO:
+            return datetime.now(ZoneInfo(tz_str)).replace(tzinfo=None)
+        elif HAS_PYTZ:
+            tz = pytz.timezone(tz_str)
+            return datetime.now(tz).replace(tzinfo=None)
     except Exception:
-        return datetime.now()
+        pass
+        
+    return datetime.now()
 
 DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري شاطر جداً، خبرة سنين في المبيعات والتسويق وإدارة الشركات.
 شخصيتك: مصري أصيل، بتتكلم بلهجة مصرية طبيعية جداً جداً وبطريقة احترافية (كأنك مدير قاعد في مكتبه بيوجه فريقه)، حازم، جاد، معلم، ومبتسمحش في التقصير أو الأعذار. بتدي أوامر واضحة وتتابعها وتقيم الموظفين وتناقشهم في أوقات التنفيذ.
