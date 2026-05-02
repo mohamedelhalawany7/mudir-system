@@ -249,13 +249,13 @@ def get_icon(name: str, size: int = 24, color: str = "currentColor", class_name:
         "calendar": '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
         "edit": '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',
         "bell": '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
-        "manager": '<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
-        "employee": '<circle cx="12" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>',
-        "print": '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
-        "activity": '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'
-    }
-    path = svg_map.get(name, "")
-    return f'<svg xmlns="http://www.w3.org/2000/svg" class="{class_name}" width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{path}</svg>'
+# دالة مساعدة لدمج الأيقونة في النصوص لضمان العرض
+def get_inline_icon(name: str, size: int = 18, color: str = "#00f2ff") -> str:
+    return f'<span style="display:inline-flex; vertical-align:middle; margin-left:8px;">{get_icon(name, size, color)}</span>'
+
+def neonize_numbers(text):
+    if not isinstance(text, str): return text
+    return re.sub(r'(\d+(?:,\d+)*(?:\.\d+)?)', r'<span class="neon-number">\1</span>', text)
 
 def map_state_ar(state_val):
     val = str(state_val).lower()
@@ -797,6 +797,19 @@ html, body, [class*="css"] {
     font-size: 14.2px !important; 
     line-height: 1.6 !important; 
     list-style-position: outside !important;
+}
+
+/* تأثيرات النيون للأرقام والنصوص البارزة في الشات */
+.neon-number {
+    color: #00f2ff !important;
+    text-shadow: 0 0 12px rgba(0, 242, 255, 0.8) !important;
+    font-family: 'Orbitron', sans-serif !important;
+    font-weight: 900 !important;
+    padding: 0 3px;
+}
+.chat-bubble strong {
+    color: #00ff82 !important;
+    text-shadow: 0 0 8px rgba(0, 255, 130, 0.5) !important;
 }
 
 [data-testid="stChatMessage"]:has(.msg-user) [data-testid="stChatMessageContent"] { align-items: flex-start !important; }
@@ -1968,7 +1981,7 @@ def render_ai():
                         for idx, m in enumerate(chat_to_view):
                             with st.chat_message(m["role"]):
                                 st.markdown(f"<span class='msg-{m['role']}' style='display:none;'></span>", unsafe_allow_html=True)
-                                st.markdown(f"<div class='chat-bubble' dir='rtl'>{m['content']}</div>", unsafe_allow_html=True)
+                                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(m['content'])}</div>", unsafe_allow_html=True)
                                 
                                 st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
                                 if st.button("🗑️", key=f"gm_dl_{sel_emp}_{idx}", help="حذف الرسالة"):
@@ -1985,7 +1998,7 @@ def render_ai():
                 for idx, msg in enumerate(st.session_state.all_chats.get(curr_user, [])):
                     with st.chat_message(msg["role"]):
                         st.markdown(f"<span class='msg-{msg['role']}' style='display:none;'></span>", unsafe_allow_html=True)
-                        st.markdown(f"<div class='chat-bubble' dir='rtl'>{msg['content']}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(msg['content'])}</div>", unsafe_allow_html=True)
                         
                         st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
                         if st.button("🗑️", key=f"dl_{curr_user}_{idx}", help="حذف الرسالة"):
@@ -2002,7 +2015,7 @@ def render_ai():
             for idx, msg in enumerate(st.session_state.all_chats.get(curr_user, [])):
                 with st.chat_message(msg["role"]):
                     st.markdown(f"<span class='msg-{msg['role']}' style='display:none;'></span>", unsafe_allow_html=True)
-                    st.markdown(f"<div class='chat-bubble' dir='rtl'>{msg['content']}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(msg['content'])}</div>", unsafe_allow_html=True)
                 
         user_input = st.chat_input("اكتب رسالة...")
 
@@ -2021,7 +2034,7 @@ def render_ai():
         with chat_area:
             with st.chat_message("user"):
                 st.markdown("<span class='msg-user' style='display:none;'></span>", unsafe_allow_html=True)
-                st.markdown(f"<div class='chat-bubble' dir='rtl'>{user_input}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(user_input)}</div>", unsafe_allow_html=True)
             
             with st.spinner("يكتب الآن..."):
                 base_prompt = CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT)
