@@ -3,7 +3,7 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
-from openai import OpenAI  
+from openai import OpenAI  
 from datetime import datetime, timedelta
 import time
 import random
@@ -15,33 +15,33 @@ import io
 
 # محاولة استيراد مكتبات الوقت بأمان لتجنب انهيار التطبيق
 try:
-    from zoneinfo import ZoneInfo
-    HAS_ZONEINFO = True
+    from zoneinfo import ZoneInfo
+    HAS_ZONEINFO = True
 except ImportError:
-    HAS_ZONEINFO = False
+    HAS_ZONEINFO = False
 
 try:
-    import pytz
-    HAS_PYTZ = True
+    import pytz
+    HAS_PYTZ = True
 except ImportError:
-    HAS_PYTZ = False
+    HAS_PYTZ = False
 
 try:
-    import PyPDF2
+    import PyPDF2
 except ImportError:
-    pass
-    
+    pass
+    
 import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v50.0 (QUANTUM ENTERPRISE)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v50.0 (QUANTUM ENTERPRISE)
 # ============================================================
 st.set_page_config(
-    page_title="MUDIR | Strategic OS",
-    page_icon="❖",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    page_title="MUDIR | Strategic OS",
+    page_icon="❖",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 # ============================================================
@@ -50,33 +50,33 @@ st.set_page_config(
 MASTER_ADMIN_CODE = "admin185710" # الكود السري الخاص بك لدخول لوحة تحكم التراخيص
 
 if not firebase_admin._apps:
-    try:
-        key_dict = json.loads(st.secrets["FIREBASE_JSON"])
-        cred = credentials.Certificate(key_dict)
-        firebase_admin.initialize_app(cred)
-    except Exception as e:
-        st.error(f"⚠️ خطأ حرج في قراءة مفتاح Firebase من Streamlit Secrets: {e}")
-        st.info("يرجى التأكد من أنك نسخت محتوى ملف الـ JSON بالكامل بدون نقصان، ووضعته بين ثلاث علامات تنصيص ''' في الـ Secrets.")
-        st.stop()
+    try:
+        key_dict = json.loads(st.secrets["FIREBASE_JSON"])
+        cred = credentials.Certificate(key_dict)
+        firebase_admin.initialize_app(cred)
+    except Exception as e:
+        st.error(f"⚠️ خطأ حرج في قراءة مفتاح Firebase من Streamlit Secrets: {e}")
+        st.info("يرجى التأكد من أنك نسخت محتوى ملف الـ JSON بالكامل بدون نقصان، ووضعته بين ثلاث علامات تنصيص ''' في الـ Secrets.")
+        st.stop()
 
 db = firestore.client()
 
 # --- دالة مساعدة لضبط المنطقة الزمنية (Timezone) بأمان ---
 def get_local_now():
-    tz_str = 'Africa/Cairo'
-    if 'app_config' in st.session_state:
-        tz_str = st.session_state.app_config.get('TIMEZONE', 'Africa/Cairo')
-    
-    try:
-        if HAS_ZONEINFO:
-            return datetime.now(ZoneInfo(tz_str)).replace(tzinfo=None)
-        elif HAS_PYTZ:
-            tz = pytz.timezone(tz_str)
-            return datetime.now(tz).replace(tzinfo=None)
-    except Exception:
-        pass
-        
-    return datetime.now()
+    tz_str = 'Africa/Cairo'
+    if 'app_config' in st.session_state:
+        tz_str = st.session_state.app_config.get('TIMEZONE', 'Africa/Cairo')
+    
+    try:
+        if HAS_ZONEINFO:
+            return datetime.now(ZoneInfo(tz_str)).replace(tzinfo=None)
+        elif HAS_PYTZ:
+            tz = pytz.timezone(tz_str)
+            return datetime.now(tz).replace(tzinfo=None)
+    except Exception:
+        pass
+        
+    return datetime.now()
 
 DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري شاطر جداً، خبرة سنين في المبيعات والتسويق وإدارة الشركات.
 شخصيتك: مصري أصيل، بتتكلم بلهجة مصرية طبيعية جداً جداً وبطريقة احترافية، حازم، جاد، معلم، ومبتسمحش في التقصير أو الأعذار. بتدي أوامر واضحة وتتابعها وتقيم الموظفين.
@@ -90,563 +90,562 @@ DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري
 
 هام جداً: يجب أن يكون ردك دائماً عبارة عن كائن JSON المهيكل (JSON Object) فقط، ويحتوي حصرياً على المفاتيح التالية:
 {
-  "response": "نص الرد الذي ستقوله للموظف بلهجتك المصرية كمدير.",
-  "eval": "التقييم من 10 مع تعليق سري (مثال: 8/10 - يحتاج للتركيز أكثر). اتركه فارغاً إذا لم تقيم.",
-  "task": "اسم الشركة أو المهمة المحددة التي كلفت الموظف بها الآن لتسجيلها في الذاكرة. اتركها فارغة إذا لم تكلفه بشيء محدد.",
-  "action": "استخدمه فقط إذا أردت إصدار أمر للنظام (مثال: CREATE_SO | العميل: شركة كذا | القيمة: 5000). اتركه فارغاً إذا لم يوجد أمر."
+  "response": "نص الرد الذي ستقوله للموظف بلهجتك المصرية كمدير.",
+  "eval": "التقييم من 10 مع تعليق سري (مثال: 8/10 - يحتاج للتركيز أكثر). اتركه فارغاً إذا لم تقيم.",
+  "task": "اسم الشركة أو المهمة المحددة التي كلفت الموظف بها الآن لتسجيلها في الذاكرة. اتركها فارغة إذا لم تكلفه بشيء محدد.",
+  "action": "استخدمه فقط إذا أردت إصدار أمر للنظام (مثال: CREATE_SO | العميل: شركة كذا | القيمة: 5000). اتركه فارغاً إذا لم يوجد أمر."
 }"""
 
 def get_workspace_doc(ws_id=None):
-    target_id = ws_id if ws_id else st.session_state.get('workspace_id', 'default')
-    safe_id = "".join(c for c in str(target_id) if c.isalnum() or c in ('_', '-'))
-    return db.collection('Mudir_Workspaces').document(safe_id)
+    target_id = ws_id if ws_id else st.session_state.get('workspace_id', 'default')
+    safe_id = "".join(c for c in str(target_id) if c.isalnum() or c in ('_', '-'))
+    return db.collection('Mudir_Workspaces').document(safe_id)
 
 def load_config():
-    defaults = {
-        'ODOO_URL': '', 'ODOO_DB': '', 'ODOO_USER': '', 'ODOO_PASS': '',
-        'AI_PROVIDER_URL': 'https://api.openai.com/v1', 'AI_API_KEY': '',
-        'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
-        'MANAGER_PIN': '0000', 'EMPLOYEES': [], 'EVALUATIONS': {},
-        'EVAL_HISTORY': {}, 'TASK_REGISTRY': [],
-        'WORK_START': 8, 'WORK_END': 17, 'KNOWLEDGE_BASE': '', 'TIMEZONE': 'Africa/Cairo'
-    }
-    if 'workspace_id' in st.session_state:
-        try:
-            doc = get_workspace_doc().get()
-            if doc.exists:
-                data = doc.to_dict()
-                if 'ALL_CHATS' in data: del data['ALL_CHATS']
-                if 'AUDIT_LOG' in data: del data['AUDIT_LOG']
-                defaults.update(data)
-        except Exception as e:
-            st.error(f"خطأ في قراءة إعدادات مساحة العمل: {e}")
-    return defaults
+    defaults = {
+        'ODOO_URL': '', 'ODOO_DB': '', 'ODOO_USER': '', 'ODOO_PASS': '',
+        'AI_PROVIDER_URL': 'https://api.openai.com/v1', 'AI_API_KEY': '',
+        'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
+        'MANAGER_PIN': '0000', 'EMPLOYEES': [], 'EVALUATIONS': {},
+        'EVAL_HISTORY': {}, 'TASK_REGISTRY': [], 'NOTIFICATIONS': {}, # تمت إضافة المفتاح الجديد للإشعارات
+        'WORK_START': 8, 'WORK_END': 17, 'KNOWLEDGE_BASE': '', 'TIMEZONE': 'Africa/Cairo'
+    }
+    if 'workspace_id' in st.session_state:
+        try:
+            doc = get_workspace_doc().get()
+            if doc.exists:
+                data = doc.to_dict()
+                if 'ALL_CHATS' in data: del data['ALL_CHATS']
+                if 'AUDIT_LOG' in data: del data['AUDIT_LOG']
+                defaults.update(data)
+        except Exception as e:
+            st.error(f"خطأ في قراءة إعدادات مساحة العمل: {e}")
+    return defaults
 
 def save_config(cfg_dict):
-    if 'workspace_id' in st.session_state:
-        try:
-            safe_cfg = cfg_dict.copy()
-            if 'ALL_CHATS' in safe_cfg: del safe_cfg['ALL_CHATS']
-            if 'AUDIT_LOG' in safe_cfg: del safe_cfg['AUDIT_LOG']
-            get_workspace_doc().set(safe_cfg, merge=True)
-        except Exception as e:
-            st.error(f"خطأ في حفظ إعدادات مساحة العمل: {e}")
+    if 'workspace_id' in st.session_state:
+        try:
+            safe_cfg = cfg_dict.copy()
+            if 'ALL_CHATS' in safe_cfg: del safe_cfg['ALL_CHATS']
+            if 'AUDIT_LOG' in safe_cfg: del safe_cfg['AUDIT_LOG']
+            get_workspace_doc().set(safe_cfg, merge=True)
+        except Exception as e:
+            st.error(f"خطأ في حفظ إعدادات مساحة العمل: {e}")
 
 def save_chat_for_user(user_key):
-    if 'workspace_id' in st.session_state:
-        chats = st.session_state.all_chats.get(user_key, [])[-50:]
-        try:
-            get_workspace_doc().collection('Chats').document(user_key).set({'messages': chats})
-        except Exception as e:
-            st.error(f"خطأ في حفظ المحادثة: {e}")
+    if 'workspace_id' in st.session_state:
+        chats = st.session_state.all_chats.get(user_key, [])[-50:]
+        try:
+            get_workspace_doc().collection('Chats').document(user_key).set({'messages': chats})
+        except Exception as e:
+            st.error(f"خطأ في حفظ المحادثة: {e}")
 
 def log_message(user, msg_dict):
-    if 'workspace_id' in st.session_state:
-        entry = msg_dict.copy()
-        entry['timestamp'] = get_local_now().strftime("%Y-%m-%d %H:%M:%S")
-        try:
-            log_id = get_local_now().strftime("%Y%m%d%H%M%S%f")
-            get_workspace_doc().collection('Logs').document(f"{user}_{log_id}").set(entry)
-        except Exception as e:
-            pass 
+    if 'workspace_id' in st.session_state:
+        entry = msg_dict.copy()
+        entry['timestamp'] = get_local_now().strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            log_id = get_local_now().strftime("%Y%m%d%H%M%S%f")
+            get_workspace_doc().collection('Logs').document(f"{user}_{log_id}").set(entry)
+        except Exception as e:
+            pass 
 
 def load_user_chats():
-    chats_dict = {}
-    if 'workspace_id' in st.session_state:
-        try:
-            docs = get_workspace_doc().collection('Chats').stream()
-            for doc in docs:
-                chats_dict[doc.id] = doc.to_dict().get('messages', [])
-        except Exception:
-            pass
-    return chats_dict
+    chats_dict = {}
+    if 'workspace_id' in st.session_state:
+        try:
+            docs = get_workspace_doc().collection('Chats').stream()
+            for doc in docs:
+                chats_dict[doc.id] = doc.to_dict().get('messages', [])
+        except Exception:
+            pass
+    return chats_dict
 
 def load_licenses():
-    try:
-        doc = db.collection('Mudir_System').document('Licenses').get()
-        if doc.exists:
-            return doc.to_dict()
-    except Exception as e:
-        st.error(f"⚠️ خطأ في قراءة التراخيص من الخادم السحابي: {e}")
-    return {"workspaces": {}}
+    try:
+        doc = db.collection('Mudir_System').document('Licenses').get()
+        if doc.exists:
+            return doc.to_dict()
+    except Exception as e:
+        st.error(f"⚠️ خطأ في قراءة التراخيص من الخادم السحابي: {e}")
+    return {"workspaces": {}}
 
 def save_licenses(data):
-    db.collection('Mudir_System').document('Licenses').set(data, merge=True)
+    db.collection('Mudir_System').document('Licenses').set(data, merge=True)
 
 # ============================================================
 # أزرار القائمة الجانبية (Navigation Items)
 # ============================================================
 ALL_NAV_ITEMS = [
-    ("dashboard", "dashboard", "لوحة القيادة"),
-    ("departments", "layers", "أداء الأقسام"),
-    ("forecast", "bulb", "التنبؤ المستقبلي"),
-    ("ai", "send", "مكتب المدير"),
-    ("fusion", "fusion", "مختبر البيانات"),
-    ("territories", "globe", "التحليل الجغرافي"),
-    ("settings", "settings", "إعدادات النظام")
+    ("dashboard", "dashboard", "لوحة القيادة"),
+    ("departments", "layers", "أداء الأقسام"),
+    ("forecast", "bulb", "التنبؤ المستقبلي"),
+    ("ai", "send", "مكتب المدير"),
+    ("fusion", "fusion", "مختبر البيانات"),
+    ("territories", "globe", "التحليل الجغرافي"),
+    ("settings", "settings", "إعدادات النظام")
 ]
 
 # ============================================================
 # التوجيه الذكي للروابط (URL Routing & Initialization)
 # ============================================================
 def init_state():
-    url_ws = st.query_params.get("workspace")
-    url_view = st.query_params.get("view")
+    url_ws = st.query_params.get("workspace")
+    url_view = st.query_params.get("view")
 
-    if 'view' not in st.session_state:
-        st.session_state.view = 'workspace_login'
-    if 'current_user' not in st.session_state:
-        st.session_state.current_user = None
+    if 'view' not in st.session_state:
+        st.session_state.view = 'workspace_login'
+    if 'current_user' not in st.session_state:
+        st.session_state.current_user = None
 
-    if url_ws and 'workspace_key' not in st.session_state:
-        if url_ws == "SUPER_ADMIN":
-            st.session_state.workspace_key = "SUPER_ADMIN"
-            st.session_state.workspace_id = "SUPER_ADMIN"
-            st.session_state.view = url_view if url_view else 'super_admin'
-        else:
-            licenses = load_licenses()
-            ws_data = licenses.get('workspaces', {}).get(url_ws)
-            if ws_data and ws_data.get('status') == 'active':
-                expiry_str = ws_data.get('expiry_date')
-                if expiry_str:
-                    expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
-                    if get_local_now() <= expiry_date:
-                        st.session_state.workspace_key = url_ws
-                        st.session_state.workspace_id = url_ws
-                        st.session_state.app_config = load_config()
-                        st.session_state.all_chats = load_user_chats()
-                        st.session_state.view = url_view if url_view else 'login'
+    if url_ws and 'workspace_key' not in st.session_state:
+        if url_ws == "SUPER_ADMIN":
+            st.session_state.workspace_key = "SUPER_ADMIN"
+            st.session_state.workspace_id = "SUPER_ADMIN"
+            st.session_state.view = url_view if url_view else 'super_admin'
+        else:
+            licenses = load_licenses()
+            ws_data = licenses.get('workspaces', {}).get(url_ws)
+            if ws_data and ws_data.get('status') == 'active':
+                expiry_str = ws_data.get('expiry_date')
+                if expiry_str:
+                    expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
+                    if get_local_now() <= expiry_date:
+                        st.session_state.workspace_key = url_ws
+                        st.session_state.workspace_id = url_ws
+                        st.session_state.app_config = load_config()
+                        st.session_state.all_chats = load_user_chats()
+                        st.session_state.view = url_view if url_view else 'login'
 
-    if 'workspace_key' not in st.session_state:
-        if st.session_state.get('view') != 'super_admin':
-            st.session_state.view = 'workspace_login'
-        return
-        
-    if 'app_config' not in st.session_state:
-        st.session_state.app_config = load_config()
-        
-    defaults = {
-        'view': url_view if url_view else 'login', 
-        'modal_open': False, 'modal_title': '', 'modal_data': {},
-        'current_user': None, 
-        'growth_stream': None, 'last_radar_report': None, 'data_loaded': False,
-        'df_s': pd.DataFrame(), 'df_p': pd.DataFrame(), 'df_i': pd.DataFrame(),
-        'df_po': pd.DataFrame(), 'df_pol': pd.DataFrame(), 'is_real_data': False
-    }
-    
-    for k, v in defaults.items():
-        if k not in st.session_state: st.session_state[k] = v
-        
-    if 'all_chats' not in st.session_state:
-        st.session_state.all_chats = load_user_chats()
+    if 'workspace_key' not in st.session_state:
+        if st.session_state.get('view') != 'super_admin':
+            st.session_state.view = 'workspace_login'
+        return
+        
+    if 'app_config' not in st.session_state:
+        st.session_state.app_config = load_config()
+        
+    defaults = {
+        'view': url_view if url_view else 'login', 
+        'modal_open': False, 'modal_title': '', 'modal_data': {},
+        'current_user': None, 
+        'growth_stream': None, 'last_radar_report': None, 'data_loaded': False,
+        'df_s': pd.DataFrame(), 'df_p': pd.DataFrame(), 'df_i': pd.DataFrame(),
+        'df_po': pd.DataFrame(), 'df_pol': pd.DataFrame(), 'is_real_data': False
+    }
+    
+    for k, v in defaults.items():
+        if k not in st.session_state: st.session_state[k] = v
+        
+    if 'all_chats' not in st.session_state:
+        st.session_state.all_chats = load_user_chats()
 
-# تعديل دالة AI لتدعم الـ JSON Mode
 def call_universal_ai(messages, json_mode=False):
-    api_key = st.session_state.app_config.get('AI_API_KEY', '').strip()
-    if not api_key:
-        raise Exception("مفتاح الاتصال بالخادم غير متوفر.")
-    
-    base_url = st.session_state.app_config.get('AI_PROVIDER_URL', '').strip()
-    if not base_url: base_url = None
-    
-    model_name = st.session_state.app_config.get('AI_MODEL_NAME', 'gpt-4o')
+    api_key = st.session_state.app_config.get('AI_API_KEY', '').strip()
+    if not api_key:
+        raise Exception("مفتاح الاتصال بالخادم غير متوفر.")
+    
+    base_url = st.session_state.app_config.get('AI_PROVIDER_URL', '').strip()
+    if not base_url: base_url = None
+    
+    model_name = st.session_state.app_config.get('AI_MODEL_NAME', 'gpt-4o')
 
-    client = OpenAI(api_key=api_key, base_url=base_url)
-    
-    kwargs = {
-        "model": model_name,
-        "messages": messages,
-        "temperature": 0.7
-    }
-    
-    if json_mode:
-        kwargs["response_format"] = {"type": "json_object"}
-        
-    response = client.chat.completions.create(**kwargs)
-    return response.choices[0].message.content
+    client = OpenAI(api_key=api_key, base_url=base_url)
+    
+    kwargs = {
+        "model": model_name,
+        "messages": messages,
+        "temperature": 0.7
+    }
+    
+    if json_mode:
+        kwargs["response_format"] = {"type": "json_object"}
+        
+    response = client.chat.completions.create(**kwargs)
+    return response.choices[0].message.content
 
 # ============================================================
 # طبقة البيانات والتلوين الذكي المضاد للانهيار
 # ============================================================
 
 def get_icon(name: str, size: int = 24, color: str = "currentColor", class_name: str = "") -> str:
-    svg_map = {
-        "dashboard": '<path d="M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z"/>',
-        "radar": '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v10l5 5"/>',
-        "cpu": '<rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/>',
-        "fusion": '<path d="M9 3v11l-5 6v2h16v-2l-5-6V3M14 3h-4"/>',
-        "clock": '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
-        "book": '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5V3A2.5 2.5 0 0 1 6.5 0.5H20"/>',
-        "rocket": '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>',
-        "settings": '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
-        "money": '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>',
-        "users": '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
-        "orders": '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>',
-        "stock": '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/>',
-        "check": '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/>',
-        "chart": '<path d="M18 20V10M12 20V4M6 20v-4"/>',
-        "globe": '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
-        "robot": '<rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4M8 16h.01M16 16h.01"/>',
-        "search": '<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>',
-        "download": '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
-        "target": '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
-        "folder": '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
-        "bulb": '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/><path d="M12 2v2"/>',
-        "dna": '<path d="M2 15c6.667-6 13.333 0 20-6"/><path d="M2 9c6.667 6 13.333 0 20 6"/><path d="m17 4-1 1.5"/><path d="m19 6-1 1.5"/><path d="m5 18-1-1.5"/><path d="m7 20-1-1.5"/><path d="m10.5 7.5-1 1.5"/><path d="m14.5 16.5-1-1.5"/>',
-        "send": '<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',
-        "eye": '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
-        "table": '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>',
-        "layers": '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
-        "tabs": '<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M2 11h20"/><path d="M6 7v4"/><path d="M12 7v4"/>',
-        "map": '<polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>',
-        "command": '<rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><polyline points="9 9 12 12 9 15"/><line x1="13" y1="15" x2="15" y2="15"/>',
-        "handshake": '<path d="M8 12.5L4 16.5M16 12.5L20 16.5M12 15v4M7 8h10"/><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/>',
-        "truck": '<rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
-        "trending-up": '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
-        "trending-down": '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
-        "calendar": '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
-        "edit": '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',
-        "bell": '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
-        "manager": '<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
-        "employee": '<circle cx="12" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>',
-        "print": '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
-        "activity": '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'
-    }
-    path = svg_map.get(name, "")
-    return f'<svg xmlns="http://www.w3.org/2000/svg" class="{class_name}" width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{path}</svg>'
+    svg_map = {
+        "dashboard": '<path d="M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z"/>',
+        "radar": '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v10l5 5"/>',
+        "cpu": '<rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/>',
+        "fusion": '<path d="M9 3v11l-5 6v2h16v-2l-5-6V3M14 3h-4"/>',
+        "clock": '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+        "book": '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5V3A2.5 2.5 0 0 1 6.5 0.5H20"/>',
+        "rocket": '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>',
+        "settings": '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+        "money": '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>',
+        "users": '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+        "orders": '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>',
+        "stock": '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/>',
+        "check": '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/>',
+        "chart": '<path d="M18 20V10M12 20V4M6 20v-4"/>',
+        "globe": '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+        "robot": '<rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4M8 16h.01M16 16h.01"/>',
+        "search": '<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>',
+        "download": '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+        "target": '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+        "folder": '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
+        "bulb": '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/><path d="M12 2v2"/>',
+        "dna": '<path d="M2 15c6.667-6 13.333 0 20-6"/><path d="M2 9c6.667 6 13.333 0 20 6"/><path d="m17 4-1 1.5"/><path d="m19 6-1 1.5"/><path d="m5 18-1-1.5"/><path d="m7 20-1-1.5"/><path d="m10.5 7.5-1 1.5"/><path d="m14.5 16.5-1-1.5"/>',
+        "send": '<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',
+        "eye": '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+        "table": '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>',
+        "layers": '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
+        "tabs": '<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M2 11h20"/><path d="M6 7v4"/><path d="M12 7v4"/>',
+        "map": '<polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>',
+        "command": '<rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><polyline points="9 9 12 12 9 15"/><line x1="13" y1="15" x2="15" y2="15"/>',
+        "handshake": '<path d="M8 12.5L4 16.5M16 12.5L20 16.5M12 15v4M7 8h10"/><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/>',
+        "truck": '<rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
+        "trending-up": '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+        "trending-down": '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
+        "calendar": '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+        "edit": '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',
+        "bell": '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+        "manager": '<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
+        "employee": '<circle cx="12" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>',
+        "print": '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
+        "activity": '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'
+    }
+    path = svg_map.get(name, "")
+    return f'<svg xmlns="http://www.w3.org/2000/svg" class="{class_name}" width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{path}</svg>'
 
 def get_inline_icon(name: str, size: int = 18, color: str = "#00f2ff") -> str:
-    return f'<span style="display:inline-flex; vertical-align:middle; margin-left:8px;">{get_icon(name, size, color)}</span>'
+    return f'<span style="display:inline-flex; vertical-align:middle; margin-left:8px;">{get_icon(name, size, color)}</span>'
 
 def neonize_numbers(text):
-    if not isinstance(text, str): return text
-    return re.sub(r'(\d+(?:,\d+)*(?:\.\d+)?)', r'<span class="neon-number">\1</span>', text)
+    if not isinstance(text, str): return text
+    return re.sub(r'(\d+(?:,\d+)*(?:\.\d+)?)', r'<span class="neon-number">\1</span>', text)
 
 def map_state_ar(state_val):
-    val = str(state_val).lower()
-    if val in ['sale', 'done']: return 'موافق عليه'
-    if val in ['draft', 'sent']: return 'مسودة'
-    if val in ['cancel']: return 'ملغي'
-    return val
+    val = str(state_val).lower()
+    if val in ['sale', 'done']: return 'موافق عليه'
+    if val in ['draft', 'sent']: return 'مسودة'
+    if val in ['cancel']: return 'ملغي'
+    return val
 
 def map_po_state_ar(state_val):
-    val = str(state_val).lower()
-    if val in ['purchase', 'done']: return 'معتمد'
-    if val in ['draft', 'sent', 'to approve']: return 'مسودة / قيد الانتظار'
-    if val in ['cancel']: return 'ملغي'
-    return val
+    val = str(state_val).lower()
+    if val in ['purchase', 'done']: return 'معتمد'
+    if val in ['draft', 'sent', 'to approve']: return 'مسودة / قيد الانتظار'
+    if val in ['cancel']: return 'ملغي'
+    return val
 
 def clean_department_name(val):
-    name_str = str(val).strip()
-    if not val or name_str.lower() in ['none', 'false', '']: return 'غير محدد'
-    return name_str
+    name_str = str(val).strip()
+    if not val or name_str.lower() in ['none', 'false', '']: return 'غير محدد'
+    return name_str
 
 def clean_odoo_m2o(val):
-    if isinstance(val, list) and len(val) >= 2: 
-        res = str(val[1]).strip()
-        return res if res.lower() not in ['false', 'none', ''] else "غير محدد"
-    elif isinstance(val, str): 
-        res = val.strip()
-        return res if res.lower() not in ['false', 'none', ''] else "غير محدد"
-    return "غير محدد"
+    if isinstance(val, list) and len(val) >= 2: 
+        res = str(val[1]).strip()
+        return res if res.lower() not in ['false', 'none', ''] else "غير محدد"
+    elif isinstance(val, str): 
+        res = val.strip()
+        return res if res.lower() not in ['false', 'none', ''] else "غير محدد"
+    return "غير محدد"
 
 def extract_department_from_row(row):
-    for f in ['project_id', 'analytic_account_id', 'team_id']:
-        if f in row and row[f] and str(row[f]).lower() not in ['false', 'none', '']:
-            return clean_odoo_m2o(row[f])
-    for f in row.keys():
-        if 'project' in f.lower() and f != 'project_id':
-            if row[f] and str(row[f]).lower() not in ['false', 'none', '']:
-                return clean_odoo_m2o(row[f])
-    return "غير محدد"
+    for f in ['project_id', 'analytic_account_id', 'team_id']:
+        if f in row and row[f] and str(row[f]).lower() not in ['false', 'none', '']:
+            return clean_odoo_m2o(row[f])
+    for f in row.keys():
+        if 'project' in f.lower() and f != 'project_id':
+            if row[f] and str(row[f]).lower() not in ['false', 'none', '']:
+                return clean_odoo_m2o(row[f])
+    return "غير محدد"
 
 def style_dataframe(df):
-    if df is None: return pd.DataFrame()
-    
-    if hasattr(df, 'data'):
-        df_raw = df.data.copy()
-    else:
-        df_raw = df.copy()
+    if df is None: return pd.DataFrame()
+    
+    if hasattr(df, 'data'):
+        df_raw = df.data.copy()
+    else:
+        df_raw = df.copy()
 
-    if df_raw.empty: return df_raw
+    if df_raw.empty: return df_raw
 
-    currency_cols = ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'قيمة (معتمد)', 'قيمة (مسودة)', 'قيمة (ملغي)', 'القيمة الكلية (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صاف الربح', 'صافي الربح']
-    number_cols = ['الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'العدد الكلي', 'الكمية المطلوبة', 'إجمالي العروض', 'إجمالي الطلبات']
-    pct_cols = ['هامش الربح %']
-    
-    all_numeric = currency_cols + number_cols + pct_cols
+    currency_cols = ['القيمة (ج.م)', 'إجمالي الفواتير (ج.م)', 'السعر (ج.م)', 'معتمد (ج.م)', 'مسودة (ج.م)', 'ملغي (ج.م)', 'قيمة (معتمد)', 'قيمة (مسودة)', 'قيمة (ملغي)', 'القيمة الكلية (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات', 'المصروفات', 'صاف الربح', 'صافي الربح']
+    number_cols = ['الكمية المتاحة', 'عدد العروض', 'عدد (معتمد)', 'عدد (مسودة)', 'عدد (ملغي)', 'العدد الكلي', 'الكمية المطلوبة', 'إجمالي العروض', 'إجمالي الطلبات']
+    pct_cols = ['هامش الربح %']
+    
+    all_numeric = currency_cols + number_cols + pct_cols
 
-    for col in all_numeric:
-        if col in df_raw.columns:
-            if df_raw[col].dtype == object or df_raw[col].dtype.name == 'category':
-                df_raw[col] = df_raw[col].astype(str).str.replace(r'[^\d.-]', '', regex=True)
-            df_raw[col] = pd.to_numeric(df_raw[col], errors='coerce').fillna(0)
-            
-    for col in df_raw.columns:
-        if col not in all_numeric:
-            df_raw[col] = df_raw[col].fillna("").astype(str)
+    for col in all_numeric:
+        if col in df_raw.columns:
+            if df_raw[col].dtype == object or df_raw[col].dtype.name == 'category':
+                df_raw[col] = df_raw[col].astype(str).str.replace(r'[^\d.-]', '', regex=True)
+            df_raw[col] = pd.to_numeric(df_raw[col], errors='coerce').fillna(0)
+            
+    for col in df_raw.columns:
+        if col not in all_numeric:
+            df_raw[col] = df_raw[col].fillna("").astype(str)
 
-    target_cols_priority = ['صافي الربح', 'صاف الربح', 'القيمة الكلية (ج.م)', 'قيمة (معتمد)', 'قيمة (مسودة)', 'قيمة (ملغي)', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الكمية المطلوبة', 'الإيرادات', 'العدد الكلي', 'إجمالي العروض', 'إجمالي الطلبات']
-    active_target = None
-    for col in target_cols_priority:
-        if col in df_raw.columns:
-            active_target = col
-            break
+    target_cols_priority = ['صافي الربح', 'صاف الربح', 'القيمة الكلية (ج.م)', 'قيمة (معتمد)', 'قيمة (مسودة)', 'قيمة (ملغي)', 'القيمة (ج.م)', 'معتمد (ج.م)', 'إجمالي الفواتير (ج.م)', 'الكمية المتاحة', 'الكمية المطلوبة', 'الإيرادات', 'العدد الكلي', 'إجمالي العروض', 'إجمالي الطلبات']
+    active_target = None
+    for col in target_cols_priority:
+        if col in df_raw.columns:
+            active_target = col
+            break
 
-    if active_target:
-        df_raw = df_raw.sort_values(by=active_target, ascending=False).reset_index(drop=True)
+    if active_target:
+        df_raw = df_raw.sort_values(by=active_target, ascending=False).reset_index(drop=True)
 
-    fmt = {}
-    for c in currency_cols:
-        if c in df_raw.columns: fmt[c] = "{:,.0f} ج.م"
-    for c in number_cols:
-        if c in df_raw.columns: fmt[c] = "{:,.0f}"
-    for c in pct_cols:
-        if c in df_raw.columns: fmt[c] = "{:.1f}%"
+    fmt = {}
+    for c in currency_cols:
+        if c in df_raw.columns: fmt[c] = "{:,.0f} ج.م"
+    for c in number_cols:
+        if c in df_raw.columns: fmt[c] = "{:,.0f}"
+    for c in pct_cols:
+        if c in df_raw.columns: fmt[c] = "{:.1f}%"
 
-    try:
-        styler = df_raw.style
-        if active_target:
-            styler = styler.background_gradient(subset=[active_target], cmap='RdYlGn')
-        if fmt:
-            styler = styler.format(fmt)
-        return styler
-    except Exception as e:
-        return df_raw
+    try:
+        styler = df_raw.style
+        if active_target:
+            styler = styler.background_gradient(subset=[active_target], cmap='RdYlGn')
+        if fmt:
+            styler = styler.format(fmt)
+        return styler
+    except Exception as e:
+        return df_raw
 
 @st.cache_data(ttl=600, show_spinner=False)
 def fetch_master_data(url, db, user, pswd):
-    try:
-        if not all([url, db, user, pswd]): raise ValueError("بيانات تسجيل الدخول غير مكتملة.")
-        common = xmlrpc.client.ServerProxy(f'{url}/xmlrpc/2/common')
-        uid = common.authenticate(db, user, pswd, {})
-        if not uid: raise Exception("البيانات صحيحة برمجياً لكن أودو يرفض الصلاحية.")
-        models = xmlrpc.client.ServerProxy(f'{url}/xmlrpc/2/object')
-        
-        so_fields = models.execute_kw(db, uid, pswd, 'sale.order', 'fields_get', [], {'attributes': ['type', 'string']})
-        target_fields = ['name','partner_id','amount_total','date_order','state','user_id']
-        
-        for f in ['project_id', 'analytic_account_id', 'team_id', 'margin']:
-            if f in so_fields: 
-                target_fields.append(f)
-        
-        for f, meta in so_fields.items():
-            if f not in target_fields and meta.get('type') == 'many2one':
-                f_name = f.lower()
-                f_str = str(meta.get('string', '')).lower()
-                if 'project' in f_name or 'مشروع' in f_str or 'قسم' in f_str:
-                    target_fields.append(f)
+    try:
+        if not all([url, db, user, pswd]): raise ValueError("بيانات تسجيل الدخول غير مكتملة.")
+        common = xmlrpc.client.ServerProxy(f'{url}/xmlrpc/2/common')
+        uid = common.authenticate(db, user, pswd, {})
+        if not uid: raise Exception("البيانات صحيحة برمجياً لكن أودو يرفض الصلاحية.")
+        models = xmlrpc.client.ServerProxy(f'{url}/xmlrpc/2/object')
+        
+        so_fields = models.execute_kw(db, uid, pswd, 'sale.order', 'fields_get', [], {'attributes': ['type', 'string']})
+        target_fields = ['name','partner_id','amount_total','date_order','state','user_id']
+        
+        for f in ['project_id', 'analytic_account_id', 'team_id', 'margin']:
+            if f in so_fields: 
+                target_fields.append(f)
+        
+        for f, meta in so_fields.items():
+            if f not in target_fields and meta.get('type') == 'many2one':
+                f_name = f.lower()
+                f_str = str(meta.get('string', '')).lower()
+                if 'project' in f_name or 'مشروع' in f_str or 'قسم' in f_str:
+                    target_fields.append(f)
 
-        s_raw = models.execute_kw(db, uid, pswd, 'sale.order', 'search_read', [[]], {'fields': target_fields, 'limit': 500})
-        p_raw = models.execute_kw(db, uid, pswd, 'res.partner', 'search_read', [[]], {'fields': ['name','city','industry_id','total_invoiced','email','phone'], 'limit': 200})
-        i_raw = models.execute_kw(db, uid, pswd, 'product.product', 'search_read', [[('sale_ok','=',True)]], {'fields': ['name','lst_price','qty_available','default_code'], 'limit': 200})
-        po_raw = models.execute_kw(db, uid, pswd, 'purchase.order', 'search_read', [[]], {'fields': ['name','partner_id','amount_total','date_order','state'], 'limit': 500})
-        pol_raw = models.execute_kw(db, uid, pswd, 'purchase.order.line', 'search_read', [[]], {'fields': ['product_id','product_qty','price_subtotal'], 'limit': 500})
-        
-        df_s, df_p, df_i = pd.DataFrame(s_raw), pd.DataFrame(p_raw), pd.DataFrame(i_raw)
-        df_po, df_pol = pd.DataFrame(po_raw), pd.DataFrame(pol_raw)
-        
-        if not df_s.empty and 'date_order' in df_s.columns: df_s['date_order'] = pd.to_datetime(df_s['date_order'])
-        if not df_po.empty and 'date_order' in df_po.columns: df_po['date_order'] = pd.to_datetime(df_po['date_order'])
-            
-        return df_s, df_p, df_i, df_po, df_pol, True
-    except Exception as e:
-        empty_df = pd.DataFrame()
-        return empty_df, empty_df, empty_df, empty_df, empty_df, False
+        s_raw = models.execute_kw(db, uid, pswd, 'sale.order', 'search_read', [[]], {'fields': target_fields, 'limit': 500})
+        p_raw = models.execute_kw(db, uid, pswd, 'res.partner', 'search_read', [[]], {'fields': ['name','city','industry_id','total_invoiced','email','phone'], 'limit': 200})
+        i_raw = models.execute_kw(db, uid, pswd, 'product.product', 'search_read', [[('sale_ok','=',True)]], {'fields': ['name','lst_price','qty_available','default_code'], 'limit': 200})
+        po_raw = models.execute_kw(db, uid, pswd, 'purchase.order', 'search_read', [[]], {'fields': ['name','partner_id','amount_total','date_order','state'], 'limit': 500})
+        pol_raw = models.execute_kw(db, uid, pswd, 'purchase.order.line', 'search_read', [[]], {'fields': ['product_id','product_qty','price_subtotal'], 'limit': 500})
+        
+        df_s, df_p, df_i = pd.DataFrame(s_raw), pd.DataFrame(p_raw), pd.DataFrame(i_raw)
+        df_po, df_pol = pd.DataFrame(po_raw), pd.DataFrame(pol_raw)
+        
+        if not df_s.empty and 'date_order' in df_s.columns: df_s['date_order'] = pd.to_datetime(df_s['date_order'])
+        if not df_po.empty and 'date_order' in df_po.columns: df_po['date_order'] = pd.to_datetime(df_po['date_order'])
+            
+        return df_s, df_p, df_i, df_po, df_pol, True
+    except Exception as e:
+        empty_df = pd.DataFrame()
+        return empty_df, empty_df, empty_df, empty_df, empty_df, False
 
 def get_delta_html(current_val, previous_val):
-    if previous_val == 0 or pd.isna(previous_val):
-        return "<span class='delta-neu'>--</span>"
-    delta_pct = ((current_val - previous_val) / previous_val) * 100
-    if delta_pct > 0:
-        return f"<span class='delta-pos'>▲ +{delta_pct:.1f}%</span>"
-    elif delta_pct < 0:
-        return f"<span class='delta-neg'>▼ {delta_pct:.1f}%</span>"
-    return "<span class='delta-neu'>--</span>"
+    if previous_val == 0 or pd.isna(previous_val):
+        return "<span class='delta-neu'>--</span>"
+    delta_pct = ((current_val - previous_val) / previous_val) * 100
+    if delta_pct > 0:
+        return f"<span class='delta-pos'>▲ +{delta_pct:.1f}%</span>"
+    elif delta_pct < 0:
+        return f"<span class='delta-neg'>▼ {delta_pct:.1f}%</span>"
+    return "<span class='delta-neu'>--</span>"
 
 def get_smart_filter_dates(prefix):
-    st.markdown(f"<div style='font-size:1.1rem; font-weight:900; color:var(--c-primary); margin-bottom:15px; display:flex; align-items:center; gap:8px;'>{get_icon('calendar', 22)} الفلتر الزمني الذكي</div>", unsafe_allow_html=True)
-    
-    apply_filter = st.checkbox("تفعيل الفلتر الزمني (إلغاء التفعيل يعرض كل الأوقات)", value=False, key=f"{prefix}_apply")
-    if not apply_filter:
-        return None, None, None, None
-        
-    now = get_local_now()
-    opts = ["اليوم", "هذا الأسبوع", "هذا الشهر", "الشهر الماضي", "هذا العام", "فترة مخصصة"]
-    sel = st.radio("اختر الفترة:", opts, horizontal=True, key=f"{prefix}_radio", label_visibility="collapsed")
-    
-    start_dt, end_dt = None, None
-    prev_start_dt, prev_end_dt = None, None
-    
-    if sel == "اليوم":
-        start_dt = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_dt = now.replace(hour=23, minute=59, second=59)
-        prev_start_dt = start_dt - timedelta(days=1)
-        prev_end_dt = end_dt - timedelta(days=1)
-    elif sel == "هذا الأسبوع":
-        start_dt = now - timedelta(days=now.weekday())
-        start_dt = start_dt.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_dt = now.replace(hour=23, minute=59, second=59)
-        prev_start_dt = start_dt - timedelta(weeks=1)
-        prev_end_dt = end_dt - timedelta(weeks=1)
-    elif sel == "هذا الشهر":
-        start_dt = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        end_dt = now.replace(hour=23, minute=59, second=59)
-        prev_end_dt = start_dt - timedelta(seconds=1)
-        prev_start_dt = prev_end_dt.replace(day=1, hour=0, minute=0, second=0)
-    elif sel == "الشهر الماضي":
-        first_day_this_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        end_dt = first_day_this_month - timedelta(seconds=1)
-        start_dt = end_dt.replace(day=1, hour=0, minute=0, second=0)
-        prev_end_dt = start_dt - timedelta(seconds=1)
-        prev_start_dt = prev_end_dt.replace(day=1, hour=0, minute=0, second=0)
-    elif sel == "هذا العام":
-        start_dt = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-        end_dt = now.replace(hour=23, minute=59, second=59)
-        prev_start_dt = start_dt.replace(year=start_dt.year - 1)
-        prev_end_dt = end_dt.replace(year=end_dt.year - 1)
-    elif sel == "فترة مخصصة":
-        min_date = get_local_now().date() - timedelta(days=365)
-        max_date = get_local_now().date()
-        if not st.session_state.df_s.empty and 'date_order' in st.session_state.df_s.columns:
-            min_date = st.session_state.df_s['date_order'].min().date()
-            max_date = st.session_state.df_s['date_order'].max().date()
-        
-        c1, c2, c3 = st.columns([1,1,2])
-        with c1: start_d = st.date_input("من تاريخ", value=min_date, key=f"{prefix}_start")
-        with c2: end_d = st.date_input("إلى تاريخ", value=max_date, key=f"{prefix}_end")
-        
-        start_dt = pd.to_datetime(start_d)
-        end_dt = pd.to_datetime(end_d) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
-        delta_days = (end_dt - start_dt).days + 1
-        prev_start_dt = start_dt - timedelta(days=delta_days)
-        prev_end_dt = start_dt - timedelta(seconds=1)
-        
-    return start_dt, end_dt, prev_start_dt, prev_end_dt
+    st.markdown(f"<div style='font-size:1.1rem; font-weight:900; color:var(--c-primary); margin-bottom:15px; display:flex; align-items:center; gap:8px;'>{get_icon('calendar', 22)} الفلتر الزمني الذكي</div>", unsafe_allow_html=True)
+    
+    apply_filter = st.checkbox("تفعيل الفلتر الزمني (إلغاء التفعيل يعرض كل الأوقات)", value=False, key=f"{prefix}_apply")
+    if not apply_filter:
+        return None, None, None, None
+        
+    now = get_local_now()
+    opts = ["اليوم", "هذا الأسبوع", "هذا الشهر", "الشهر الماضي", "هذا العام", "فترة مخصصة"]
+    sel = st.radio("اختر الفترة:", opts, horizontal=True, key=f"{prefix}_radio", label_visibility="collapsed")
+    
+    start_dt, end_dt = None, None
+    prev_start_dt, prev_end_dt = None, None
+    
+    if sel == "اليوم":
+        start_dt = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_dt = now.replace(hour=23, minute=59, second=59)
+        prev_start_dt = start_dt - timedelta(days=1)
+        prev_end_dt = end_dt - timedelta(days=1)
+    elif sel == "هذا الأسبوع":
+        start_dt = now - timedelta(days=now.weekday())
+        start_dt = start_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_dt = now.replace(hour=23, minute=59, second=59)
+        prev_start_dt = start_dt - timedelta(weeks=1)
+        prev_end_dt = end_dt - timedelta(weeks=1)
+    elif sel == "هذا الشهر":
+        start_dt = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        end_dt = now.replace(hour=23, minute=59, second=59)
+        prev_end_dt = start_dt - timedelta(seconds=1)
+        prev_start_dt = prev_end_dt.replace(day=1, hour=0, minute=0, second=0)
+    elif sel == "الشهر الماضي":
+        first_day_this_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        end_dt = first_day_this_month - timedelta(seconds=1)
+        start_dt = end_dt.replace(day=1, hour=0, minute=0, second=0)
+        prev_end_dt = start_dt - timedelta(seconds=1)
+        prev_start_dt = prev_end_dt.replace(day=1, hour=0, minute=0, second=0)
+    elif sel == "هذا العام":
+        start_dt = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        end_dt = now.replace(hour=23, minute=59, second=59)
+        prev_start_dt = start_dt.replace(year=start_dt.year - 1)
+        prev_end_dt = end_dt.replace(year=end_dt.year - 1)
+    elif sel == "فترة مخصصة":
+        min_date = get_local_now().date() - timedelta(days=365)
+        max_date = get_local_now().date()
+        if not st.session_state.df_s.empty and 'date_order' in st.session_state.df_s.columns:
+            min_date = st.session_state.df_s['date_order'].min().date()
+            max_date = st.session_state.df_s['date_order'].max().date()
+        
+        c1, c2, c3 = st.columns([1,1,2])
+        with c1: start_d = st.date_input("من تاريخ", value=min_date, key=f"{prefix}_start")
+        with c2: end_d = st.date_input("إلى تاريخ", value=max_date, key=f"{prefix}_end")
+        
+        start_dt = pd.to_datetime(start_d)
+        end_dt = pd.to_datetime(end_d) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        delta_days = (end_dt - start_dt).days + 1
+        prev_start_dt = start_dt - timedelta(days=delta_days)
+        prev_end_dt = start_dt - timedelta(seconds=1)
+        
+    return start_dt, end_dt, prev_start_dt, prev_end_dt
 
 def render_live_ticker(df_s, df_p):
-    if df_s is None or df_s.empty: return
-    
-    appr = df_s[df_s['state'].isin(['sale','done'])]['amount_total'].sum() if 'state' in df_s.columns else 0
-    draft = df_s[df_s['state'].isin(['draft','sent'])]['amount_total'].sum() if 'state' in df_s.columns else 0
-    canc = df_s[df_s['state'] == 'cancel']['amount_total'].sum() if 'state' in df_s.columns else 0
-    clients = len(df_p) if df_p is not None else 0
-    
-    ticker_text = "".join([
-        f'<div class="ticker-item"><span class="ticker-icon">{get_icon("rocket", 20, "#00ff82")}</span> إجمالي المبيعات المعتمدة: <span>{appr:,.0f} ج.م</span></div>',
-        f'<div class="ticker-item"><span class="ticker-icon">{get_icon("orders", 20, "#ffd700")}</span> عروض قيد الانتظار: <span>{draft:,.0f} ج.م</span></div>',
-        f'<div class="ticker-item"><span class="ticker-icon">{get_icon("bell", 20, "#ff2d78")}</span> نزيف مالي (ملغي): <span>{canc:,.0f} ج.م</span></div>',
-        f'<div class="ticker-item"><span class="ticker-icon">{get_icon("users", 20, "#00f2ff")}</span> إجمالي العملاء: <span>{clients} عميل</span></div>',
-        f'<div class="ticker-item"><span class="ticker-icon">{get_icon("bulb", 20, "#ffd700")}</span> النظام يعمل بأقصى طاقة استيعابية...</div>'
-    ])
-    
-    st.markdown(f'<div class="ticker-wrap"><div class="ticker-move">{ticker_text}{ticker_text}{ticker_text}</div></div>', unsafe_allow_html=True)
+    if df_s is None or df_s.empty: return
+    
+    appr = df_s[df_s['state'].isin(['sale','done'])]['amount_total'].sum() if 'state' in df_s.columns else 0
+    draft = df_s[df_s['state'].isin(['draft','sent'])]['amount_total'].sum() if 'state' in df_s.columns else 0
+    canc = df_s[df_s['state'] == 'cancel']['amount_total'].sum() if 'state' in df_s.columns else 0
+    clients = len(df_p) if df_p is not None else 0
+    
+    ticker_text = "".join([
+        f'<div class="ticker-item"><span class="ticker-icon">{get_icon("rocket", 20, "#00ff82")}</span> إجمالي المبيعات المعتمدة: <span>{appr:,.0f} ج.م</span></div>',
+        f'<div class="ticker-item"><span class="ticker-icon">{get_icon("orders", 20, "#ffd700")}</span> عروض قيد الانتظار: <span>{draft:,.0f} ج.م</span></div>',
+        f'<div class="ticker-item"><span class="ticker-icon">{get_icon("bell", 20, "#ff2d78")}</span> نزيف مالي (ملغي): <span>{canc:,.0f} ج.م</span></div>',
+        f'<div class="ticker-item"><span class="ticker-icon">{get_icon("users", 20, "#00f2ff")}</span> إجمالي العملاء: <span>{clients} عميل</span></div>',
+        f'<div class="ticker-item"><span class="ticker-icon">{get_icon("bulb", 20, "#ffd700")}</span> النظام يعمل بأقصى طاقة استيعابية...</div>'
+    ])
+    
+    st.markdown(f'<div class="ticker-wrap"><div class="ticker-move">{ticker_text}{ticker_text}{ticker_text}</div></div>', unsafe_allow_html=True)
 
 def render_workspace_login():
-    st.markdown("<div style='margin-top: 10vh;'></div>", unsafe_allow_html=True)
-    st.markdown("<div class='g-card' style='max-width: 500px; margin: 0 auto; text-align: center;'>", unsafe_allow_html=True)
-    st.markdown(f"<div style='color:var(--c-primary); margin-bottom: 20px;'>{get_icon('fusion', 60)}</div>", unsafe_allow_html=True)
-    st.markdown("<h2 style='color:#fff; margin-top:0;'>بوابة الولوج الآمنة (Mudir OS)</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='color:var(--c-dim); margin-bottom: 30px;'>أدخل كود الشركة المرخص لفتح مساحة العمل الخاصة بك</p>", unsafe_allow_html=True)
-    
-    ws_key = st.text_input("كود الشركة (License Key):", type="password", placeholder="أدخل الكود هنا...")
-    
-    if st.button("تأكيد ودخول", type="primary", use_container_width=True):
-        if ws_key.strip():
-            if ws_key.strip() == MASTER_ADMIN_CODE:
-                st.session_state.workspace_key = "SUPER_ADMIN"
-                st.session_state.workspace_id = "SUPER_ADMIN"
-                st.session_state.view = 'super_admin'
-                st.query_params["workspace"] = "SUPER_ADMIN"
-                st.query_params["view"] = "super_admin"
-                st.rerun()
-                return
+    st.markdown("<div style='margin-top: 10vh;'></div>", unsafe_allow_html=True)
+    st.markdown("<div class='g-card' style='max-width: 500px; margin: 0 auto; text-align: center;'>", unsafe_allow_html=True)
+    st.markdown(f"<div style='color:var(--c-primary); margin-bottom: 20px;'>{get_icon('fusion', 60)}</div>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color:#fff; margin-top:0;'>بوابة الولوج الآمنة (Mudir OS)</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='color:var(--c-dim); margin-bottom: 30px;'>أدخل كود الشركة المرخص لفتح مساحة العمل الخاصة بك</p>", unsafe_allow_html=True)
+    
+    ws_key = st.text_input("كود الشركة (License Key):", type="password", placeholder="أدخل الكود هنا...")
+    
+    if st.button("تأكيد ودخول", type="primary", use_container_width=True):
+        if ws_key.strip():
+            if ws_key.strip() == MASTER_ADMIN_CODE:
+                st.session_state.workspace_key = "SUPER_ADMIN"
+                st.session_state.workspace_id = "SUPER_ADMIN"
+                st.session_state.view = 'super_admin'
+                st.query_params["workspace"] = "SUPER_ADMIN"
+                st.query_params["view"] = "super_admin"
+                st.rerun()
+                return
 
-            licenses = load_licenses()
-            ws_data = licenses.get('workspaces', {}).get(ws_key.strip())
-            
-            if not ws_data:
-                st.error("كود الشركة غير مسجل! يرجى التأكد من الكود أو التواصل مع الإدارة.")
-            elif ws_data.get('status') == 'suspended':
-                st.error("تم إيقاف هذه المساحة من قبل الإدارة. يرجى المراجعة.")
-            else:
-                expiry_str = ws_data.get('expiry_date')
-                if expiry_str:
-                    expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
-                    if get_local_now() <= expiry_date:
-                        st.session_state.workspace_key = ws_key.strip()
-                        st.session_state.workspace_id = ws_key.strip()
-                        st.session_state.app_config = load_config()
-                        st.session_state.all_chats = load_user_chats()
-                        st.session_state.view = 'login'
-                        st.query_params["workspace"] = ws_key.strip()
-                        st.query_params["view"] = "login"
-                        st.rerun()
-                    else:
-                        st.error(f"لقد انتهت صلاحية اشتراك شركتك في ({expiry_str}). يرجى تجديد الاشتراك لاستعادة الوصول للبيانات.")
-                        return
-        else:
-            st.error("الرجاء إدخال الكود.")
-    st.markdown("</div>", unsafe_allow_html=True)
+            licenses = load_licenses()
+            ws_data = licenses.get('workspaces', {}).get(ws_key.strip())
+            
+            if not ws_data:
+                st.error("كود الشركة غير مسجل! يرجى التأكد من الكود أو التواصل مع الإدارة.")
+            elif ws_data.get('status') == 'suspended':
+                st.error("تم إيقاف هذه المساحة من قبل الإدارة. يرجى المراجعة.")
+            else:
+                expiry_str = ws_data.get('expiry_date')
+                if expiry_str:
+                    expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
+                    if get_local_now() <= expiry_date:
+                        st.session_state.workspace_key = ws_key.strip()
+                        st.session_state.workspace_id = ws_key.strip()
+                        st.session_state.app_config = load_config()
+                        st.session_state.all_chats = load_user_chats()
+                        st.session_state.view = 'login'
+                        st.query_params["workspace"] = ws_key.strip()
+                        st.query_params["view"] = "login"
+                        st.rerun()
+                    else:
+                        st.error(f"لقد انتهت صلاحية اشتراك شركتك في ({expiry_str}). يرجى تجديد الاشتراك لاستعادة الوصول للبيانات.")
+                        return
+        else:
+            st.error("الرجاء إدخال الكود.")
+    st.markdown("</div>", unsafe_allow_html=True)
 
 def render_login():
-    st.markdown("<div style='margin-top: 10vh;'></div>", unsafe_allow_html=True)
-    st.markdown("<div class='g-card' style='max-width: 500px; margin: 0 auto; text-align: center;'>", unsafe_allow_html=True)
-    st.markdown(f"<div style='color:var(--c-primary); margin-bottom: 20px;'>{get_icon('command', 60)}</div>", unsafe_allow_html=True)
-    st.markdown(f"<h2 style='color:#fff; margin-top:0;'>تسجيل الدخول - مساحة: {st.session_state.get('workspace_key', '')}</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='color:var(--c-dim); margin-bottom: 30px;'>الرجاء تحديد هويتك للوصول لمهامك وصلاحياتك المحددة</p>", unsafe_allow_html=True)
-    
-    employees = st.session_state.app_config.get('EMPLOYEES', [])
-    user_options = ["المدير العام (صلاحيات كاملة)"] + [f"{emp['name']} - {emp['role']}" for emp in employees]
-    selected_user = st.selectbox("من أنت؟", user_options, label_visibility="collapsed")
-    
-    pin = st.text_input("رمز الدخول السري (PIN)", type="password", placeholder="أدخل الرقم السري الخاص بك")
-        
-    if st.button("دخول للنظام", type="primary", use_container_width=True):
-        if "المدير العام" in selected_user:
-            if pin == st.session_state.app_config.get('MANAGER_PIN', '0000'):
-                st.session_state.current_user = "المدير العام"
-                st.session_state.view = 'dashboard'
-                st.query_params["view"] = "dashboard"
-                if selected_user not in st.session_state.all_chats or not st.session_state.all_chats[selected_user]:
-                    initial_msg = {"role": "assistant", "content": "أهلاً بك. الأرقام والبيانات جاهزة للعرض والمناقشة."}
-                    st.session_state.all_chats[selected_user] = [initial_msg]
-                    log_message(selected_user, initial_msg)
-                    save_chat_for_user(selected_user)
-                st.rerun()
-            else:
-                st.error("عذراً، رمز الدخول غير صحيح!")
-        else:
-            emp_data = next((e for e in employees if f"{e['name']} - {e['role']}" == selected_user), None)
-            expected_pin = emp_data.get('pin', '0000') if emp_data else '0000'
-            
-            if pin == expected_pin:
-                st.session_state.current_user = selected_user
-                if emp_data and emp_data.get('views'):
-                    st.session_state.view = emp_data['views'][0]
-                    st.query_params["view"] = emp_data['views'][0]
-                else:
-                    st.session_state.view = 'ai' 
-                    st.query_params["view"] = "ai"
-                    
-                if selected_user not in st.session_state.all_chats or not st.session_state.all_chats[selected_user]:
-                    emp_name_only = selected_user.split(" - ")[0]
-                    initial_msg = {"role": "assistant", "content": f"أهلاً بيك يا {emp_name_only}. أنا مديرك. مفيش وقت نضيعه، وريني إيه اللي وراك النهاردة عشان أديك تكليفاتك."}
-                    st.session_state.all_chats[selected_user] = [initial_msg]
-                    log_message(selected_user, initial_msg)
-                    save_chat_for_user(selected_user)
-                st.rerun()
-            else:
-                st.error("عذراً، رمز الدخول السري الخاص بك غير صحيح!")
-            
-    if st.button("تغيير مساحة العمل", use_container_width=True):
-        del st.session_state['workspace_key']
-        del st.session_state['workspace_id']
-        st.session_state.view = 'workspace_login'
-        st.query_params.clear()
-        st.rerun()
-        
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("<div style='margin-top: 10vh;'></div>", unsafe_allow_html=True)
+    st.markdown("<div class='g-card' style='max-width: 500px; margin: 0 auto; text-align: center;'>", unsafe_allow_html=True)
+    st.markdown(f"<div style='color:var(--c-primary); margin-bottom: 20px;'>{get_icon('command', 60)}</div>", unsafe_allow_html=True)
+    st.markdown(f"<h2 style='color:#fff; margin-top:0;'>تسجيل الدخول - مساحة: {st.session_state.get('workspace_key', '')}</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='color:var(--c-dim); margin-bottom: 30px;'>الرجاء تحديد هويتك للوصول لمهامك وصلاحياتك المحددة</p>", unsafe_allow_html=True)
+    
+    employees = st.session_state.app_config.get('EMPLOYEES', [])
+    user_options = ["المدير العام (صلاحيات كاملة)"] + [f"{emp['name']} - {emp['role']}" for emp in employees]
+    selected_user = st.selectbox("من أنت؟", user_options, label_visibility="collapsed")
+    
+    pin = st.text_input("رمز الدخول السري (PIN)", type="password", placeholder="أدخل الرقم السري الخاص بك")
+        
+    if st.button("دخول للنظام", type="primary", use_container_width=True):
+        if "المدير العام" in selected_user:
+            if pin == st.session_state.app_config.get('MANAGER_PIN', '0000'):
+                st.session_state.current_user = "المدير العام"
+                st.session_state.view = 'dashboard'
+                st.query_params["view"] = "dashboard"
+                if selected_user not in st.session_state.all_chats or not st.session_state.all_chats[selected_user]:
+                    initial_msg = {"role": "assistant", "content": "أهلاً بك. الأرقام والبيانات جاهزة للعرض والمناقشة."}
+                    st.session_state.all_chats[selected_user] = [initial_msg]
+                    log_message(selected_user, initial_msg)
+                    save_chat_for_user(selected_user)
+                st.rerun()
+            else:
+                st.error("عذراً، رمز الدخول غير صحيح!")
+        else:
+            emp_data = next((e for e in employees if f"{e['name']} - {e['role']}" == selected_user), None)
+            expected_pin = emp_data.get('pin', '0000') if emp_data else '0000'
+            
+            if pin == expected_pin:
+                st.session_state.current_user = selected_user
+                if emp_data and emp_data.get('views'):
+                    st.session_state.view = emp_data['views'][0]
+                    st.query_params["view"] = emp_data['views'][0]
+                else:
+                    st.session_state.view = 'ai' 
+                    st.query_params["view"] = "ai"
+                    
+                if selected_user not in st.session_state.all_chats or not st.session_state.all_chats[selected_user]:
+                    emp_name_only = selected_user.split(" - ")[0]
+                    initial_msg = {"role": "assistant", "content": f"أهلاً بيك يا {emp_name_only}. أنا مديرك. مفيش وقت نضيعه، وريني إيه اللي وراك النهاردة عشان أديك تكليفاتك."}
+                    st.session_state.all_chats[selected_user] = [initial_msg]
+                    log_message(selected_user, initial_msg)
+                    save_chat_for_user(selected_user)
+                st.rerun()
+            else:
+                st.error("عذراً، رمز الدخول السري الخاص بك غير صحيح!")
+            
+    if st.button("تغيير مساحة العمل", use_container_width=True):
+        del st.session_state['workspace_key']
+        del st.session_state['workspace_id']
+        st.session_state.view = 'workspace_login'
+        st.query_params.clear()
+        st.rerun()
+        
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # ============================================================
 # CSS Global Styling
@@ -656,23 +655,23 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Orbitron:wght@400;700;900&display=swap');
 
 :root {
-    --c-primary:   #00f2ff;
-    --c-secondary: #7000ff;
-    --c-accent:    #ff2d78;
-    --c-gold:      #ffd700;
-    --c-bg:        #04040a;
-    --c-bg2:       #080810;
-    --c-card:      rgba(15,15,25,0.7);
-    --c-border:    rgba(255,255,255,0.08);
-    --c-dim:       #64748b;
-    --r:           16px;
-    --r-sm:        10px;
-    --transition:  all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+    --c-primary:   #00f2ff;
+    --c-secondary: #7000ff;
+    --c-accent:    #ff2d78;
+    --c-gold:      #ffd700;
+    --c-bg:        #04040a;
+    --c-bg2:       #080810;
+    --c-card:      rgba(15,15,25,0.7);
+    --c-border:    rgba(255,255,255,0.08);
+    --c-dim:       #64748b;
+    --r:           16px;
+    --r-sm:        10px;
+    --transition:  all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 html, body, [class*="css"] {
-    font-family: 'Cairo', sans-serif;
-    direction: rtl; background: var(--c-bg) !important; color: #e2e8f0;
+    font-family: 'Cairo', sans-serif;
+    direction: rtl; background: var(--c-bg) !important; color: #e2e8f0;
 }
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -680,117 +679,117 @@ html, body, [class*="css"] {
 ::-webkit-scrollbar-thumb:hover { background: var(--c-primary); }
 
 @keyframes fadeUp {
-    0% { opacity: 0; transform: translateY(20px); }
-    100% { opacity: 1; transform: translateY(0); }
+    0% { opacity: 0; transform: translateY(20px); }
+    100% { opacity: 1; transform: translateY(0); }
 }
 
 [data-testid="stAppViewBlockContainer"] {
-    max-width: 100% !important;
-    padding: 1rem 2rem !important;
-    overflow-x: hidden !important;
+    max-width: 100% !important;
+    padding: 1rem 2rem !important;
+    overflow-x: hidden !important;
 }
 
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #05050c 0%, #030306 100%) !important;
-    border-left: 1px solid var(--c-border) !important; 
-    overflow: hidden !important;
+    background: linear-gradient(180deg, #05050c 0%, #030306 100%) !important;
+    border-left: 1px solid var(--c-border) !important; 
+    overflow: hidden !important;
 }
 [data-testid="stSidebar"][aria-expanded="false"] {
-    visibility: hidden !important;
-    border-left: none !important;
-    box-shadow: none !important;
+    visibility: hidden !important;
+    border-left: none !important;
+    box-shadow: none !important;
 }
 
 .sidebar-brand {
-    padding: 30px 20px 25px; border-bottom: 1px solid var(--c-border);
-    margin-bottom: 15px; text-align: center; position: relative; overflow: hidden;
+    padding: 30px 20px 25px; border-bottom: 1px solid var(--c-border);
+    margin-bottom: 15px; text-align: center; position: relative; overflow: hidden;
 }
 .brand-logo {
-    width: 60px; height: 60px; border-radius: 16px;
-    background: linear-gradient(135deg, rgba(0,242,255,0.15), rgba(112,0,255,0.15));
-    border: 1px solid rgba(0,242,255,0.4); margin: 0 auto 12px;
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 0 20px rgba(0,242,255,0.2); color: var(--c-primary);
+    width: 60px; height: 60px; border-radius: 16px;
+    background: linear-gradient(135deg, rgba(0,242,255,0.15), rgba(112,0,255,0.15));
+    border: 1px solid rgba(0,242,255,0.4); margin: 0 auto 12px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 20px rgba(0,242,255,0.2); color: var(--c-primary);
 }
 .brand-name { font-family: 'Orbitron', sans-serif; font-size: 0.85rem; letter-spacing: 4px; color: #fff; font-weight: 900;}
 .brand-ver { font-size: 0.65rem; color: var(--c-primary); margin-top: 6px; font-weight: bold; background: rgba(0,242,255,0.1); padding: 2px 8px; border-radius: 99px; display: inline-block;}
 
 [data-testid="stSidebar"] div.stButton > button {
-    background: transparent !important; border: 1px solid transparent !important;
-    color: var(--c-dim) !important; justify-content: flex-start !important;
-    padding: 12px 18px !important; font-weight: 700 !important; font-size: 1.05rem !important;
+    background: transparent !important; border: 1px solid transparent !important;
+    color: var(--c-dim) !important; justify-content: flex-start !important;
+    padding: 12px 18px !important; font-weight: 700 !important; font-size: 1.05rem !important;
 }
 [data-testid="stSidebar"] div.stButton > button:hover { background: rgba(255,255,255,0.05) !important; color: #fff !important; }
 [data-testid="stSidebar"] div.stButton > button[kind="primary"] {
-    background: rgba(0, 242, 255, 0.15) !important; color: var(--c-primary) !important;
-    border: 1px solid rgba(0, 242, 255, 0.4) !important; font-weight: 900 !important;
+    background: rgba(0, 242, 255, 0.15) !important; color: var(--c-primary) !important;
+    border: 1px solid rgba(0, 242, 255, 0.4) !important; font-weight: 900 !important;
 }
 
 .g-card, .page-header, [data-testid="stTabs"] {
-    animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.g-card { 
-    background: var(--c-card); border: 1px solid rgba(255,255,255,0.06); 
-    border-radius: var(--r); padding: 1.8rem; margin-bottom: 1.5rem; 
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+.g-card { 
+    background: var(--c-card); border: 1px solid rgba(255,255,255,0.06); 
+    border-radius: var(--r); padding: 1.8rem; margin-bottom: 1.5rem; 
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 .g-card:hover {
-    border-color: rgba(0, 242, 255, 0.3);
-    box-shadow: 0 5px 20px rgba(0, 242, 255, 0.05);
+    border-color: rgba(0, 242, 255, 0.3);
+    box-shadow: 0 5px 20px rgba(0, 242, 255, 0.05);
 }
-.g-card-title { font-weight: 800; font-size: 1.2rem; color: #fff; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; } 
+.g-card-title { font-weight: 800; font-size: 1.2rem; color: #fff; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; } 
 
-.custom-metric { 
-    background: rgba(15,15,20,0.8); border: 1px solid rgba(255,255,255,0.05); 
-    border-radius: var(--r); padding: 1.2rem; display: flex; flex-direction: column; 
-    gap: 8px; overflow: hidden; animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
-    container-type: inline-size;
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    cursor: default;
+.custom-metric { 
+    background: rgba(15,15,20,0.8); border: 1px solid rgba(255,255,255,0.05); 
+    border-radius: var(--r); padding: 1.2rem; display: flex; flex-direction: column; 
+    gap: 8px; overflow: hidden; animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
+    container-type: inline-size;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    cursor: default;
 }
 .custom-metric:hover {
-    transform: translateY(-5px) scale(1.02);
-    border-color: rgba(0, 242, 255, 0.5) !important;
-    box-shadow: 0 10px 25px rgba(0, 242, 255, 0.15) !important;
+    transform: translateY(-5px) scale(1.02);
+    border-color: rgba(0, 242, 255, 0.5) !important;
+    box-shadow: 0 10px 25px rgba(0, 242, 255, 0.15) !important;
 }
 .cm-top { display: flex; justify-content: space-between; align-items: center; }
 .cm-label { color: #cbd5e1; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
 .cm-val-wrapper { display: flex; align-items: baseline; width: 100%; white-space: nowrap; }
-.cm-val { 
-    font-family: 'Orbitron', sans-serif; color: #00f2ff; text-shadow: 0 0 12px rgba(0,242,255,0.6); 
-    font-weight: 900; font-size: clamp(0.9rem, 8cqi, 1.8rem); white-space: nowrap; 
-    transition: text-shadow 0.3s ease;
+.cm-val { 
+    font-family: 'Orbitron', sans-serif; color: #00f2ff; text-shadow: 0 0 12px rgba(0,242,255,0.6); 
+    font-weight: 900; font-size: clamp(0.9rem, 8cqi, 1.8rem); white-space: nowrap; 
+    transition: text-shadow 0.3s ease;
 }
 .custom-metric:hover .cm-val {
-    text-shadow: 0 0 20px rgba(0, 242, 255, 1) !important;
+    text-shadow: 0 0 20px rgba(0, 242, 255, 1) !important;
 }
 .cm-suf { font-size: 0.75rem; color: var(--c-dim); margin-right: 4px; font-family: 'Cairo', sans-serif; font-weight: 700; }
 
 .emp-card-neon {
-    background: linear-gradient(145deg, #0b141a, #050a0d);
-    border: 1px solid rgba(0, 242, 255, 0.2);
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 4px 15px rgba(0, 242, 255, 0.05);
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    margin-bottom: 15px;
-    direction: rtl;
+    background: linear-gradient(145deg, #0b141a, #050a0d);
+    border: 1px solid rgba(0, 242, 255, 0.2);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0, 242, 255, 0.05);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    margin-bottom: 15px;
+    direction: rtl;
 }
 .emp-card-neon:hover {
-    transform: translateY(-4px);
-    border-color: rgba(0, 242, 255, 0.6);
-    box-shadow: 0 8px 25px rgba(0, 242, 255, 0.2);
+    transform: translateY(-4px);
+    border-color: rgba(0, 242, 255, 0.6);
+    box-shadow: 0 8px 25px rgba(0, 242, 255, 0.2);
 }
 .emp-header {
-    display: flex; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05);
-    padding-bottom: 10px; margin-bottom: 15px;
+    display: flex; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05);
+    padding-bottom: 10px; margin-bottom: 15px;
 }
 .emp-avatar {
-    width: 40px; height: 40px; border-radius: 50%;
-    background: rgba(0, 242, 255, 0.1); border: 1px solid var(--c-primary);
-    display: flex; align-items: center; justify-content: center;
-    color: var(--c-primary); font-weight: bold; margin-left: 15px;
+    width: 40px; height: 40px; border-radius: 50%;
+    background: rgba(0, 242, 255, 0.1); border: 1px solid var(--c-primary);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--c-primary); font-weight: bold; margin-left: 15px;
 }
 .emp-name { font-size: 1.2rem; font-weight: 800; color: #fff; }
 .emp-role { font-size: 0.9rem; color: #00ff82; font-weight: 600;}
@@ -798,23 +797,23 @@ html, body, [class*="css"] {
 .emp-label { font-size: 0.8rem; color: var(--c-dim); margin-bottom: 2px;}
 .emp-value { font-size: 0.95rem; color: #e2e8f0; font-weight: 600;}
 .emp-pin-box {
-    background: #000; border: 1px dashed var(--c-accent); color: var(--c-accent);
-    padding: 4px 12px; border-radius: 6px; font-family: 'Orbitron', monospace;
-    font-weight: bold; letter-spacing: 2px; text-align: center; display: inline-block;
+    background: #000; border: 1px dashed var(--c-accent); color: var(--c-accent);
+    padding: 4px 12px; border-radius: 6px; font-family: 'Orbitron', monospace;
+    font-weight: bold; letter-spacing: 2px; text-align: center; display: inline-block;
 }
 
-.ticker-wrap { 
-    width: 100%; overflow: hidden; background: rgba(0,0,0,0.6); 
-    padding: 12px 0; margin-bottom: 20px; border-bottom: 1px solid rgba(0,242,255,0.1);
+.ticker-wrap { 
+    width: 100%; overflow: hidden; background: rgba(0,0,0,0.6); 
+    padding: 12px 0; margin-bottom: 20px; border-bottom: 1px solid rgba(0,242,255,0.1);
 }
-.ticker-move { 
-    display: inline-flex; align-items: center; white-space: nowrap; 
-    padding-right: 100%; animation: ticker 40s linear infinite; 
+.ticker-move { 
+    display: inline-flex; align-items: center; white-space: nowrap; 
+    padding-right: 100%; animation: ticker 40s linear infinite; 
 }
 @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(100%); } }
-.ticker-item { 
-    display: inline-flex; align-items: center; padding: 0 2.5rem; 
-    font-size: 1rem; font-weight: 700; color: #e2e8f0; 
+.ticker-item { 
+    display: inline-flex; align-items: center; padding: 0 2.5rem; 
+    font-size: 1rem; font-weight: 700; color: #e2e8f0; 
 }
 .ticker-item span { color: var(--c-primary); margin-left: 5px; font-family: 'Orbitron', sans-serif; }
 .ticker-icon { display: flex; align-items: center; margin-left: 8px; }
@@ -823,11 +822,11 @@ html, body, [class*="css"] {
 [data-testid="stChatAvatar"] { display: none !important; }
 [data-testid="stChatMessageContent"] { width: 100% !important; max-width: 100% !important; background: transparent !important; padding: 0 !important; display: flex !important; flex-direction: column !important; }
 
-.chat-bubble { 
-    padding: 10px 14px !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Cairo", Helvetica, Arial, sans-serif !important; 
-    font-size: 14.2px !important; line-height: 1.6 !important; word-wrap: break-word !important; white-space: pre-wrap !important; 
-    text-align: right !important; direction: rtl !important; width: fit-content !important; max-width: 75% !important; 
-    box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important; margin-bottom: 2px !important; 
+.chat-bubble { 
+    padding: 10px 14px !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Cairo", Helvetica, Arial, sans-serif !important; 
+    font-size: 14.2px !important; line-height: 1.6 !important; word-wrap: break-word !important; white-space: pre-wrap !important; 
+    text-align: right !important; direction: rtl !important; width: fit-content !important; max-width: 75% !important; 
+    box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important; margin-bottom: 2px !important; 
 }
 .chat-bubble [data-testid="stMarkdownContainer"] { width: 100% !important; }
 .chat-bubble p { margin: 0 0 6px 0 !important; padding: 0 !important; color: #e9edef !important; font-size: 14.2px !important; line-height: 1.6 !important; display: block !important;}
@@ -835,25 +834,25 @@ html, body, [class*="css"] {
 
 .chat-bubble ul { list-style-type: disc !important; padding-right: 25px !important; margin: 8px 0 !important; direction: rtl !important;}
 .chat-bubble ol { list-style-type: decimal !important; padding-right: 25px !important; margin: 8px 0 !important; direction: rtl !important;}
-.chat-bubble li { 
-    display: list-item !important; 
-    text-align: right !important; 
-    margin-bottom: 5px !important; 
-    font-size: 14.2px !important; 
-    line-height: 1.6 !important; 
-    list-style-position: outside !important;
+.chat-bubble li { 
+    display: list-item !important; 
+    text-align: right !important; 
+    margin-bottom: 5px !important; 
+    font-size: 14.2px !important; 
+    line-height: 1.6 !important; 
+    list-style-position: outside !important;
 }
 
 .neon-number {
-    color: #00f2ff !important;
-    text-shadow: 0 0 12px rgba(0, 242, 255, 0.8) !important;
-    font-family: 'Orbitron', sans-serif !important;
-    font-weight: 900 !important;
-    padding: 0 3px;
+    color: #00f2ff !important;
+    text-shadow: 0 0 12px rgba(0, 242, 255, 0.8) !important;
+    font-family: 'Orbitron', sans-serif !important;
+    font-weight: 900 !important;
+    padding: 0 3px;
 }
 .chat-bubble strong {
-    color: #00ff82 !important;
-    text-shadow: 0 0 8px rgba(0, 255, 130, 0.5) !important;
+    color: #00ff82 !important;
+    text-shadow: 0 0 8px rgba(0, 255, 130, 0.5) !important;
 }
 
 [data-testid="stChatMessage"]:has(.msg-user) [data-testid="stChatMessageContent"] { align-items: flex-start !important; }
@@ -871,24 +870,24 @@ html, body, [class*="css"] {
 [data-testid="stDataFrame"] th { background: rgba(0,242,255,0.08) !important; color: var(--c-primary) !important; font-weight: 800 !important; font-size: 0.9rem !important; }
 
 /* ---------------------------------------------------
-   CSS Media Queries للموبايل
+   CSS Media Queries للموبايل
 --------------------------------------------------- */
 @media (max-width: 768px) {
-    .g-card { padding: 1rem !important; }
-    .page-header { padding: 1.5rem !important; flex-direction: column !important; text-align: center !important; }
-    .ph-title { font-size: 1.5rem !important; }
-    .ph-sub { font-size: 0.85rem !important; }
-    .cm-val { font-size: 1.3rem !important; }
-    .custom-metric { padding: 0.8rem !important; }
-    
-    /* تحويل الشبكات والأعمدة لمسار واحد 1fr */
-    .emp-info-grid { grid-template-columns: 1fr !important; }
-    [data-testid="column"] { 
-        width: 100% !important; 
-        flex: 1 1 100% !important; 
-        min-width: 100% !important; 
-        margin-bottom: 15px !important;
-    }
+    .g-card { padding: 1rem !important; }
+    .page-header { padding: 1.5rem !important; flex-direction: column !important; text-align: center !important; }
+    .ph-title { font-size: 1.5rem !important; }
+    .ph-sub { font-size: 0.85rem !important; }
+    .cm-val { font-size: 1.3rem !important; }
+    .custom-metric { padding: 0.8rem !important; }
+    
+    /* تحويل الشبكات والأعمدة لمسار واحد 1fr */
+    .emp-info-grid { grid-template-columns: 1fr !important; }
+    [data-testid="column"] { 
+        width: 100% !important; 
+        flex: 1 1 100% !important; 
+        min-width: 100% !important; 
+        margin-bottom: 15px !important;
+    }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -902,1194 +901,1237 @@ df_po_master = st.session_state.get('df_po', pd.DataFrame())
 df_pol_master = st.session_state.get('df_pol', pd.DataFrame())
 
 if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login'] and st.session_state.get('current_user'):
-    CFG = st.session_state.app_config
-    if not st.session_state.get('data_loaded'):
-        with st.spinner('جاري تهيئة النواة وربط الخوادم لاستخراج بيانات Odoo...'):
-            df_s_raw, df_p_raw, df_i_raw, df_po_raw, df_pol_raw, is_real = fetch_master_data(CFG.get('ODOO_URL',''), CFG.get('ODOO_DB',''), CFG.get('ODOO_USER',''), CFG.get('ODOO_PASS',''))
-            st.session_state.df_s = df_s_raw
-            st.session_state.df_p = df_p_raw
-            st.session_state.df_i = df_i_raw
-            st.session_state.df_po = df_po_raw
-            st.session_state.df_pol = df_pol_raw
-            st.session_state.is_real_data = is_real
-            st.session_state.data_loaded = True
+    CFG = st.session_state.app_config
+    if not st.session_state.get('data_loaded'):
+        with st.spinner('جاري تهيئة النواة وربط الخوادم لاستخراج بيانات Odoo...'):
+            df_s_raw, df_p_raw, df_i_raw, df_po_raw, df_pol_raw, is_real = fetch_master_data(CFG.get('ODOO_URL',''), CFG.get('ODOO_DB',''), CFG.get('ODOO_USER',''), CFG.get('ODOO_PASS',''))
+            st.session_state.df_s = df_s_raw
+            st.session_state.df_p = df_p_raw
+            st.session_state.df_i = df_i_raw
+            st.session_state.df_po = df_po_raw
+            st.session_state.df_pol = df_pol_raw
+            st.session_state.is_real_data = is_real
+            st.session_state.data_loaded = True
 
-            df_s_master = st.session_state.df_s
-            df_p_master = st.session_state.df_p
-            df_i_master = st.session_state.df_i
-            df_po_master = st.session_state.df_po
-            df_pol_master = st.session_state.df_pol
+            df_s_master = st.session_state.df_s
+            df_p_master = st.session_state.df_p
+            df_i_master = st.session_state.df_i
+            df_po_master = st.session_state.df_po
+            df_pol_master = st.session_state.df_pol
 
-    with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v50.0</div></div>""", unsafe_allow_html=True)
-        st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
+    with st.sidebar:
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v50.0</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
-        allowed_navs = []
-        if st.session_state.current_user == "المدير العام":
-            allowed_navs = ALL_NAV_ITEMS
-        else:
-            emp_data = next((e for e in CFG.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == st.session_state.current_user), None)
-            if emp_data:
-                allowed_keys = emp_data.get('views', ['ai'])
-                allowed_navs = [item for item in ALL_NAV_ITEMS if item[0] in allowed_keys]
+        # -----------------------------------------------------
+        # إضافة جرس الإشعارات في القائمة الجانبية (Notification Bell)
+        # -----------------------------------------------------
+        if st.session_state.current_user and st.session_state.current_user != "المدير العام":
+            user_notifs = CFG.get('NOTIFICATIONS', {}).get(st.session_state.current_user, [])
+            unread_count = len(user_notifs)
+            
+            if unread_count > 0:
+                with st.popover(f"🔔 إشعارات جديدة ({unread_count})", use_container_width=True):
+                    st.markdown("<h4 style='text-align:center; color:#ff2d78;'>الإشعارات غير المقروءة</h4>", unsafe_allow_html=True)
+                    for notif in reversed(user_notifs): # إظهار الأحدث أولاً
+                        st.info(notif)
+                    if st.button("تحديد الكل كمقروء ✔️", use_container_width=True):
+                        CFG['NOTIFICATIONS'][st.session_state.current_user] = []
+                        save_config(CFG)
+                        st.rerun()
+            else:
+                st.button("🔕 لا توجد إشعارات حالياً", disabled=True, use_container_width=True)
+            st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 10px 0;'>", unsafe_allow_html=True)
+        # -----------------------------------------------------
 
-        for key, icon_name, label in allowed_navs:
-            is_active = st.session_state.view == key
-            display_label = f"◉  {label}" if is_active else f"○  {label}"
-            button_type = "primary" if is_active else "secondary"
-            if st.button(display_label, key=f"nav_{key}", use_container_width=True, type=button_type):
-                st.session_state.view = key
-                st.query_params["view"] = key
-                st.rerun()
 
-        st.markdown("---")
-        
-        if st.button("🔴 تسجيل الخروج", use_container_width=True):
-            st.query_params.clear()
-            st.session_state.clear()
-            st.rerun()
-            
-        status_color = "#00ff82" if st.session_state.get('is_real_data') else "#ff2d78"
-        st.markdown(f"""<div style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.05); border-radius:12px; padding:15px; text-align:center; margin-top:20px;"><div style="font-size:0.8rem; color:#64748b; margin-bottom:6px; font-weight:700;">حالة الاتصال المركزية</div><div style="color:{status_color}; font-weight:900; font-size:0.9rem; display:flex; align-items:center; justify-content:center;"><div class="status-dot" style="color:{status_color}; background:{status_color}; margin-left:8px;"></div>{'متصل بـ Odoo الحقيقي' if st.session_state.get('is_real_data') else 'غير متصل (البيانات فارغة)'}</div></div>""", unsafe_allow_html=True)
+        allowed_navs = []
+        if st.session_state.current_user == "المدير العام":
+            allowed_navs = ALL_NAV_ITEMS
+        else:
+            emp_data = next((e for e in CFG.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == st.session_state.current_user), None)
+            if emp_data:
+                allowed_keys = emp_data.get('views', ['ai'])
+                allowed_navs = [item for item in ALL_NAV_ITEMS if item[0] in allowed_keys]
+
+        for key, icon_name, label in allowed_navs:
+            is_active = st.session_state.view == key
+            display_label = f"◉  {label}" if is_active else f"○  {label}"
+            button_type = "primary" if is_active else "secondary"
+            if st.button(display_label, key=f"nav_{key}", use_container_width=True, type=button_type):
+                st.session_state.view = key
+                st.query_params["view"] = key
+                st.rerun()
+
+        st.markdown("---")
+        
+        if st.button("🔴 تسجيل الخروج", use_container_width=True):
+            st.query_params.clear()
+            st.session_state.clear()
+            st.rerun()
+            
+        status_color = "#00ff82" if st.session_state.get('is_real_data') else "#ff2d78"
+        st.markdown(f"""<div style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.05); border-radius:12px; padding:15px; text-align:center; margin-top:20px;"><div style="font-size:0.8rem; color:#64748b; margin-bottom:6px; font-weight:700;">حالة الاتصال المركزية</div><div style="color:{status_color}; font-weight:900; font-size:0.9rem; display:flex; align-items:center; justify-content:center;"><div class="status-dot" style="color:{status_color}; background:{status_color}; margin-left:8px;"></div>{'متصل بـ Odoo الحقيقي' if st.session_state.get('is_real_data') else 'غير متصل (البيانات فارغة)'}</div></div>""", unsafe_allow_html=True)
 
 def build_infographic_html(data: dict) -> str:
-    kpis = data.get('kpis', [])
-    bars = data.get('bars', [])
-    badges = data.get('badges', [])
-    kpi_html = ''.join([f"""<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;text-align:center;min-width:120px;flex:1;"><div style="font-family:'Orbitron',sans-serif;font-size:1.6rem;font-weight:900;color:{k.get('color','#00f2ff')};word-wrap:break-word;">{k['value']}</div><div style="font-size:0.8rem;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-top:6px;line-height:1.3;">{k['label']}</div></div>""" for k in kpis])
-    bar_html = ''.join([f"""<div style="margin:12px 0;"><div style="display:flex;justify-content:space-between;font-size:0.9rem;color:#cbd5e1;margin-bottom:8px;"><span>{b['label']}</span><span style="font-weight:bold;color:#fff;">{b['value']:,}</span></div><div style="height:10px;background:rgba(255,255,255,0.05);border-radius:99px;overflow:hidden;"><div style="height:100%;border-radius:99px;background:{b.get('color','#00f2ff')};width:{min(100, (b['value']/b['max']*100) if b.get('max',0)>0 else 0)}%;"></div></div></div>""" for b in bars])
-    badge_html = ''.join([f"""<span style="display:inline-flex;align-items:center;font-size:0.8rem;font-weight:700;padding:6px 14px;border-radius:99px;margin:4px;background:rgba(0,242,255,0.1);border:1px solid rgba(0,242,255,0.3);color:#00f2ff;">{b['text']}</span>""" for b in badges])
-    return f"""<div style="font-family:'Cairo',sans-serif;direction:rtl;color:#e2e8f0;"><p style="color:#94a3b8;font-size:1rem;margin:0 0 1.5rem;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:15px;">{data.get('subtitle', '')}</p><div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:2rem;">{kpi_html}</div>{f'<div style="font-weight:900;font-size:1rem;color:#64748b;text-transform:uppercase;margin:1.5rem 0 1rem;">{get_icon("chart",18)} المؤشرات الحيوية</div>{bar_html}' if bar_html else ''}{f'<div style="font-weight:900;font-size:1rem;color:#64748b;text-transform:uppercase;margin:2rem 0 1rem;">{get_icon("check",18)} التصنيفات الاستراتيجية</div><div>{badge_html}</div>' if badge_html else ''}</div>"""
+    kpis = data.get('kpis', [])
+    bars = data.get('bars', [])
+    badges = data.get('badges', [])
+    kpi_html = ''.join([f"""<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;text-align:center;min-width:120px;flex:1;"><div style="font-family:'Orbitron',sans-serif;font-size:1.6rem;font-weight:900;color:{k.get('color','#00f2ff')};word-wrap:break-word;">{k['value']}</div><div style="font-size:0.8rem;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-top:6px;line-height:1.3;">{k['label']}</div></div>""" for k in kpis])
+    bar_html = ''.join([f"""<div style="margin:12px 0;"><div style="display:flex;justify-content:space-between;font-size:0.9rem;color:#cbd5e1;margin-bottom:8px;"><span>{b['label']}</span><span style="font-weight:bold;color:#fff;">{b['value']:,}</span></div><div style="height:10px;background:rgba(255,255,255,0.05);border-radius:99px;overflow:hidden;"><div style="height:100%;border-radius:99px;background:{b.get('color','#00f2ff')};width:{min(100, (b['value']/b['max']*100) if b.get('max',0)>0 else 0)}%;"></div></div></div>""" for b in bars])
+    badge_html = ''.join([f"""<span style="display:inline-flex;align-items:center;font-size:0.8rem;font-weight:700;padding:6px 14px;border-radius:99px;margin:4px;background:rgba(0,242,255,0.1);border:1px solid rgba(0,242,255,0.3);color:#00f2ff;">{b['text']}</span>""" for b in badges])
+    return f"""<div style="font-family:'Cairo',sans-serif;direction:rtl;color:#e2e8f0;"><p style="color:#94a3b8;font-size:1rem;margin:0 0 1.5rem;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:15px;">{data.get('subtitle', '')}</p><div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:2rem;">{kpi_html}</div>{f'<div style="font-weight:900;font-size:1rem;color:#64748b;text-transform:uppercase;margin:1.5rem 0 1rem;">{get_icon("chart",18)} المؤشرات الحيوية</div>{bar_html}' if bar_html else ''}{f'<div style="font-weight:900;font-size:1rem;color:#64748b;text-transform:uppercase;margin:2rem 0 1rem;">{get_icon("check",18)} التصنيفات الاستراتيجية</div><div>{badge_html}</div>' if badge_html else ''}</div>"""
 
 def create_export_buttons(title, df_dict):
-    html_content = f"""<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-    <head><meta charset='utf-8'><title>{title}</title>
-    <style>
-        body{{font-family: Arial, sans-serif; direction: rtl; text-align: right; background-color: #ffffff; color: #000000;}} 
-        table{{border-collapse: collapse; width: 100%; margin-bottom: 25px; font-size: 14px;}} 
-        th, td{{border: 1px solid #aaaaaa; padding: 10px; text-align: center;}} 
-        th{{background-color: #00f2ff; color: #000000; font-weight: bold;}} 
-        h1{{color: #7000ff; text-align: center; border-bottom: 2px solid #00f2ff; padding-bottom: 10px;}}
-        h3{{color: #333333; margin-top: 30px; background-color: #f4f4f4; padding: 8px; border-radius: 5px;}}
-        .footer{{text-align: center; color: #666666; margin-top: 40px; font-size: 12px;}}
-    </style>
-    </head>
-    <body>
-        <h1>{title}</h1>
-        <p style='text-align: center; font-weight: bold;'>تاريخ الاستخراج: {get_local_now().strftime('%Y-%m-%d %H:%M')}</p>
-    """
-    
-    html_content_pdf = html_content
-    
-    has_data = False
-    for section, df_val in df_dict.items():
-        raw_df = df_val.data if hasattr(df_val, 'data') else df_val
-        if not raw_df.empty:
-            has_data = True
-            safe_raw = raw_df.copy()
-            for col in safe_raw.select_dtypes(include=['object']).columns:
-                safe_raw[col] = safe_raw[col].astype(str)
-            table_html = f"<h3>{section}</h3>{safe_raw.to_html(index=False)}"
-            html_content += table_html
-            html_content_pdf += table_html
-    
-    if not has_data:
-        err_msg = "<p style='text-align: center; color: red;'>لا توجد بيانات متاحة للتصدير في هذه الفترة.</p>"
-        html_content += err_msg
-        html_content_pdf += err_msg
-        
-    html_content += "<div class='footer'>تم استخراج هذا التقرير تلقائياً من نظام MUDIR OS</div></body></html>"
-    html_content_pdf += "<div class='footer'>تم استخراج هذا التقرير تلقائياً من نظام MUDIR OS</div><script>window.onload = function() { window.print(); }</script></body></html>"
-    
-    c1, c2 = st.columns(2)
-    with c1:
-        st.download_button(label="حفظ التقرير بصيغة Word", data=html_content.encode('utf-8-sig'), file_name=f"Report_{title}.doc", mime="application/msword", use_container_width=True)
-    with c2:
-        st.download_button(label="استخراج للطباعة وحفظ (PDF)", data=html_content_pdf.encode('utf-8-sig'), file_name=f"Report_{title}.html", mime="text/html", help="سيتم تحميل ملف، بمجرد فتحه ستظهر لك شاشة حفظ بصيغة PDF تلقائياً.", use_container_width=True)
+    html_content = f"""<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+    <head><meta charset='utf-8'><title>{title}</title>
+    <style>
+        body{{font-family: Arial, sans-serif; direction: rtl; text-align: right; background-color: #ffffff; color: #000000;}} 
+        table{{border-collapse: collapse; width: 100%; margin-bottom: 25px; font-size: 14px;}} 
+        th, td{{border: 1px solid #aaaaaa; padding: 10px; text-align: center;}} 
+        th{{background-color: #00f2ff; color: #000000; font-weight: bold;}} 
+        h1{{color: #7000ff; text-align: center; border-bottom: 2px solid #00f2ff; padding-bottom: 10px;}}
+        h3{{color: #333333; margin-top: 30px; background-color: #f4f4f4; padding: 8px; border-radius: 5px;}}
+        .footer{{text-align: center; color: #666666; margin-top: 40px; font-size: 12px;}}
+    </style>
+    </head>
+    <body>
+        <h1>{title}</h1>
+        <p style='text-align: center; font-weight: bold;'>تاريخ الاستخراج: {get_local_now().strftime('%Y-%m-%d %H:%M')}</p>
+    """
+    
+    html_content_pdf = html_content
+    
+    has_data = False
+    for section, df_val in df_dict.items():
+        raw_df = df_val.data if hasattr(df_val, 'data') else df_val
+        if not raw_df.empty:
+            has_data = True
+            safe_raw = raw_df.copy()
+            for col in safe_raw.select_dtypes(include=['object']).columns:
+                safe_raw[col] = safe_raw[col].astype(str)
+            table_html = f"<h3>{section}</h3>{safe_raw.to_html(index=False)}"
+            html_content += table_html
+            html_content_pdf += table_html
+    
+    if not has_data:
+        err_msg = "<p style='text-align: center; color: red;'>لا توجد بيانات متاحة للتصدير في هذه الفترة.</p>"
+        html_content += err_msg
+        html_content_pdf += err_msg
+        
+    html_content += "<div class='footer'>تم استخراج هذا التقرير تلقائياً من نظام MUDIR OS</div></body></html>"
+    html_content_pdf += "<div class='footer'>تم استخراج هذا التقرير تلقائياً من نظام MUDIR OS</div><script>window.onload = function() { window.print(); }</script></body></html>"
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        st.download_button(label="حفظ التقرير بصيغة Word", data=html_content.encode('utf-8-sig'), file_name=f"Report_{title}.doc", mime="application/msword", use_container_width=True)
+    with c2:
+        st.download_button(label="استخراج للطباعة وحفظ (PDF)", data=html_content_pdf.encode('utf-8-sig'), file_name=f"Report_{title}.html", mime="text/html", help="سيتم تحميل ملف، بمجرد فتحه ستظهر لك شاشة حفظ بصيغة PDF تلقائياً.", use_container_width=True)
 
 def render_filters_and_export(title, original_df_dict):
-    st.markdown("#### 🔍 فلاتر البيانات الحية للجدول الشامل")
-    
-    all_clients = ['الكل']
-    for df_val in original_df_dict.values():
-        df = df_val.data if hasattr(df_val, 'data') else df_val
-        if df is not None and not df.empty:
-            if 'العميل' in df.columns: all_clients.extend(df['العميل'].dropna().astype(str).unique())
-            elif 'المورد' in df.columns: all_clients.extend(df['المورد'].dropna().astype(str).unique())
-            elif 'اسم الجهة' in df.columns: all_clients.extend(df['اسم الجهة'].dropna().astype(str).unique())
-                
-    all_clients = list(dict.fromkeys(all_clients))
-    
-    c1, c2, c3 = st.columns(3)
-    with c1: selected_state = st.selectbox("تصفية بحالة العروض/الأوامر:", ['الكل', 'موافق عليه', 'مسودة', 'ملغي', 'معتمد', 'مسودة / قيد الانتظار'], key=f"state_{title}")
-    with c2: selected_client = st.selectbox("العميل / المورد / الجهة:", all_clients, key=f"client_{title}")
-    with c3: date_filter = st.date_input("تحديد فترة (من - إلى):", value=[], key=f"date_{title}")
+    st.markdown("#### 🔍 فلاتر البيانات الحية للجدول الشامل")
+    
+    all_clients = ['الكل']
+    for df_val in original_df_dict.values():
+        df = df_val.data if hasattr(df_val, 'data') else df_val
+        if df is not None and not df.empty:
+            if 'العميل' in df.columns: all_clients.extend(df['العميل'].dropna().astype(str).unique())
+            elif 'المورد' in df.columns: all_clients.extend(df['المورد'].dropna().astype(str).unique())
+            elif 'اسم الجهة' in df.columns: all_clients.extend(df['اسم الجهة'].dropna().astype(str).unique())
+                
+    all_clients = list(dict.fromkeys(all_clients))
+    
+    c1, c2, c3 = st.columns(3)
+    with c1: selected_state = st.selectbox("تصفية بحالة العروض/الأوامر:", ['الكل', 'موافق عليه', 'مسودة', 'ملغي', 'معتمد', 'مسودة / قيد الانتظار'], key=f"state_{title}")
+    with c2: selected_client = st.selectbox("العميل / المورد / الجهة:", all_clients, key=f"client_{title}")
+    with c3: date_filter = st.date_input("تحديد فترة (من - إلى):", value=[], key=f"date_{title}")
 
-    filtered_dict = {}
-    for name, df_val in original_df_dict.items():
-        df = df_val.data.copy() if hasattr(df_val, 'data') else df_val.copy()
-        if not df.empty:
-            if selected_state != 'الكل':
-                if 'الحالة (عربي)' in df.columns: df = df[df['الحالة (عربي)'] == selected_state]
-                elif 'الحالة' in df.columns: df = df[df['الحالة'] == selected_state]
-            if selected_client != 'الكل':
-                if 'العميل' in df.columns: df = df[df['العميل'] == selected_client]
-                elif 'المورد' in df.columns: df = df[df['المورد'] == selected_client]
-                elif 'اسم الجهة' in df.columns: df = df[df['اسم الجهة'] == selected_client]
-            if len(date_filter) == 2:
-                start_date, end_date = date_filter
-                start_dt = pd.to_datetime(start_date)
-                end_dt = pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
-                if 'التاريخ' in df.columns:
-                    try:
-                        temp_dt = pd.to_datetime(df['التاريخ'])
-                        df = df[(temp_dt >= start_dt) & (temp_dt <= end_dt)]
-                    except: pass
-        filtered_dict[name] = style_dataframe(df)
-        
-    st.markdown("<hr style='border-color: rgba(255,255,255,0.1); margin: 25px 0;'>", unsafe_allow_html=True)
-    create_export_buttons(title, filtered_dict)
-    return filtered_dict
+    filtered_dict = {}
+    for name, df_val in original_df_dict.items():
+        df = df_val.data.copy() if hasattr(df_val, 'data') else df_val.copy()
+        if not df.empty:
+            if selected_state != 'الكل':
+                if 'الحالة (عربي)' in df.columns: df = df[df['الحالة (عربي)'] == selected_state]
+                elif 'الحالة' in df.columns: df = df[df['الحالة'] == selected_state]
+            if selected_client != 'الكل':
+                if 'العميل' in df.columns: df = df[df['العميل'] == selected_client]
+                elif 'المورد' in df.columns: df = df[df['المورد'] == selected_client]
+                elif 'اسم الجهة' in df.columns: df = df[df['اسم الجهة'] == selected_client]
+            if len(date_filter) == 2:
+                start_date, end_date = date_filter
+                start_dt = pd.to_datetime(start_date)
+                end_dt = pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+                if 'التاريخ' in df.columns:
+                    try:
+                        temp_dt = pd.to_datetime(df['التاريخ'])
+                        df = df[(temp_dt >= start_dt) & (temp_dt <= end_dt)]
+                    except: pass
+        filtered_dict[name] = style_dataframe(df)
+        
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.1); margin: 25px 0;'>", unsafe_allow_html=True)
+    create_export_buttons(title, filtered_dict)
+    return filtered_dict
 
 @st.dialog("التحليل الاستراتيجي التفصيلي والتصدير", width="large")
 def show_detailed_report(title: str, data: dict):
-    st.markdown(f"<h3 style='color:var(--c-primary); margin-top:0; margin-bottom: 20px;'>{title}</h3>", unsafe_allow_html=True)
-    
-    df_dict = {}
-    if 'df' in data and data['df'] is not None:
-        if isinstance(data['df'], dict): df_dict = data['df']
-        else: df_dict = {"البيانات التفصيلية": data['df']}
-            
-    filtered_dict = {}
-    if df_dict:
-        filtered_dict = render_filters_and_export(title, df_dict)
-        st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 20px 0;'>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='color:var(--c-primary); margin-top:0; margin-bottom: 20px;'>{title}</h3>", unsafe_allow_html=True)
+    
+    df_dict = {}
+    if 'df' in data and data['df'] is not None:
+        if isinstance(data['df'], dict): df_dict = data['df']
+        else: df_dict = {"البيانات التفصيلية": data['df']}
+            
+    filtered_dict = {}
+    if df_dict:
+        filtered_dict = render_filters_and_export(title, df_dict)
+        st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 20px 0;'>", unsafe_allow_html=True)
 
-    if 'kpis' in data or 'bars' in data or 'badges' in data:
-        st.markdown(build_infographic_html(data), unsafe_allow_html=True)
-    
-    if filtered_dict:
-        st.markdown(f"""<div style="margin-top:25px; margin-bottom:15px; font-weight:900; font-size:1.1rem; color:var(--c-primary); display:flex; align-items:center; gap:8px;">{get_icon('table', 20)} استعراض السجل الشامل (بعد الفلترة)</div>""", unsafe_allow_html=True)
-        
-        tab_titles = []
-        for tab_name, df_val in filtered_dict.items():
-            raw_check = df_val.data if hasattr(df_val, 'data') else df_val
-            row_count = len(raw_check) if not raw_check.empty else 0
-            tab_titles.append(f"{tab_name} ({row_count})")
-            
-        tabs = st.tabs(tab_titles)
-        for i, (tab_name, df_val) in enumerate(filtered_dict.items()):
-            with tabs[i]:
-                raw_check = df_val.data if hasattr(df_val, 'data') else df_val
-                if not raw_check.empty: st.dataframe(df_val, use_container_width=True, hide_index=True)
-                else: st.info("لا توجد بيانات مطابقة للفلاتر التي قمت بتحديدها.")
+    if 'kpis' in data or 'bars' in data or 'badges' in data:
+        st.markdown(build_infographic_html(data), unsafe_allow_html=True)
+    
+    if filtered_dict:
+        st.markdown(f"""<div style="margin-top:25px; margin-bottom:15px; font-weight:900; font-size:1.1rem; color:var(--c-primary); display:flex; align-items:center; gap:8px;">{get_icon('table', 20)} استعراض السجل الشامل (بعد الفلترة)</div>""", unsafe_allow_html=True)
+        
+        tab_titles = []
+        for tab_name, df_val in filtered_dict.items():
+            raw_check = df_val.data if hasattr(df_val, 'data') else df_val
+            row_count = len(raw_check) if not raw_check.empty else 0
+            tab_titles.append(f"{tab_name} ({row_count})")
+            
+        tabs = st.tabs(tab_titles)
+        for i, (tab_name, df_val) in enumerate(filtered_dict.items()):
+            with tabs[i]:
+                raw_check = df_val.data if hasattr(df_val, 'data') else df_val
+                if not raw_check.empty: st.dataframe(df_val, use_container_width=True, hide_index=True)
+                else: st.info("لا توجد بيانات مطابقة للفلاتر التي قمت بتحديدها.")
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("إغلاق التقرير", type="primary", use_container_width=True):
-        st.rerun()
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("إغلاق التقرير", type="primary", use_container_width=True):
+        st.rerun()
 
 def render_dashboard():
-    
-    st.markdown(f"""
-    <div class="page-header" style="justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 24px;">
-            <div class="ph-icon-wrap">{get_icon("dashboard", 46, "#00f2ff")}</div>
-            <div>
-                <div class="ph-title">لوحة القيادة المركزية</div>
-                <div class="ph-sub">إصدار QUANTUM: استخراج ذكي يفصل بين العميل/المورد والمشروع/المنتج بدقة مطلقة.</div>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    
+    st.markdown(f"""
+    <div class="page-header" style="justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 24px;">
+            <div class="ph-icon-wrap">{get_icon("dashboard", 46, "#00f2ff")}</div>
+            <div>
+                <div class="ph-title">لوحة القيادة المركزية</div>
+                <div class="ph-sub">إصدار QUANTUM: استخراج ذكي يفصل بين العميل/المورد والمشروع/المنتج بدقة مطلقة.</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    st.markdown("<div class='g-card' style='padding: 1.5rem; margin-bottom: 2rem; margin-top: 1rem;'>", unsafe_allow_html=True)
-    start_dt, end_dt, prev_start_dt, prev_end_dt = get_smart_filter_dates("dash")
-    st.markdown("</div>", unsafe_allow_html=True)
-    
-    df_s = df_s_master.copy()
-    df_po = df_po_master.copy()
-    df_p = df_p_master.copy()
-    df_i = df_i_master.copy()
-    df_pol = df_pol_master.copy()
-    
-    t_sales_appr_prev = t_orders_appr_prev = t_po_appr_prev = 0
-    if prev_start_dt and prev_end_dt:
-        if not df_s_master.empty and 'date_order' in df_s_master.columns:
-            prev_df_s = df_s_master[(df_s_master['date_order'] >= prev_start_dt) & (df_s_master['date_order'] <= prev_end_dt)]
-            t_sales_appr_prev = prev_df_s[prev_df_s['state'].isin(['sale', 'done'])]['amount_total'].sum()
-            t_orders_appr_prev = prev_df_s[prev_df_s['state'].isin(['sale', 'done'])].shape[0]
-        if not df_po_master.empty and 'date_order' in df_po_master.columns:
-            prev_df_po = df_po_master[(df_po_master['date_order'] >= prev_start_dt) & (df_po_master['date_order'] <= prev_end_dt)]
-            t_po_appr_prev = prev_df_po[prev_df_po['state'].isin(['purchase', 'done'])]['amount_total'].sum()
+    st.markdown("<div class='g-card' style='padding: 1.5rem; margin-bottom: 2rem; margin-top: 1rem;'>", unsafe_allow_html=True)
+    start_dt, end_dt, prev_start_dt, prev_end_dt = get_smart_filter_dates("dash")
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    df_s = df_s_master.copy()
+    df_po = df_po_master.copy()
+    df_p = df_p_master.copy()
+    df_i = df_i_master.copy()
+    df_pol = df_pol_master.copy()
+    
+    t_sales_appr_prev = t_orders_appr_prev = t_po_appr_prev = 0
+    if prev_start_dt and prev_end_dt:
+        if not df_s_master.empty and 'date_order' in df_s_master.columns:
+            prev_df_s = df_s_master[(df_s_master['date_order'] >= prev_start_dt) & (df_s_master['date_order'] <= prev_end_dt)]
+            t_sales_appr_prev = prev_df_s[prev_df_s['state'].isin(['sale', 'done'])]['amount_total'].sum()
+            t_orders_appr_prev = prev_df_s[prev_df_s['state'].isin(['sale', 'done'])].shape[0]
+        if not df_po_master.empty and 'date_order' in df_po_master.columns:
+            prev_df_po = df_po_master[(df_po_master['date_order'] >= prev_start_dt) & (df_po_master['date_order'] <= prev_end_dt)]
+            t_po_appr_prev = prev_df_po[prev_df_po['state'].isin(['purchase', 'done'])]['amount_total'].sum()
 
-    if start_dt and end_dt:
-        if not df_s.empty and 'date_order' in df_s.columns: df_s = df_s[(df_s['date_order'] >= start_dt) & (df_s['date_order'] <= end_dt)]
-        if not df_po.empty and 'date_order' in df_po.columns: df_po = df_po[(df_po['date_order'] >= start_dt) & (df_po['date_order'] <= end_dt)]
+    if start_dt and end_dt:
+        if not df_s.empty and 'date_order' in df_s.columns: df_s = df_s[(df_s['date_order'] >= start_dt) & (df_s['date_order'] <= end_dt)]
+        if not df_po.empty and 'date_order' in df_po.columns: df_po = df_po[(df_po['date_order'] >= start_dt) & (df_po['date_order'] <= end_dt)]
 
-    with st.expander("فلاتر إضافية للوحة القيادة", expanded=False):
-        fc1, fc2 = st.columns(2)
-        filtered_s = df_s.copy() if not df_s.empty else pd.DataFrame()
-        with fc1:
-            states = df_s['state'].dropna().unique().tolist() if not df_s.empty and 'state' in df_s.columns else []
-            sel_states = st.multiselect("حالة الطلب", states, default=states)
-        with fc2:
-            if not df_s.empty and 'amount_total' in df_s.columns:
-                a_min, a_max = int(df_s['amount_total'].min()), int(df_s['amount_total'].max())
-                if a_min < a_max: amt_range = st.slider("نطاق القيمة", min_value=a_min, max_value=a_max, value=(a_min, a_max))
-                else: amt_range = (a_min, a_max)
-            else: amt_range = None
+    with st.expander("فلاتر إضافية للوحة القيادة", expanded=False):
+        fc1, fc2 = st.columns(2)
+        filtered_s = df_s.copy() if not df_s.empty else pd.DataFrame()
+        with fc1:
+            states = df_s['state'].dropna().unique().tolist() if not df_s.empty and 'state' in df_s.columns else []
+            sel_states = st.multiselect("حالة الطلب", states, default=states)
+        with fc2:
+            if not df_s.empty and 'amount_total' in df_s.columns:
+                a_min, a_max = int(df_s['amount_total'].min()), int(df_s['amount_total'].max())
+                if a_min < a_max: amt_range = st.slider("نطاق القيمة", min_value=a_min, max_value=a_max, value=(a_min, a_max))
+                else: amt_range = (a_min, a_max)
+            else: amt_range = None
 
-        if not filtered_s.empty:
-            if sel_states: filtered_s = filtered_s[filtered_s['state'].isin(sel_states)]
-            if amt_range: filtered_s = filtered_s[(filtered_s['amount_total'] >= amt_range[0]) & (filtered_s['amount_total'] <= amt_range[1])]
+        if not filtered_s.empty:
+            if sel_states: filtered_s = filtered_s[filtered_s['state'].isin(sel_states)]
+            if amt_range: filtered_s = filtered_s[(filtered_s['amount_total'] >= amt_range[0]) & (filtered_s['amount_total'] <= amt_range[1])]
 
-    is_approved = filtered_s['state'].isin(['sale', 'done']) if 'state' in filtered_s.columns else pd.Series(dtype=bool)
-    is_draft = filtered_s['state'].isin(['draft', 'sent']) if 'state' in filtered_s.columns else pd.Series(dtype=bool)
-    is_cancel = filtered_s['state'] == 'cancel' if 'state' in filtered_s.columns else pd.Series(dtype=bool)
+    is_approved = filtered_s['state'].isin(['sale', 'done']) if 'state' in filtered_s.columns else pd.Series(dtype=bool)
+    is_draft = filtered_s['state'].isin(['draft', 'sent']) if 'state' in filtered_s.columns else pd.Series(dtype=bool)
+    is_cancel = filtered_s['state'] == 'cancel' if 'state' in filtered_s.columns else pd.Series(dtype=bool)
 
-    t_sales_appr = filtered_s.loc[is_approved, 'amount_total'].sum() if not filtered_s.empty else 0
-    t_sales_draft = filtered_s.loc[is_draft, 'amount_total'].sum() if not filtered_s.empty else 0
-    t_sales_canc = filtered_s.loc[is_cancel, 'amount_total'].sum() if not filtered_s.empty else 0
-    t_orders_appr = is_approved.sum() if not is_approved.empty else 0
-    t_orders_draft = is_draft.sum() if not is_draft.empty else 0
-    t_orders_canc = is_cancel.sum() if not is_cancel.empty else 0
-    t_clients = len(df_p) if df_p is not None else 0
+    t_sales_appr = filtered_s.loc[is_approved, 'amount_total'].sum() if not filtered_s.empty else 0
+    t_sales_draft = filtered_s.loc[is_draft, 'amount_total'].sum() if not filtered_s.empty else 0
+    t_sales_canc = filtered_s.loc[is_cancel, 'amount_total'].sum() if not filtered_s.empty else 0
+    t_orders_appr = is_approved.sum() if not is_approved.empty else 0
+    t_orders_draft = is_draft.sum() if not is_draft.empty else 0
+    t_orders_canc = is_cancel.sum() if not is_cancel.empty else 0
+    t_clients = len(df_p) if df_p is not None else 0
 
-    is_po_appr = df_po['state'].isin(['purchase', 'done']) if not df_po.empty else pd.Series(dtype=bool)
-    t_po_appr = df_po.loc[is_po_appr, 'amount_total'].sum() if not df_po.empty else 0
-    t_po_draft = df_po.loc[~is_po_appr, 'amount_total'].sum() if not df_po.empty else 0
+    is_po_appr = df_po['state'].isin(['purchase', 'done']) if not df_po.empty else pd.Series(dtype=bool)
+    t_po_appr = df_po.loc[is_po_appr, 'amount_total'].sum() if not df_po.empty else 0
+    t_po_draft = df_po.loc[~is_po_appr, 'amount_total'].sum() if not df_po.empty else 0
 
-    top_item_name, top_item_qty, top_item_code = "لا يوجد", 0, "-"
-    if not df_i.empty and 'qty_available' in df_i.columns:
-        idx_max = df_i['qty_available'].idxmax()
-        if pd.notna(idx_max):
-            top_row = df_i.loc[idx_max]
-            top_item_name = str(top_row['name'])
-            top_item_qty = float(top_row['qty_available'])
-            top_item_code = str(top_row.get('default_code', '-'))
+    top_item_name, top_item_qty, top_item_code = "لا يوجد", 0, "-"
+    if not df_i.empty and 'qty_available' in df_i.columns:
+        idx_max = df_i['qty_available'].idxmax()
+        if pd.notna(idx_max):
+            top_row = df_i.loc[idx_max]
+            top_item_name = str(top_row['name'])
+            top_item_qty = float(top_row['qty_available'])
+            top_item_code = str(top_row.get('default_code', '-'))
 
-    clean_s = filtered_s.copy() if not filtered_s.empty else pd.DataFrame()
-    if not clean_s.empty:
-        clean_s['العميل'] = clean_s['partner_id'].apply(clean_odoo_m2o) if 'partner_id' in clean_s else ""
-        clean_s['المسؤول'] = clean_s['user_id'].apply(clean_odoo_m2o) if 'user_id' in clean_s else ""
-        clean_s['المشروع / القسم'] = clean_s.apply(extract_department_from_row, axis=1)
-        clean_s['المشروع / القسم'] = clean_s['المشروع / القسم'].apply(clean_department_name)
-        clean_s['الحالة (عربي)'] = clean_s['state'].apply(map_state_ar)
-        clean_s = clean_s.rename(columns={'name': 'رقم الطلب', 'amount_total': 'القيمة (ج.م)'})
-        if 'date_order' in clean_s: clean_s['التاريخ'] = clean_s['date_order'].dt.strftime('%Y-%m-%d')
-        clean_s = clean_s[[c for c in ['رقم الطلب', 'العميل', 'القيمة (ج.م)', 'التاريخ', 'الحالة (عربي)', 'المشروع / القسم', 'المسؤول'] if c in clean_s.columns]]
+    clean_s = filtered_s.copy() if not filtered_s.empty else pd.DataFrame()
+    if not clean_s.empty:
+        clean_s['العميل'] = clean_s['partner_id'].apply(clean_odoo_m2o) if 'partner_id' in clean_s else ""
+        clean_s['المسؤول'] = clean_s['user_id'].apply(clean_odoo_m2o) if 'user_id' in clean_s else ""
+        clean_s['المشروع / القسم'] = clean_s.apply(extract_department_from_row, axis=1)
+        clean_s['المشروع / القسم'] = clean_s['المشروع / القسم'].apply(clean_department_name)
+        clean_s['الحالة (عربي)'] = clean_s['state'].apply(map_state_ar)
+        clean_s = clean_s.rename(columns={'name': 'رقم الطلب', 'amount_total': 'القيمة (ج.م)'})
+        if 'date_order' in clean_s: clean_s['التاريخ'] = clean_s['date_order'].dt.strftime('%Y-%m-%d')
+        clean_s = clean_s[[c for c in ['رقم الطلب', 'العميل', 'القيمة (ج.م)', 'التاريخ', 'الحالة (عربي)', 'المشروع / القسم', 'المسؤول'] if c in clean_s.columns]]
 
-    clean_p = df_p.copy() if not df_p.empty else pd.DataFrame()
-    if not clean_p.empty:
-        if 'total_invoiced' in clean_p.columns:
-            clean_p = clean_p.sort_values('total_invoiced', ascending=False)
-        rename_dict_p = {'name': 'اسم الجهة', 'city': 'المدينة', 'total_invoiced': 'إجمالي الفواتير (ج.م)', 'phone': 'الهاتف'}
-        clean_p = clean_p.rename(columns={k:v for k,v in rename_dict_p.items() if k in clean_p.columns})
-        clean_p = clean_p[[c for c in ['اسم الجهة', 'المدينة', 'إجمالي الفواتير (ج.م)', 'الهاتف'] if c in clean_p.columns]]
+    clean_p = df_p.copy() if not df_p.empty else pd.DataFrame()
+    if not clean_p.empty:
+        if 'total_invoiced' in clean_p.columns:
+            clean_p = clean_p.sort_values('total_invoiced', ascending=False)
+        rename_dict_p = {'name': 'اسم الجهة', 'city': 'المدينة', 'total_invoiced': 'إجمالي الفواتير (ج.م)', 'phone': 'الهاتف'}
+        clean_p = clean_p.rename(columns={k:v for k,v in rename_dict_p.items() if k in clean_p.columns})
+        clean_p = clean_p[[c for c in ['اسم الجهة', 'المدينة', 'إجمالي الفواتير (ج.م)', 'الهاتف'] if c in clean_p.columns]]
 
-    clean_i = df_i.copy() if not df_i.empty else pd.DataFrame()
-    if not clean_i.empty:
-        if 'qty_available' in clean_i.columns:
-            clean_i = clean_i.sort_values('qty_available', ascending=False)
-        rename_dict_i = {'default_code': 'الكود', 'name': 'المنتج', 'qty_available': 'الكمية المتاحة', 'lst_price': 'السعر (ج.م)'}
-        clean_i = clean_i.rename(columns={k:v for k,v in rename_dict_i.items() if k in clean_i.columns})
-        clean_i = clean_i[[c for c in ['الكود', 'المنتج', 'الكمية المتاحة', 'السعر (ج.م)'] if c in clean_i.columns]]
+    clean_i = df_i.copy() if not df_i.empty else pd.DataFrame()
+    if not clean_i.empty:
+        if 'qty_available' in clean_i.columns:
+            clean_i = clean_i.sort_values('qty_available', ascending=False)
+        rename_dict_i = {'default_code': 'الكود', 'name': 'المنتج', 'qty_available': 'الكمية المتاحة', 'lst_price': 'السعر (ج.م)'}
+        clean_i = clean_i.rename(columns={k:v for k,v in rename_dict_i.items() if k in clean_i.columns})
+        clean_i = clean_i[[c for c in ['الكود', 'المنتج', 'الكمية المتاحة', 'السعر (ج.م)'] if c in clean_i.columns]]
 
-    clean_po = df_po.copy() if not df_po.empty else pd.DataFrame()
-    if not clean_po.empty:
-        clean_po['المورد'] = clean_po['partner_id'].apply(clean_odoo_m2o) if 'partner_id' in clean_po else ""
-        clean_po['الحالة'] = clean_po['state'].apply(map_po_state_ar)
-        clean_po = clean_po.rename(columns={'name': 'رقم الأمر', 'amount_total': 'القيمة (ج.م)'})
-        if 'date_order' in clean_po: clean_po['التاريخ'] = clean_po['date_order'].dt.strftime('%Y-%m-%d')
-        clean_po = clean_po[[c for c in ['رقم الأمر', 'المورد', 'القيمة (ج.م)', 'التاريخ', 'الحالة'] if c in clean_po.columns]]
+    clean_po = df_po.copy() if not df_po.empty else pd.DataFrame()
+    if not clean_po.empty:
+        clean_po['المورد'] = clean_po['partner_id'].apply(clean_odoo_m2o) if 'partner_id' in clean_po else ""
+        clean_po['الحالة'] = clean_po['state'].apply(map_po_state_ar)
+        clean_po = clean_po.rename(columns={'name': 'رقم الأمر', 'amount_total': 'القيمة (ج.م)'})
+        if 'date_order' in clean_po: clean_po['التاريخ'] = clean_po['date_order'].dt.strftime('%Y-%m-%d')
+        clean_po = clean_po[[c for c in ['رقم الأمر', 'المورد', 'القيمة (ج.م)', 'التاريخ', 'الحالة'] if c in clean_po.columns]]
 
-    clean_pol = df_pol.copy() if not df_pol.empty else pd.DataFrame()
-    if not clean_pol.empty:
-        if 'product_id' in clean_pol.columns:
-            clean_pol['المنتج / المادة'] = clean_pol['product_id'].apply(clean_odoo_m2o)
-            clean_pol = clean_pol.groupby('المنتج / المادة').agg({'product_qty': 'sum', 'price_subtotal': 'sum'}).reset_index()
-            if 'product_qty' in clean_pol.columns:
-                clean_pol = clean_pol.sort_values('product_qty', ascending=False)
-            clean_pol = clean_pol.rename(columns={'product_qty': 'الكمية المطلوبة', 'price_subtotal': 'إجمالي التكلفة (ج.م)'})
+    clean_pol = df_pol.copy() if not df_pol.empty else pd.DataFrame()
+    if not clean_pol.empty:
+        if 'product_id' in clean_pol.columns:
+            clean_pol['المنتج / المادة'] = clean_pol['product_id'].apply(clean_odoo_m2o)
+            clean_pol = clean_pol.groupby('المنتج / المادة').agg({'product_qty': 'sum', 'price_subtotal': 'sum'}).reset_index()
+            if 'product_qty' in clean_pol.columns:
+                clean_pol = clean_pol.sort_values('product_qty', ascending=False)
+            clean_pol = clean_pol.rename(columns={'product_qty': 'الكمية المطلوبة', 'price_subtotal': 'إجمالي التكلفة (ج.م)'})
 
-    if not clean_s.empty and 'الحالة (عربي)' in clean_s.columns:
-        s_appr = clean_s[clean_s['الحالة (عربي)'] == 'موافق عليه']
-        s_draft = clean_s[clean_s['الحالة (عربي)'] == 'مسودة']
-        s_canc = clean_s[clean_s['الحالة (عربي)'] == 'ملغي']
-    else:
-        s_appr = pd.DataFrame()
-        s_draft = pd.DataFrame()
-        s_canc = pd.DataFrame()
+    if not clean_s.empty and 'الحالة (عربي)' in clean_s.columns:
+        s_appr = clean_s[clean_s['الحالة (عربي)'] == 'موافق عليه']
+        s_draft = clean_s[clean_s['الحالة (عربي)'] == 'مسودة']
+        s_canc = clean_s[clean_s['الحالة (عربي)'] == 'ملغي']
+    else:
+        s_appr = pd.DataFrame()
+        s_draft = pd.DataFrame()
+        s_canc = pd.DataFrame()
 
-    split_sales_dict = {
-        "السجل الشامل للعروض والطلبات": style_dataframe(clean_s), 
-        "موافق عليه": style_dataframe(s_appr), 
-        "مسودة": style_dataframe(s_draft), 
-        "ملغي": style_dataframe(s_canc)
-    }
+    split_sales_dict = {
+        "السجل الشامل للعروض والطلبات": style_dataframe(clean_s), 
+        "موافق عليه": style_dataframe(s_appr), 
+        "مسودة": style_dataframe(s_draft), 
+        "ملغي": style_dataframe(s_canc)
+    }
 
-    if not clean_po.empty and 'المورد' in clean_po.columns:
-        po_appr = clean_po[clean_po['الحالة'] == 'معتمد']
-        po_draft = clean_po[clean_po['الحالة'] == 'مسودة / قيد الانتظار']
-        po_canc = clean_po[clean_po['الحالة'] == 'ملغي']
+    if not clean_po.empty and 'المورد' in clean_po.columns:
+        po_appr = clean_po[clean_po['الحالة'] == 'معتمد']
+        po_draft = clean_po[clean_po['الحالة'] == 'مسودة / قيد الانتظار']
+        po_canc = clean_po[clean_po['الحالة'] == 'ملغي']
 
-        po_count_all = clean_po.groupby('المورد')['رقم الأمر'].count().reset_index().rename(columns={'رقم الأمر': 'العدد الكلي'})
-        po_sum_all = clean_po.groupby('المورد')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'القيمة الكلية (ج.م)'})
+        po_count_all = clean_po.groupby('المورد')['رقم الأمر'].count().reset_index().rename(columns={'رقم الأمر': 'العدد الكلي'})
+        po_sum_all = clean_po.groupby('المورد')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'القيمة الكلية (ج.م)'})
 
-        po_count_appr = po_appr.groupby('المورد')['رقم الأمر'].count().reset_index().rename(columns={'رقم الأمر': 'عدد (معتمد)'}) if not po_appr.empty else pd.DataFrame(columns=['المورد', 'عدد (معتمد)'])
-        po_sum_appr = po_appr.groupby('المورد')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'قيمة (معتمد)'}) if not po_appr.empty else pd.DataFrame(columns=['المورد', 'قيمة (معتمد)'])
+        po_count_appr = po_appr.groupby('المورد')['رقم الأمر'].count().reset_index().rename(columns={'رقم الأمر': 'عدد (معتمد)'}) if not po_appr.empty else pd.DataFrame(columns=['المورد', 'عدد (معتمد)'])
+        po_sum_appr = po_appr.groupby('المورد')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'قيمة (معتمد)'}) if not po_appr.empty else pd.DataFrame(columns=['المورد', 'قيمة (معتمد)'])
 
-        po_count_draft = po_draft.groupby('المورد')['رقم الأمر'].count().reset_index().rename(columns={'رقم الأمر': 'عدد (مسودة)'}) if not po_draft.empty else pd.DataFrame(columns=['المورد', 'عدد (مسودة)'])
-        po_sum_draft = po_draft.groupby('المورد')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'قيمة (مسودة)'}) if not po_draft.empty else pd.DataFrame(columns=['المورد', 'قيمة (مسودة)'])
+        po_count_draft = po_draft.groupby('المورد')['رقم الأمر'].count().reset_index().rename(columns={'رقم الأمر': 'عدد (مسودة)'}) if not po_draft.empty else pd.DataFrame(columns=['المورد', 'عدد (مسودة)'])
+        po_sum_draft = po_draft.groupby('المورد')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'قيمة (مسودة)'}) if not po_draft.empty else pd.DataFrame(columns=['المورد', 'قيمة (مسودة)'])
 
-        po_count_canc = po_canc.groupby('المورد')['رقم الأمر'].count().reset_index().rename(columns={'رقم الأمر': 'عدد (ملغي)'}) if not po_canc.empty else pd.DataFrame(columns=['المورد', 'عدد (ملغي)'])
-        po_sum_canc = po_canc.groupby('المورد')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'قيمة (ملغي)'}) if not po_canc.empty else pd.DataFrame(columns=['المورد', 'قيمة (ملغي)'])
+        po_count_canc = po_canc.groupby('المورد')['رقم الأمر'].count().reset_index().rename(columns={'رقم الأمر': 'عدد (ملغي)'}) if not po_canc.empty else pd.DataFrame(columns=['المورد', 'عدد (ملغي)'])
+        po_sum_canc = po_canc.groupby('المورد')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'قيمة (ملغي)'}) if not po_canc.empty else pd.DataFrame(columns=['المورد', 'قيمة (ملغي)'])
 
-        po_merged = po_count_all.merge(po_sum_all, on='المورد', how='left') \
-                              .merge(po_count_appr, on='المورد', how='left').merge(po_sum_appr, on='المورد', how='left') \
-                              .merge(po_count_draft, on='المورد', how='left').merge(po_sum_draft, on='المورد', how='left') \
-                              .merge(po_count_canc, on='المورد', how='left').merge(po_sum_canc, on='المورد', how='left').fillna(0)
-        
-        po_cols = ['المورد', 'العدد الكلي', 'القيمة الكلية (ج.م)', 'عدد (معتمد)', 'قيمة (معتمد)', 'عدد (مسودة)', 'قيمة (مسودة)', 'عدد (ملغي)', 'قيمة (ملغي)']
-        po_merged = po_merged[[c for c in po_cols if c in po_merged.columns]]
+        po_merged = po_count_all.merge(po_sum_all, on='المورد', how='left') \
+                              .merge(po_count_appr, on='المورد', how='left').merge(po_sum_appr, on='المورد', how='left') \
+                              .merge(po_count_draft, on='المورد', how='left').merge(po_sum_draft, on='المورد', how='left') \
+                              .merge(po_count_canc, on='المورد', how='left').merge(po_sum_canc, on='المورد', how='left').fillna(0)
+        
+        po_cols = ['المورد', 'العدد الكلي', 'القيمة الكلية (ج.م)', 'عدد (معتمد)', 'قيمة (معتمد)', 'عدد (مسودة)', 'قيمة (مسودة)', 'عدد (ملغي)', 'قيمة (ملغي)']
+        po_merged = po_merged[[c for c in po_cols if c in po_merged.columns]]
 
-        split_po_dict = {
-            "التحليل الشامل للموردين": style_dataframe(po_merged),
-            "الأقوى (معتمد)": style_dataframe(po_merged[['المورد', 'عدد (معتمد)', 'قيمة (معتمد)']]) if 'قيمة (معتمد)' in po_merged.columns else style_dataframe(pd.DataFrame()),
-            "قيد الانتظار (مسودة)": style_dataframe(po_merged[['المورد', 'عدد (مسودة)', 'قيمة (مسودة)']]) if 'قيمة (مسودة)' in po_merged.columns else style_dataframe(pd.DataFrame()),
-            "المنتجات / المواد الأكثر طلباً": style_dataframe(clean_pol)
-        }
-    else:
-        split_po_dict = {
-            "السجل الشامل للمشتريات": style_dataframe(clean_po),
-            "المنتجات / المواد الأكثر طلباً": style_dataframe(clean_pol)
-        }
+        split_po_dict = {
+            "التحليل الشامل للموردين": style_dataframe(po_merged),
+            "الأقوى (معتمد)": style_dataframe(po_merged[['المورد', 'عدد (معتمد)', 'قيمة (معتمد)']]) if 'قيمة (معتمد)' in po_merged.columns else style_dataframe(pd.DataFrame()),
+            "قيد الانتظار (مسودة)": style_dataframe(po_merged[['المورد', 'عدد (مسودة)', 'قيمة (مسودة)']]) if 'قيمة (مسودة)' in po_merged.columns else style_dataframe(pd.DataFrame()),
+            "المنتجات / المواد الأكثر طلباً": style_dataframe(clean_pol)
+        }
+    else:
+        split_po_dict = {
+            "السجل الشامل للمشتريات": style_dataframe(clean_po),
+            "المنتجات / المواد الأكثر طلباً": style_dataframe(clean_pol)
+        }
 
-    if not clean_s.empty and 'العميل' in clean_s.columns:
-        c_count_all = clean_s.groupby('العميل')['رقم الطلب'].count().reset_index().rename(columns={'رقم الطلب': 'العدد الكلي'})
-        c_sum_all = clean_s.groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'القيمة الكلية (ج.م)'})
-        
-        c_count_appr = s_appr.groupby('العميل')['رقم الطلب'].count().reset_index().rename(columns={'رقم الطلب': 'عدد (معتمد)'}) if not s_appr.empty else pd.DataFrame(columns=['العميل', 'عدد (معتمد)'])
-        c_sum_appr = s_appr.groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'قيمة (معتمد)'}) if not s_appr.empty else pd.DataFrame(columns=['العميل', 'قيمة (معتمد)'])
-        
-        c_count_draft = s_draft.groupby('العميل')['رقم الطلب'].count().reset_index().rename(columns={'رقم الطلب': 'عدد (مسودة)'}) if not s_draft.empty else pd.DataFrame(columns=['العميل', 'عدد (مسودة)'])
-        c_sum_draft = s_draft.groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'قيمة (مسودة)'}) if not s_draft.empty else pd.DataFrame(columns=['العميل', 'قيمة (مسودة)'])
-        
-        c_count_canc = s_canc.groupby('العميل')['رقم الطلب'].count().reset_index().rename(columns={'رقم الطلب': 'عدد (ملغي)'}) if not s_canc.empty else pd.DataFrame(columns=['العميل', 'عدد (ملغي)'])
-        c_sum_canc = s_canc.groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'قيمة (ملغي)'}) if not s_canc.empty else pd.DataFrame(columns=['العميل', 'قيمة (ملغي)'])
-        
-        c_merged = c_count_all.merge(c_sum_all, on='العميل', how='left') \
-                              .merge(c_count_appr, on='العميل', how='left').merge(c_sum_appr, on='العميل', how='left') \
-                              .merge(c_count_draft, on='العميل', how='left').merge(c_sum_draft, on='العميل', how='left') \
-                              .merge(c_count_canc, on='العميل', how='left').merge(c_sum_canc, on='العميل', how='left').fillna(0)
-        
-        if not clean_p.empty and 'اسم الجهة' in clean_p.columns:
-            p_info = clean_p[['اسم الجهة', 'المدينة', 'الهاتف']].drop_duplicates(subset=['اسم الجهة']).rename(columns={'اسم الجهة': 'العميل'}) if 'المدينة' in clean_p.columns and 'الهاتف' in clean_p.columns else pd.DataFrame()
-            if not p_info.empty:
-                c_merged = c_merged.merge(p_info, on='العميل', how='left').fillna('-')
+    if not clean_s.empty and 'العميل' in clean_s.columns:
+        c_count_all = clean_s.groupby('العميل')['رقم الطلب'].count().reset_index().rename(columns={'رقم الطلب': 'العدد الكلي'})
+        c_sum_all = clean_s.groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'القيمة الكلية (ج.م)'})
+        
+        c_count_appr = s_appr.groupby('العميل')['رقم الطلب'].count().reset_index().rename(columns={'رقم الطلب': 'عدد (معتمد)'}) if not s_appr.empty else pd.DataFrame(columns=['العميل', 'عدد (معتمد)'])
+        c_sum_appr = s_appr.groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'قيمة (معتمد)'}) if not s_appr.empty else pd.DataFrame(columns=['العميل', 'قيمة (معتمد)'])
+        
+        c_count_draft = s_draft.groupby('العميل')['رقم الطلب'].count().reset_index().rename(columns={'رقم الطلب': 'عدد (مسودة)'}) if not s_draft.empty else pd.DataFrame(columns=['العميل', 'عدد (مسودة)'])
+        c_sum_draft = s_draft.groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'قيمة (مسودة)'}) if not s_draft.empty else pd.DataFrame(columns=['العميل', 'قيمة (مسودة)'])
+        
+        c_count_canc = s_canc.groupby('العميل')['رقم الطلب'].count().reset_index().rename(columns={'رقم الطلب': 'عدد (ملغي)'}) if not s_canc.empty else pd.DataFrame(columns=['العميل', 'عدد (ملغي)'])
+        c_sum_canc = s_canc.groupby('العميل')['القيمة (ج.م)'].sum().reset_index().rename(columns={'القيمة (ج.م)': 'قيمة (ملغي)'}) if not s_canc.empty else pd.DataFrame(columns=['العميل', 'قيمة (ملغي)'])
+        
+        c_merged = c_count_all.merge(c_sum_all, on='العميل', how='left') \
+                              .merge(c_count_appr, on='العميل', how='left').merge(c_sum_appr, on='العميل', how='left') \
+                              .merge(c_count_draft, on='العميل', how='left').merge(c_sum_draft, on='العميل', how='left') \
+                              .merge(c_count_canc, on='العميل', how='left').merge(c_sum_canc, on='العميل', how='left').fillna(0)
+        
+        if not clean_p.empty and 'اسم الجهة' in clean_p.columns:
+            p_info = clean_p[['اسم الجهة', 'المدينة', 'الهاتف']].drop_duplicates(subset=['اسم الجهة']).rename(columns={'اسم الجهة': 'العميل'}) if 'المدينة' in clean_p.columns and 'الهاتف' in clean_p.columns else pd.DataFrame()
+            if not p_info.empty:
+                c_merged = c_merged.merge(p_info, on='العميل', how='left').fillna('-')
 
-        c_cols = ['العميل', 'العدد الكلي', 'القيمة الكلية (ج.م)', 'عدد (معتمد)', 'قيمة (معتمد)', 'عدد (مسودة)', 'قيمة (مسودة)', 'عدد (ملغي)', 'قيمة (ملغي)', 'المدينة', 'الهاتف']
-        c_merged = c_merged[[c for c in c_cols if c in c_merged.columns]]
+        c_cols = ['العميل', 'العدد الكلي', 'القيمة الكلية (ج.م)', 'عدد (معتمد)', 'قيمة (معتمد)', 'عدد (مسودة)', 'قيمة (مسودة)', 'عدد (ملغي)', 'قيمة (ملغي)', 'المدينة', 'الهاتف']
+        c_merged = c_merged[[c for c in c_cols if c in c_merged.columns]]
 
-        split_clients = {
-            "التحليل الشامل للعملاء": style_dataframe(c_merged),
-            "الأقوى (معتمد)": style_dataframe(c_merged[['العميل', 'عدد (معتمد)', 'قيمة (معتمد)']]) if 'قيمة (معتمد)' in c_merged.columns else style_dataframe(pd.DataFrame()),
-            "حسب المسودة": style_dataframe(c_merged[['العميل', 'عدد (مسودة)', 'قيمة (مسودة)']]) if 'قيمة (مسودة)' in c_merged.columns else style_dataframe(pd.DataFrame()),
-            "العملاء الملغيين (خسائر)": style_dataframe(c_merged[['العميل', 'عدد (ملغي)', 'قيمة (ملغي)']]) if 'قيمة (ملغي)' in c_merged.columns else style_dataframe(pd.DataFrame())
-        }
-    else:
-        split_clients = {"السجل الشامل للعملاء": style_dataframe(clean_p)}
+        split_clients = {
+            "التحليل الشامل للعملاء": style_dataframe(c_merged),
+            "الأقوى (معتمد)": style_dataframe(c_merged[['العميل', 'عدد (معتمد)', 'قيمة (معتمد)']]) if 'قيمة (معتمد)' in c_merged.columns else style_dataframe(pd.DataFrame()),
+            "حسب المسودة": style_dataframe(c_merged[['العميل', 'عدد (مسودة)', 'قيمة (مسودة)']]) if 'قيمة (مسودة)' in c_merged.columns else style_dataframe(pd.DataFrame()),
+            "العملاء الملغيين (خسائر)": style_dataframe(c_merged[['العميل', 'عدد (ملغي)', 'قيمة (ملغي)']]) if 'قيمة (ملغي)' in c_merged.columns else style_dataframe(pd.DataFrame())
+        }
+    else:
+        split_clients = {"السجل الشامل للعملاء": style_dataframe(clean_p)}
 
-    if not clean_i.empty:
-        split_stock = {
-            "سجل المنتجات الشامل": style_dataframe(clean_i),
-            "المنتجات الأكثر توفراً (الكمية)": style_dataframe(clean_i[['المنتج', 'الكمية المتاحة']]) if 'المنتج' in clean_i.columns and 'الكمية المتاحة' in clean_i.columns else style_dataframe(pd.DataFrame()),
-            "المنتجات الأغلى سعراً": style_dataframe(clean_i[['المنتج', 'السعر (ج.م)']]) if 'المنتج' in clean_i.columns and 'السعر (ج.م)' in clean_i.columns else style_dataframe(pd.DataFrame())
-        }
-    else:
-        split_stock = {"الكل": style_dataframe(clean_i)}
+    if not clean_i.empty:
+        split_stock = {
+            "سجل المنتجات الشامل": style_dataframe(clean_i),
+            "المنتجات الأكثر توفراً (الكمية)": style_dataframe(clean_i[['المنتج', 'الكمية المتاحة']]) if 'المنتج' in clean_i.columns and 'الكمية المتاحة' in clean_i.columns else style_dataframe(pd.DataFrame()),
+            "المنتجات الأغلى سعراً": style_dataframe(clean_i[['المنتج', 'السعر (ج.م)']]) if 'المنتج' in clean_i.columns and 'السعر (ج.م)' in clean_i.columns else style_dataframe(pd.DataFrame())
+        }
+    else:
+        split_stock = {"الكل": style_dataframe(clean_i)}
 
-    render_live_ticker(st.session_state.df_s, st.session_state.df_p)
+    render_live_ticker(st.session_state.df_s, st.session_state.df_p)
 
-    metrics = [
-        ("الإيرادات (المعتمدة)", f"{t_sales_appr:,.0f}", "ج.م", "money", get_delta_html(t_sales_appr, t_sales_appr_prev), {
-            'subtitle':'تحليل السيولة النقدية مقسمة حسب الحالة', 
-            'kpis': [{'label':'موافق عليه','value':f"{t_sales_appr:,.0f} ج", 'color':'#00ff82'},
-                     {'label':'مسودة','value':f"{t_sales_draft:,.0f} ج", 'color':'#ffd700'},
-                     {'label':'ملغي','value':f"{t_sales_canc:,.0f} ج", 'color':'#ff2d78'}],
-            'badges': [{'text':'يعتمد على Sale & Done'}],
-            'df': split_sales_dict
-        }),
-        ("الطلبات (المعتمدة)", f"{t_orders_appr:,}", "طلب", "orders", get_delta_html(t_orders_appr, t_orders_appr_prev), {
-            'subtitle':'كثافة العمليات موزعة على الحالات', 
-            'kpis':[{'label':'موافق عليه','value':str(t_orders_appr), 'color':'#00ff82'},
-                    {'label':'مسودة','value':str(t_orders_draft), 'color':'#ffd700'},
-                    {'label':'ملغي','value':str(t_orders_canc), 'color':'#ff2d78'}],
-            'df': split_sales_dict
-        }),
-        ("العملاء (بالنشاط)", f"{t_clients:,}", "عميل", "users", "", {
-            'subtitle':'تحليل العملاء الشامل وتصنيفهم حسب نشاط العروض (العدد والقيمة)', 
-            'kpis':[{'label':'إجمالي العملاء/جهات','value':str(t_clients)}], 
-            'badges':[{'text':'تلوين حراري لنشاط العميل'}],
-            'df': split_clients
-        }),
-        ("المشتريات والموردين", f"{t_po_appr:,.0f}", "ج.م", "truck", get_delta_html(t_po_appr, t_po_appr_prev), {
-            'subtitle':'تحليل المشتريات والموردين (المعتمد وقيد الانتظار)', 
-            'kpis':[{'label':'موافق عليه','value':f"{t_po_appr:,.0f} ج", 'color':'#00ff82'},
-                    {'label':'قيد الانتظار','value':f"{t_po_draft:,.0f} ج", 'color':'#ffd700'}],
-            'df': split_po_dict
-        }),
-        ("أبرز منتج/مادة", f"{top_item_qty:,.0f}", "وحدة", "stock", "", {
-            'subtitle':f'أكثر المنتجات والمواد توفراً (الكود: {top_item_code})', 
-            'kpis':[{'label':top_item_name,'value':f"{top_item_qty:,.0f} وحدة", 'color':'#00f2ff'}], 
-            'badges':[{'text':'مراقبة المخزون النشط'}],
-            'df': split_stock
-        })
-    ]
-    
-    st.markdown('<div style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">', unsafe_allow_html=True)
-    cols = st.columns(len(metrics))
-    for i, (label, val, suf, icn, delta_html, mdata) in enumerate(metrics):
-        with cols[i]:
-            st.markdown(f"""
-            <div class="custom-metric">
-                <div class="cm-top">
-                    <span class="cm-label" title="{label}">{label}</span>
-                    {get_icon(icn, 20, "var(--c-primary)")}
-                </div>
-                <div class="cm-val-wrapper">
-                    <div class="cm-val" title="{val}">{val}</div>
-                    <div class="cm-suf">{suf}</div>
-                    <div class="cm-delta">{delta_html}</div>
-                </div>
-            </div>""", unsafe_allow_html=True)
-            if st.button("تحليل وتصدير", key=f"btn_m_{i}", use_container_width=True):
-                show_detailed_report(label, mdata)
-    st.markdown('</div>', unsafe_allow_html=True)
+    metrics = [
+        ("الإيرادات (المعتمدة)", f"{t_sales_appr:,.0f}", "ج.م", "money", get_delta_html(t_sales_appr, t_sales_appr_prev), {
+            'subtitle':'تحليل السيولة النقدية مقسمة حسب الحالة', 
+            'kpis': [{'label':'موافق عليه','value':f"{t_sales_appr:,.0f} ج", 'color':'#00ff82'},
+                     {'label':'مسودة','value':f"{t_sales_draft:,.0f} ج", 'color':'#ffd700'},
+                     {'label':'ملغي','value':f"{t_sales_canc:,.0f} ج", 'color':'#ff2d78'}],
+            'badges': [{'text':'يعتمد على Sale & Done'}],
+            'df': split_sales_dict
+        }),
+        ("الطلبات (المعتمدة)", f"{t_orders_appr:,}", "طلب", "orders", get_delta_html(t_orders_appr, t_orders_appr_prev), {
+            'subtitle':'كثافة العمليات موزعة على الحالات', 
+            'kpis':[{'label':'موافق عليه','value':str(t_orders_appr), 'color':'#00ff82'},
+                    {'label':'مسودة','value':str(t_orders_draft), 'color':'#ffd700'},
+                    {'label':'ملغي','value':str(t_orders_canc), 'color':'#ff2d78'}],
+            'df': split_sales_dict
+        }),
+        ("العملاء (بالنشاط)", f"{t_clients:,}", "عميل", "users", "", {
+            'subtitle':'تحليل العملاء الشامل وتصنيفهم حسب نشاط العروض (العدد والقيمة)', 
+            'kpis':[{'label':'إجمالي العملاء/جهات','value':str(t_clients)}], 
+            'badges':[{'text':'تلوين حراري لنشاط العميل'}],
+            'df': split_clients
+        }),
+        ("المشتريات والموردين", f"{t_po_appr:,.0f}", "ج.م", "truck", get_delta_html(t_po_appr, t_po_appr_prev), {
+            'subtitle':'تحليل المشتريات والموردين (المعتمد وقيد الانتظار)', 
+            'kpis':[{'label':'موافق عليه','value':f"{t_po_appr:,.0f} ج", 'color':'#00ff82'},
+                    {'label':'قيد الانتظار','value':f"{t_po_draft:,.0f} ج", 'color':'#ffd700'}],
+            'df': split_po_dict
+        }),
+        ("أبرز منتج/مادة", f"{top_item_qty:,.0f}", "وحدة", "stock", "", {
+            'subtitle':f'أكثر المنتجات والمواد توفراً (الكود: {top_item_code})', 
+            'kpis':[{'label':top_item_name,'value':f"{top_item_qty:,.0f} وحدة", 'color':'#00f2ff'}], 
+            'badges':[{'text':'مراقبة المخزون النشط'}],
+            'df': split_stock
+        })
+    ]
+    
+    st.markdown('<div style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">', unsafe_allow_html=True)
+    cols = st.columns(len(metrics))
+    for i, (label, val, suf, icn, delta_html, mdata) in enumerate(metrics):
+        with cols[i]:
+            st.markdown(f"""
+            <div class="custom-metric">
+                <div class="cm-top">
+                    <span class="cm-label" title="{label}">{label}</span>
+                    {get_icon(icn, 20, "var(--c-primary)")}
+                </div>
+                <div class="cm-val-wrapper">
+                    <div class="cm-val" title="{val}">{val}</div>
+                    <div class="cm-suf">{suf}</div>
+                    <div class="cm-delta">{delta_html}</div>
+                </div>
+            </div>""", unsafe_allow_html=True)
+            if st.button("تحليل وتصدير", key=f"btn_m_{i}", use_container_width=True):
+                show_detailed_report(label, mdata)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown(f"<div class='g-card-title'>{get_icon('chart', 22)} مخطط الشلال المالي (حركة تدفق الإيرادات)</div>", unsafe_allow_html=True)
-    
-    waterfall_fig = go.Figure(go.Waterfall(
-        name = "المبيعات",
-        orientation = "v",
-        measure = ["absolute", "relative", "relative", "total"],
-        x = ["إجمالي العروض (الطلب)", "عروض ملغاة (نزيف)", "عروض قيد الانتظار", "صافي الإيرادات المعتمدة"],
-        textposition = "outside",
-        text = [f"{(t_sales_appr + t_sales_draft + t_sales_canc):,.0f}", f"-{t_sales_canc:,.0f}", f"-{t_sales_draft:,.0f}", f"{t_sales_appr:,.0f}"],
-        y = [(t_sales_appr + t_sales_draft + t_sales_canc), -t_sales_canc, -t_sales_draft, t_sales_appr],
-        connector = {"line":{"color":"rgba(255,255,255,0.1)"}},
-        decreasing = {"marker":{"color":"#ff2d78"}},
-        increasing = {"marker":{"color":"#00f2ff"}},
-        totals = {"marker":{"color":"#00ff82"}}
-    ))
+    st.markdown(f"<div class='g-card-title'>{get_icon('chart', 22)} مخطط الشلال المالي (حركة تدفق الإيرادات)</div>", unsafe_allow_html=True)
+    
+    waterfall_fig = go.Figure(go.Waterfall(
+        name = "المبيعات",
+        orientation = "v",
+        measure = ["absolute", "relative", "relative", "total"],
+        x = ["إجمالي العروض (الطلب)", "عروض ملغاة (نزيف)", "عروض قيد الانتظار", "صافي الإيرادات المعتمدة"],
+        textposition = "outside",
+        text = [f"{(t_sales_appr + t_sales_draft + t_sales_canc):,.0f}", f"-{t_sales_canc:,.0f}", f"-{t_sales_draft:,.0f}", f"{t_sales_appr:,.0f}"],
+        y = [(t_sales_appr + t_sales_draft + t_sales_canc), -t_sales_canc, -t_sales_draft, t_sales_appr],
+        connector = {"line":{"color":"rgba(255,255,255,0.1)"}},
+        decreasing = {"marker":{"color":"#ff2d78"}},
+        increasing = {"marker":{"color":"#00f2ff"}},
+        totals = {"marker":{"color":"#00ff82"}}
+    ))
 
-    waterfall_fig.update_layout(
-        template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=0,r=0,t=20,b=0), hoverlabel=dict(font_family="Cairo", font_size=14)
-    )
-    st.plotly_chart(waterfall_fig, use_container_width=True)
+    waterfall_fig.update_layout(
+        template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        margin=dict(l=0,r=0,t=20,b=0), hoverlabel=dict(font_family="Cairo", font_size=14)
+    )
+    st.plotly_chart(waterfall_fig, use_container_width=True)
 
-    st.markdown(f"<div style='margin-top: 30px; margin-bottom: 15px;'><div class='g-card-title' style='border: none; padding: 0;'>{get_icon('tabs', 24)} سجل العروض والتوريدات المباشر</div></div>", unsafe_allow_html=True)
-    
-    count_all = len(clean_s) if not clean_s.empty else 0
-    count_appr = len(s_appr) if not s_appr.empty else 0
-    count_draft = len(s_draft) if not s_draft.empty else 0
-    count_canc = len(s_canc) if not s_canc.empty else 0
+    st.markdown(f"<div style='margin-top: 30px; margin-bottom: 15px;'><div class='g-card-title' style='border: none; padding: 0;'>{get_icon('tabs', 24)} سجل العروض والتوريدات المباشر</div></div>", unsafe_allow_html=True)
+    
+    count_all = len(clean_s) if not clean_s.empty else 0
+    count_appr = len(s_appr) if not s_appr.empty else 0
+    count_draft = len(s_draft) if not s_draft.empty else 0
+    count_canc = len(s_canc) if not s_canc.empty else 0
 
-    tb_all, tb_appr, tb_draft, tb_canc = st.tabs([
-        f"الكل ({count_all})", 
-        f"موافق عليه ({count_appr})", 
-        f"مسودة ({count_draft})", 
-        f"ملغي ({count_canc})"
-    ])
-    
-    with tb_all:
-        if not clean_s.empty: st.dataframe(split_sales_dict["السجل الشامل للعروض والطلبات"], use_container_width=True, hide_index=True)
-        else: st.info("لا توجد بيانات متاحة في هذه الفترة.")
-    with tb_appr:
-        if not s_appr.empty: st.dataframe(split_sales_dict["موافق عليه"], use_container_width=True, hide_index=True)
-        else: st.info("لا توجد طلبات موافق عليها في هذه الفترة.")
-    with tb_draft:
-        if not s_draft.empty: st.dataframe(split_sales_dict["مسودة"], use_container_width=True, hide_index=True)
-        else: st.info("لا توجد مسودات في هذه الفترة.")
-    with tb_canc:
-        if not s_canc.empty: st.dataframe(split_sales_dict["ملغي"], use_container_width=True, hide_index=True)
-        else: st.info("لا توجد طلبات ملغاة في هذه الفترة.")
+    tb_all, tb_appr, tb_draft, tb_canc = st.tabs([
+        f"الكل ({count_all})", 
+        f"موافق عليه ({count_appr})", 
+        f"مسودة ({count_draft})", 
+        f"ملغي ({count_canc})"
+    ])
+    
+    with tb_all:
+        if not clean_s.empty: st.dataframe(split_sales_dict["السجل الشامل للعروض والطلبات"], use_container_width=True, hide_index=True)
+        else: st.info("لا توجد بيانات متاحة في هذه الفترة.")
+    with tb_appr:
+        if not s_appr.empty: st.dataframe(split_sales_dict["موافق عليه"], use_container_width=True, hide_index=True)
+        else: st.info("لا توجد طلبات موافق عليها في هذه الفترة.")
+    with tb_draft:
+        if not s_draft.empty: st.dataframe(split_sales_dict["مسودة"], use_container_width=True, hide_index=True)
+        else: st.info("لا توجد مسودات في هذه الفترة.")
+    with tb_canc:
+        if not s_canc.empty: st.dataframe(split_sales_dict["ملغي"], use_container_width=True, hide_index=True)
+        else: st.info("لا توجد طلبات ملغاة في هذه الفترة.")
 
 def render_departments():
-    st.markdown(f"""
-    <div class="page-header" style="justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 24px;">
-            <div class="ph-icon-wrap">{get_icon("layers", 46, "#00f2ff")}</div>
-            <div>
-                <div class="ph-title">التحليل الاستراتيجي للأقسام (الربحية)</div>
-                <div class="ph-sub">بيان تفصيلي للأقسام الأقوى والأضعف بناءً على الإيرادات والمصروفات وصافي الربح</div>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    start_dt, end_dt, _, _ = get_smart_filter_dates("dept")
+    st.markdown(f"""
+    <div class="page-header" style="justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 24px;">
+            <div class="ph-icon-wrap">{get_icon("layers", 46, "#00f2ff")}</div>
+            <div>
+                <div class="ph-title">التحليل الاستراتيجي للأقسام (الربحية)</div>
+                <div class="ph-sub">بيان تفصيلي للأقسام الأقوى والأضعف بناءً على الإيرادات والمصروفات وصافي الربح</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    start_dt, end_dt, _, _ = get_smart_filter_dates("dept")
 
-    t_df = df_s_master.copy()
-    if start_dt and end_dt and not t_df.empty and 'date_order' in t_df.columns:
-        t_df = t_df[(t_df['date_order'] >= start_dt) & (t_df['date_order'] <= end_dt)]
+    t_df = df_s_master.copy()
+    if start_dt and end_dt and not t_df.empty and 'date_order' in t_df.columns:
+        t_df = t_df[(t_df['date_order'] >= start_dt) & (t_df['date_order'] <= end_dt)]
 
-    if t_df.empty:
-        return st.warning("لا توجد بيانات متاحة لتحليل الأقسام في هذه الفترة الزمنية.")
-    
-    t_df['القسم'] = t_df.apply(extract_department_from_row, axis=1)
-    t_df['القسم'] = t_df['القسم'].apply(clean_department_name)
-    t_df['الحالة (عربي)'] = t_df['state'].apply(map_state_ar)
+    if t_df.empty:
+        return st.warning("لا توجد بيانات متاحة لتحليل الأقسام في هذه الفترة الزمنية.")
+    
+    t_df['القسم'] = t_df.apply(extract_department_from_row, axis=1)
+    t_df['القسم'] = t_df['القسم'].apply(clean_department_name)
+    t_df['الحالة (عربي)'] = t_df['state'].apply(map_state_ar)
 
-    clean_s = t_df.copy()
-    if not clean_s.empty:
-        clean_s['العميل'] = clean_s['partner_id'].apply(clean_odoo_m2o) if 'partner_id' in clean_s else ""
-        clean_s['المسؤول'] = clean_s['user_id'].apply(clean_odoo_m2o) if 'user_id' in clean_s else ""
-        clean_s = clean_s.rename(columns={'name': 'رقم الطلب', 'amount_total': 'القيمة (ج.م)'})
-        if 'date_order' in clean_s: clean_s['التاريخ'] = clean_s['date_order'].dt.strftime('%Y-%m-%d')
-        clean_s = clean_s[[c for c in ['رقم الطلب', 'القسم', 'العميل', 'القيمة (ج.م)', 'التاريخ', 'الحالة (عربي)', 'المسؤول'] if c in clean_s.columns]]
+    clean_s = t_df.copy()
+    if not clean_s.empty:
+        clean_s['العميل'] = clean_s['partner_id'].apply(clean_odoo_m2o) if 'partner_id' in clean_s else ""
+        clean_s['المسؤول'] = clean_s['user_id'].apply(clean_odoo_m2o) if 'user_id' in clean_s else ""
+        clean_s = clean_s.rename(columns={'name': 'رقم الطلب', 'amount_total': 'القيمة (ج.م)'})
+        if 'date_order' in clean_s: clean_s['التاريخ'] = clean_s['date_order'].dt.strftime('%Y-%m-%d')
+        clean_s = clean_s[[c for c in ['رقم الطلب', 'القسم', 'العميل', 'القيمة (ج.م)', 'التاريخ', 'الحالة (عربي)', 'المسؤول'] if c in clean_s.columns]]
 
-    appr_df = t_df[t_df['الحالة (عربي)'] == 'موافق عليه'].copy()
-    
-    if 'margin' in appr_df.columns:
-        appr_df['margin_num'] = pd.to_numeric(appr_df['margin'], errors='coerce').fillna(0)
-        appr_df['المصروفات'] = appr_df['amount_total'] - appr_df['margin_num']
-        appr_df['المصروفات'] = np.where(appr_df['المصروفات'] < 0, appr_df['amount_total'] * 0.7, appr_df['المصروفات'])
-    else:
-        np.random.seed(42)
-        appr_df['المصروفات'] = appr_df['amount_total'] * np.random.uniform(0.60, 0.85, size=len(appr_df))
+    appr_df = t_df[t_df['الحالة (عربي)'] == 'موافق عليه'].copy()
+    
+    if 'margin' in appr_df.columns:
+        appr_df['margin_num'] = pd.to_numeric(appr_df['margin'], errors='coerce').fillna(0)
+        appr_df['المصروفات'] = appr_df['amount_total'] - appr_df['margin_num']
+        appr_df['المصروفات'] = np.where(appr_df['المصروفات'] < 0, appr_df['amount_total'] * 0.7, appr_df['المصروفات'])
+    else:
+        np.random.seed(42)
+        appr_df['المصروفات'] = appr_df['amount_total'] * np.random.uniform(0.60, 0.85, size=len(appr_df))
 
-    appr_df['صاف الربح'] = appr_df['amount_total'] - appr_df['المصروفات']
+    appr_df['صاف الربح'] = appr_df['amount_total'] - appr_df['المصروفات']
 
-    dept_summary = appr_df.groupby('القسم').agg(
-        الإيرادات=('amount_total', 'sum'),
-        المصروفات=('المصروفات', 'sum'),
-        صافي_الربح=('صاف الربح', 'sum')
-    ).reset_index()
+    dept_summary = appr_df.groupby('القسم').agg(
+        الإيرادات=('amount_total', 'sum'),
+        المصروفات=('المصروفات', 'sum'),
+        صافي_الربح=('صاف الربح', 'sum')
+    ).reset_index()
 
-    dept_summary['هامش الربح %'] = (dept_summary['صافي_الربح'] / dept_summary['الإيرادات'] * 100).fillna(0)
-    
-    summ_df_all = t_df.groupby('القسم').agg(
-        إجمالي_الطلبات=('name', 'count'),
-        إيرادات_معتمدة=('amount_total', lambda x: x[t_df.loc[x.index, 'الحالة (عربي)'] == 'موافق عليه'].sum()),
-        إيرادات_مسودة=('amount_total', lambda x: x[t_df.loc[x.index, 'الحالة (عربي)'] == 'مسودة'].sum()),
-        إيرادات_ملغاة=('amount_total', lambda x: x[t_df.loc[x.index, 'الحالة (عربي)'] == 'ملغي'].sum())
-    ).reset_index()
+    dept_summary['هامش الربح %'] = (dept_summary['صافي_الربح'] / dept_summary['الإيرادات'] * 100).fillna(0)
+    
+    summ_df_all = t_df.groupby('القسم').agg(
+        إجمالي_الطلبات=('name', 'count'),
+        إيرادات_معتمدة=('amount_total', lambda x: x[t_df.loc[x.index, 'الحالة (عربي)'] == 'موافق عليه'].sum()),
+        إيرادات_مسودة=('amount_total', lambda x: x[t_df.loc[x.index, 'الحالة (عربي)'] == 'مسودة'].sum()),
+        إيرادات_ملغاة=('amount_total', lambda x: x[t_df.loc[x.index, 'الحالة (عربي)'] == 'ملغي'].sum())
+    ).reset_index()
 
-    final_table = pd.merge(summ_df_all, dept_summary[['القسم', 'المصروفات', 'صافي_الربح', 'هامش الربح %']], on='القسم', how='left').fillna(0)
-    final_table = final_table.rename(columns={'إيرادات_معتمدة': 'الإيرادات', 'صافي_الربح': 'صاف الربح'})
+    final_table = pd.merge(summ_df_all, dept_summary[['القسم', 'المصروفات', 'صافي_الربح', 'هامش الربح %']], on='القسم', how='left').fillna(0)
+    final_table = final_table.rename(columns={'إيرادات_معتمدة': 'الإيرادات', 'صافي_الربح': 'صاف الربح'})
 
-    if st.button(f"📥 تحليل وتصدير تقرير الأقسام (Word / PDF)", use_container_width=True):
-        export_data = {
-            "الجدول التحليلي الشامل لأداء الأقسام": final_table,
-            "سجل العمليات التفصيلي للأقسام": clean_s
-        }
-        show_detailed_report("التحليل الاستراتيجي للأقسام", {"df": export_data})
-        
-    st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin-bottom: 20px;'>", unsafe_allow_html=True)
+    if st.button(f"📥 تحليل وتصدير تقرير الأقسام (Word / PDF)", use_container_width=True):
+        export_data = {
+            "الجدول التحليلي الشامل لأداء الأقسام": final_table,
+            "سجل العمليات التفصيلي للأقسام": clean_s
+        }
+        show_detailed_report("التحليل الاستراتيجي للأقسام", {"df": export_data})
+        
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin-bottom: 20px;'>", unsafe_allow_html=True)
 
-    if not dept_summary.empty:
-        strongest_row = dept_summary.loc[dept_summary['صافي_الربح'].idxmax()]
-        weakest_row = dept_summary.loc[dept_summary['صافي_الربح'].idxmin()]
-        total_active = len(dept_summary)
-        avg_margin = dept_summary['هامش الربح %'].mean()
-    else:
-        strongest_row = {'القسم': 'لا يوجد', 'صافي_الربح': 0}
-        weakest_row = {'القسم': 'لا يوجد', 'صافي_الربح': 0}
-        total_active = 0
-        avg_margin = 0
+    if not dept_summary.empty:
+        strongest_row = dept_summary.loc[dept_summary['صافي_الربح'].idxmax()]
+        weakest_row = dept_summary.loc[dept_summary['صافي_الربح'].idxmin()]
+        total_active = len(dept_summary)
+        avg_margin = dept_summary['هامش الربح %'].mean()
+    else:
+        strongest_row = {'القسم': 'لا يوجد', 'صافي_الربح': 0}
+        weakest_row = {'القسم': 'لا يوجد', 'صافي_الربح': 0}
+        total_active = 0
+        avg_margin = 0
 
-    m1, m2, m3, m4 = st.columns(4)
-    m1.markdown(f"""<div class="custom-metric"><div class="cm-top"><span class="cm-label">إجمالي الأقسام النشطة</span>{get_icon("layers", 20, "#00f2ff")}</div><div class="cm-val-wrapper"><div class="cm-val">{total_active}</div><div class="cm-suf">أقسام</div></div></div>""", unsafe_allow_html=True)
-    m2.markdown(f"""<div class="custom-metric"><div class="cm-top"><span class="cm-label">القسم الأقوى</span>{get_icon("trending-up", 20, "#00ff82")}</div><div class="cm-val-wrapper"><div class="cm-val">{strongest_row['صافي_الربح']:,.0f}</div><div class="cm-suf">ج.م</div></div></div>""", unsafe_allow_html=True)
-    m3.markdown(f"""<div class="custom-metric"><div class="cm-top"><span class="cm-label">القسم الأضعف</span>{get_icon("trending-down", 20, "#ff2d78")}</div><div class="cm-val-wrapper"><div class="cm-val">{weakest_row['صافي_الربح']:,.0f}</div><div class="cm-suf">ج.م</div></div></div>""", unsafe_allow_html=True)
-    m4.markdown(f"""<div class="custom-metric"><div class="cm-top"><span class="cm-label">متوسط هامش الربح</span>{get_icon("chart", 20, "#ffd700")}</div><div class="cm-val-wrapper"><div class="cm-val">{avg_margin:.1f}</div><div class="cm-suf">%</div></div></div>""", unsafe_allow_html=True)
+    m1, m2, m3, m4 = st.columns(4)
+    m1.markdown(f"""<div class="custom-metric"><div class="cm-top"><span class="cm-label">إجمالي الأقسام النشطة</span>{get_icon("layers", 20, "#00f2ff")}</div><div class="cm-val-wrapper"><div class="cm-val">{total_active}</div><div class="cm-suf">أقسام</div></div></div>""", unsafe_allow_html=True)
+    m2.markdown(f"""<div class="custom-metric"><div class="cm-top"><span class="cm-label">القسم الأقوى</span>{get_icon("trending-up", 20, "#00ff82")}</div><div class="cm-val-wrapper"><div class="cm-val">{strongest_row['صافي_الربح']:,.0f}</div><div class="cm-suf">ج.م</div></div></div>""", unsafe_allow_html=True)
+    m3.markdown(f"""<div class="custom-metric"><div class="cm-top"><span class="cm-label">القسم الأضعف</span>{get_icon("trending-down", 20, "#ff2d78")}</div><div class="cm-val-wrapper"><div class="cm-val">{weakest_row['صافي_الربح']:,.0f}</div><div class="cm-suf">ج.م</div></div></div>""", unsafe_allow_html=True)
+    m4.markdown(f"""<div class="custom-metric"><div class="cm-top"><span class="cm-label">متوسط هامش الربح</span>{get_icon("chart", 20, "#ffd700")}</div><div class="cm-val-wrapper"><div class="cm-val">{avg_margin:.1f}</div><div class="cm-suf">%</div></div></div>""", unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
 
-    st.markdown(f"<div class='g-card-title'>{get_icon('chart', 22)} مقارنة الإيرادات والمصروفات وهامش الربح للأقسام (موافق عليه في الفترة المحددة)</div>", unsafe_allow_html=True)
-    
-    if not dept_summary.empty:
-        fig_combo = go.Figure()
-        fig_combo.add_trace(go.Bar(
-            x=dept_summary['القسم'], y=dept_summary['الإيرادات'],
-            name='الإيرادات', marker_color='#00ff82'
-        ))
-        fig_combo.add_trace(go.Bar(
-            x=dept_summary['القسم'], y=dept_summary['المصروفات'],
-            name='المصروفات', marker_color='#ff2d78'
-        ))
-        
-        fig_combo.update_layout(
-            barmode='group',
-            template='plotly_dark',
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            hovermode="x unified",
-            xaxis_title="القسم / المشروع",
-            yaxis_title="القيمة (ج.م)",
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-            hoverlabel=dict(font_family="Cairo", font_size=14)
-        )
-        st.plotly_chart(fig_combo, use_container_width=True)
-    else:
-        st.info("لا توجد بيانات ربحية لعرضها في هذه الفترة.")
+    st.markdown(f"<div class='g-card-title'>{get_icon('chart', 22)} مقارنة الإيرادات والمصروفات وهامش الربح للأقسام (موافق عليه في الفترة المحددة)</div>", unsafe_allow_html=True)
+    
+    if not dept_summary.empty:
+        fig_combo = go.Figure()
+        fig_combo.add_trace(go.Bar(
+            x=dept_summary['القسم'], y=dept_summary['الإيرادات'],
+            name='الإيرادات', marker_color='#00ff82'
+        ))
+        fig_combo.add_trace(go.Bar(
+            x=dept_summary['القسم'], y=dept_summary['المصروفات'],
+            name='المصروفات', marker_color='#ff2d78'
+        ))
+        
+        fig_combo.update_layout(
+            barmode='group',
+            template='plotly_dark',
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            hovermode="x unified",
+            xaxis_title="القسم / المشروع",
+            yaxis_title="القيمة (ج.م)",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            hoverlabel=dict(font_family="Cairo", font_size=14)
+        )
+        st.plotly_chart(fig_combo, use_container_width=True)
+    else:
+        st.info("لا توجد بيانات ربحية لعرضها في هذه الفترة.")
 
-    st.markdown(f"<div class='g-card-title' style='margin-top:20px;'>{get_icon('table', 22)} الجدول التحليلي الشامل لأداء الأقسام</div>", unsafe_allow_html=True)
-    st.dataframe(style_dataframe(final_table), use_container_width=True, hide_index=True)
+    st.markdown(f"<div class='g-card-title' style='margin-top:20px;'>{get_icon('table', 22)} الجدول التحليلي الشامل لأداء الأقسام</div>", unsafe_allow_html=True)
+    st.dataframe(style_dataframe(final_table), use_container_width=True, hide_index=True)
 
-    st.markdown(f"<div class='g-card-title' style='margin-top:30px;'>{get_icon('tabs', 22)} سجل العمليات التفصيلي للأقسام</div>", unsafe_allow_html=True)
-    if not clean_s.empty:
-        st.dataframe(style_dataframe(clean_s), use_container_width=True, hide_index=True)
-    else:
-        st.info("لا توجد بيانات تفصيلية لعرضها.")
+    st.markdown(f"<div class='g-card-title' style='margin-top:30px;'>{get_icon('tabs', 22)} سجل العمليات التفصيلي للأقسام</div>", unsafe_allow_html=True)
+    if not clean_s.empty:
+        st.dataframe(style_dataframe(clean_s), use_container_width=True, hide_index=True)
+    else:
+        st.info("لا توجد بيانات تفصيلية لعرضها.")
 
 def render_forecast():
-    st.markdown(f"""
-    <div class="page-header" style="justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 24px;">
-            <div class="ph-icon-wrap">{get_icon("bulb", 46, "#00f2ff")}</div>
-            <div>
-                <div class="ph-title">التنبؤ المستقبلي (الكرة البلورية - Prophet AI)</div>
-                <div class="ph-sub">نظام إحصائي ذكي معزز بخوارزميات الذكاء الاصطناعي للتنبؤ بالإيرادات القادمة بدقة فائقة.</div>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="page-header" style="justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 24px;">
+            <div class="ph-icon-wrap">{get_icon("bulb", 46, "#00f2ff")}</div>
+            <div>
+                <div class="ph-title">التنبؤ المستقبلي (الكرة البلورية - Prophet AI)</div>
+                <div class="ph-sub">نظام إحصائي ذكي معزز بخوارزميات الذكاء الاصطناعي للتنبؤ بالإيرادات القادمة بدقة فائقة.</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    if df_s_master is None or df_s_master.empty or 'date_order' not in df_s_master.columns:
-        st.warning("لا توجد بيانات زمنية كافية لبناء نموذج التنبؤ.")
-        return
+    if df_s_master is None or df_s_master.empty or 'date_order' not in df_s_master.columns:
+        st.warning("لا توجد بيانات زمنية كافية لبناء نموذج التنبؤ.")
+        return
 
-    df_appr = df_s_master[df_s_master['state'].isin(['sale', 'done'])].copy()
-    if df_appr.empty:
-        st.warning("لا توجد مبيعات فعلية معتمدة لبناء التنبؤ.")
-        return
+    df_appr = df_s_master[df_s_master['state'].isin(['sale', 'done'])].copy()
+    if df_appr.empty:
+        st.warning("لا توجد مبيعات فعلية معتمدة لبناء التنبؤ.")
+        return
 
-    df_appr['Month'] = df_appr['date_order'].dt.to_period('M').dt.to_timestamp()
-    monthly = df_appr.groupby('Month')['amount_total'].sum().reset_index().sort_values('Month')
+    df_appr['Month'] = df_appr['date_order'].dt.to_period('M').dt.to_timestamp()
+    monthly = df_appr.groupby('Month')['amount_total'].sum().reset_index().sort_values('Month')
 
-    if len(monthly) < 3:
-        st.warning("نحتاج بيانات مبيعات لثلاثة أشهر على الأقل لبناء نموذج تنبؤ دقيق.")
-        st.dataframe(style_dataframe(monthly.rename(columns={'amount_total':'القيمة (ج.م)'})), use_container_width=True, hide_index=True)
-        return
+    if len(monthly) < 3:
+        st.warning("نحتاج بيانات مبيعات لثلاثة أشهر على الأقل لبناء نموذج تنبؤ دقيق.")
+        st.dataframe(style_dataframe(monthly.rename(columns={'amount_total':'القيمة (ج.م)'})), use_container_width=True, hide_index=True)
+        return
 
-    use_prophet = False
-    try:
-        from prophet import Prophet
-        use_prophet = True
-    except ImportError:
-        st.warning("⚠️ خوارزمية الدقة القصوى (Prophet) غير مثبتة على الخادم. يعمل النظام الآن بنمط الانحدار الخطي الافتراضي. لرفع الدقة لـ 95%، يرجى إضافة 'prophet' لملف المتطلبات.")
+    use_prophet = False
+    try:
+        from prophet import Prophet
+        use_prophet = True
+    except ImportError:
+        st.warning("⚠️ خوارزمية الدقة القصوى (Prophet) غير مثبتة على الخادم. يعمل النظام الآن بنمط الانحدار الخطي الافتراضي. لرفع الدقة لـ 95%، يرجى إضافة 'prophet' لملف المتطلبات.")
 
-    if use_prophet and len(monthly) >= 4:
-        df_p = monthly.rename(columns={'Month': 'ds', 'amount_total': 'y'})
-        m = Prophet(seasonality_mode='multiplicative', daily_seasonality=False, weekly_seasonality=False)
-        m.fit(df_p)
-        future = m.make_future_dataframe(periods=3, freq='MS')
-        forecast = m.predict(future)
-        forecast['yhat'] = np.maximum(forecast['yhat'], 0) 
-        forecast['yhat_lower'] = np.maximum(forecast['yhat_lower'], 0)
-        forecast['yhat_upper'] = np.maximum(forecast['yhat_upper'], 0)
-        
-        pred_trace_df = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].rename(columns={'ds': 'Month', 'yhat': 'amount_total'})
-        pred_df = pred_trace_df.tail(3).copy()
-        upper_bound = pred_trace_df['yhat_upper']
-        lower_bound = pred_trace_df['yhat_lower']
-        future_y = pred_df['amount_total'].values
-    else:
-        x = np.arange(len(monthly))
-        y = monthly['amount_total'].values
-        coeffs = np.polyfit(x, y, 1)
-        poly_func = np.poly1d(coeffs)
-        last_month = monthly['Month'].max()
-        future_months = [last_month + pd.DateOffset(months=i) for i in range(1, 4)]
-        future_x = np.arange(len(monthly), len(monthly) + 3)
-        future_y = poly_func(future_x)
-        future_y = np.maximum(future_y, 0) 
-        pred_df = pd.DataFrame({'Month': future_months, 'amount_total': future_y})
-        pred_trace_df = pd.concat([monthly.iloc[[-1]], pred_df]).reset_index(drop=True)
-        upper_bound = pred_trace_df['amount_total'] * 1.15
-        lower_bound = pred_trace_df['amount_total'] * 0.85
+    if use_prophet and len(monthly) >= 4:
+        df_p = monthly.rename(columns={'Month': 'ds', 'amount_total': 'y'})
+        m = Prophet(seasonality_mode='multiplicative', daily_seasonality=False, weekly_seasonality=False)
+        m.fit(df_p)
+        future = m.make_future_dataframe(periods=3, freq='MS')
+        forecast = m.predict(future)
+        forecast['yhat'] = np.maximum(forecast['yhat'], 0) 
+        forecast['yhat_lower'] = np.maximum(forecast['yhat_lower'], 0)
+        forecast['yhat_upper'] = np.maximum(forecast['yhat_upper'], 0)
+        
+        pred_trace_df = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].rename(columns={'ds': 'Month', 'yhat': 'amount_total'})
+        pred_df = pred_trace_df.tail(3).copy()
+        upper_bound = pred_trace_df['yhat_upper']
+        lower_bound = pred_trace_df['yhat_lower']
+        future_y = pred_df['amount_total'].values
+    else:
+        x = np.arange(len(monthly))
+        y = monthly['amount_total'].values
+        coeffs = np.polyfit(x, y, 1)
+        poly_func = np.poly1d(coeffs)
+        last_month = monthly['Month'].max()
+        future_months = [last_month + pd.DateOffset(months=i) for i in range(1, 4)]
+        future_x = np.arange(len(monthly), len(monthly) + 3)
+        future_y = poly_func(future_x)
+        future_y = np.maximum(future_y, 0) 
+        pred_df = pd.DataFrame({'Month': future_months, 'amount_total': future_y})
+        pred_trace_df = pd.concat([monthly.iloc[[-1]], pred_df]).reset_index(drop=True)
+        upper_bound = pred_trace_df['amount_total'] * 1.15
+        lower_bound = pred_trace_df['amount_total'] * 0.85
 
-    if st.button(f"📥 تحليل وتصدير تقرير التنبؤ (Word / PDF)", use_container_width=True):
-        export_data = {"الأداء التاريخي (فعلي)": monthly, "الأرقام المتوقعة": pred_df[['Month', 'amount_total']]}
-        show_detailed_report("تقرير التنبؤ المستقبلي", {"df": export_data})
-        
-    st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin-bottom: 20px;'>", unsafe_allow_html=True)
-    
-    st.markdown("<h4 style='color:var(--c-primary); margin-bottom: 20px;'>الأرقام المتوقعة للأشهر الثلاثة القادمة:</h4>", unsafe_allow_html=True)
-    cols = st.columns(3)
-    for i, row in pred_df.iterrows():
-        month_name = row['Month'].strftime('%Y-%m') 
-        val = row['amount_total']
-        with cols[i % 3]:
-            st.markdown(f"""
-            <div class="custom-metric" style="text-align: center;">
-                <div class="cm-label" style="text-align: center; margin-bottom: 5px;">شهر {month_name}</div>
-                <div class="neon-forecast">{val:,.0f} <span style="font-size: 1rem;">ج.م</span></div>
-            </div>
-            """, unsafe_allow_html=True)
+    if st.button(f"📥 تحليل وتصدير تقرير التنبؤ (Word / PDF)", use_container_width=True):
+        export_data = {"الأداء التاريخي (فعلي)": monthly, "الأرقام المتوقعة": pred_df[['Month', 'amount_total']]}
+        show_detailed_report("تقرير التنبؤ المستقبلي", {"df": export_data})
+        
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin-bottom: 20px;'>", unsafe_allow_html=True)
+    
+    st.markdown("<h4 style='color:var(--c-primary); margin-bottom: 20px;'>الأرقام المتوقعة للأشهر الثلاثة القادمة:</h4>", unsafe_allow_html=True)
+    cols = st.columns(3)
+    for i, row in pred_df.iterrows():
+        month_name = row['Month'].strftime('%Y-%m') 
+        val = row['amount_total']
+        with cols[i % 3]:
+            st.markdown(f"""
+            <div class="custom-metric" style="text-align: center;">
+                <div class="cm-label" style="text-align: center; margin-bottom: 5px;">شهر {month_name}</div>
+                <div class="neon-forecast">{val:,.0f} <span style="font-size: 1rem;">ج.م</span></div>
+            </div>
+            """, unsafe_allow_html=True)
 
-    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("<br><br>", unsafe_allow_html=True)
 
-    st.markdown(f"<div class='g-card-title'>{get_icon('trending-up', 22)} مسار الإيرادات الفعلي والمتوقع مع نطاق الثقة</div>", unsafe_allow_html=True)
-    
-    fig = go.Figure()
+    st.markdown(f"<div class='g-card-title'>{get_icon('trending-up', 22)} مسار الإيرادات الفعلي والمتوقع مع نطاق الثقة</div>", unsafe_allow_html=True)
+    
+    fig = go.Figure()
 
-    fig.add_trace(go.Scatter(x=monthly['Month'], y=monthly['amount_total'], 
-                             mode='lines', line=dict(color='rgba(0,242,255,0.2)', width=12), hoverinfo='skip', showlegend=False))
-    fig.add_trace(go.Scatter(x=monthly['Month'], y=monthly['amount_total'], 
-                             mode='lines+markers', name='مبيعات فعلية',
-                             line=dict(color='#00f2ff', width=3), 
-                             marker=dict(size=8, color='#00f2ff', line=dict(width=2, color='#fff')),
-                             fill='tozeroy', fillcolor='rgba(0,242,255,0.05)'))
+    fig.add_trace(go.Scatter(x=monthly['Month'], y=monthly['amount_total'], 
+                             mode='lines', line=dict(color='rgba(0,242,255,0.2)', width=12), hoverinfo='skip', showlegend=False))
+    fig.add_trace(go.Scatter(x=monthly['Month'], y=monthly['amount_total'], 
+                             mode='lines+markers', name='مبيعات فعلية',
+                             line=dict(color='#00f2ff', width=3), 
+                             marker=dict(size=8, color='#00f2ff', line=dict(width=2, color='#fff')),
+                             fill='tozeroy', fillcolor='rgba(0,242,255,0.05)'))
 
-    fig.add_trace(go.Scatter(
-        x=pd.concat([pred_trace_df['Month'], pred_trace_df['Month'][::-1]]),
-        y=pd.concat([upper_bound, lower_bound[::-1]]),
-        fill='toself',
-        fillcolor='rgba(255, 215, 0, 0.1)',
-        line=dict(color='rgba(255,255,255,0)'),
-        hoverinfo="skip",
-        name='نطاق الثقة',
-        showlegend=True
-    ))
+    fig.add_trace(go.Scatter(
+        x=pd.concat([pred_trace_df['Month'], pred_trace_df['Month'][::-1]]),
+        y=pd.concat([upper_bound, lower_bound[::-1]]),
+        fill='toself',
+        fillcolor='rgba(255, 215, 0, 0.1)',
+        line=dict(color='rgba(255,255,255,0)'),
+        hoverinfo="skip",
+        name='نطاق الثقة',
+        showlegend=True
+    ))
 
-    fig.add_trace(go.Scatter(x=pred_trace_df['Month'], y=pred_trace_df['amount_total'], 
-                             mode='lines', line=dict(color='rgba(255,215,0,0.2)', width=12, dash='dash'), hoverinfo='skip', showlegend=False))
-    fig.add_trace(go.Scatter(x=pred_trace_df['Month'], y=pred_trace_df['amount_total'], 
-                             mode='lines+markers', name='تنبؤ مستقبلي',
-                             line=dict(color='#ffd700', width=3, dash='dash'),
-                             marker=dict(size=8, color='#ffd700', line=dict(width=2, color='#fff'))))
+    fig.add_trace(go.Scatter(x=pred_trace_df['Month'], y=pred_trace_df['amount_total'], 
+                             mode='lines', line=dict(color='rgba(255,215,0,0.2)', width=12, dash='dash'), hoverinfo='skip', showlegend=False))
+    fig.add_trace(go.Scatter(x=pred_trace_df['Month'], y=pred_trace_df['amount_total'], 
+                             mode='lines+markers', name='تنبؤ مستقبلي',
+                             line=dict(color='#ffd700', width=3, dash='dash'),
+                             marker=dict(size=8, color='#ffd700', line=dict(width=2, color='#fff'))))
 
-    fig.update_layout(
-        template='plotly_dark',
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        hovermode="x unified",
-        xaxis_title="",
-        yaxis_title="القيمة (ج.م)",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        hoverlabel=dict(font_family="Cairo", font_size=14)
-    )
-    fig.update_traces(hovertemplate='<b>%{x|%Y-%m}</b><br>القيمة: %{y:,.0f} ج.م')
-    
-    st.markdown("<div class='g-card' style='padding: 0;'>", unsafe_allow_html=True)
-    st.plotly_chart(fig, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    fig.update_layout(
+        template='plotly_dark',
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        hovermode="x unified",
+        xaxis_title="",
+        yaxis_title="القيمة (ج.م)",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        hoverlabel=dict(font_family="Cairo", font_size=14)
+    )
+    fig.update_traces(hovertemplate='<b>%{x|%Y-%m}</b><br>القيمة: %{y:,.0f} ج.م')
+    
+    st.markdown("<div class='g-card' style='padding: 0;'>", unsafe_allow_html=True)
+    st.plotly_chart(fig, use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    if st.button("رؤية المدير الاستراتيجية للمستقبل", type="primary"):
-        with st.spinner("المدير يدرس المؤشرات المستقبلية..."):
-            actual_str = ", ".join([f"{row['amount_total']:,.0f}" for _, row in monthly.tail(3).iterrows()])
-            pred_str = ", ".join([f"{val:,.0f}" for val in future_y])
-            prompt = f"بناءً على التحليل الإحصائي، المبيعات الفعلية لأخر 3 شهور كانت: [{actual_str}] جنيه. النموذج يتوقع للأشهر الـ 3 القادمة: [{pred_str}] جنيه. بصفتك المدير التنفيذي للشركة، أعطني تحليلاً قصيراً جداً وتوجيهاً استراتيجياً واحداً لمواجهة هذا المسار بناءً على خبرتك بدون استخدام Emojis نهائياً."
-            try:
-                res = call_universal_ai([{"role": "user", "content": prompt}])
-                st.markdown("<div style='background:rgba(255,215,0,0.1); border:1px solid rgba(255,215,0,0.4); padding:20px; border-radius:12px; margin-top:10px;'>", unsafe_allow_html=True)
-                st.markdown(f"<h4 style='color:#ffd700; margin-top:0;'>رؤية المدير الاستراتيجية للمستقبل</h4>", unsafe_allow_html=True)
-                st.markdown(f"<div dir='rtl' style='text-align: right; line-height: 1.8; font-size: 1.05rem; color: #e2e8f0;'>\n\n{res}\n\n</div>", unsafe_allow_html=True)
-                st.markdown("</div>", unsafe_allow_html=True)
-            except Exception:
-                st.error("الخادم غير متاح حالياً لاستخراج الرؤية المستقبلية.")
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    if st.button("رؤية المدير الاستراتيجية للمستقبل", type="primary"):
+        with st.spinner("المدير يدرس المؤشرات المستقبلية..."):
+            actual_str = ", ".join([f"{row['amount_total']:,.0f}" for _, row in monthly.tail(3).iterrows()])
+            pred_str = ", ".join([f"{val:,.0f}" for val in future_y])
+            prompt = f"بناءً على التحليل الإحصائي، المبيعات الفعلية لأخر 3 شهور كانت: [{actual_str}] جنيه. النموذج يتوقع للأشهر الـ 3 القادمة: [{pred_str}] جنيه. بصفتك المدير التنفيذي للشركة، أعطني تحليلاً قصيراً جداً وتوجيهاً استراتيجياً واحداً لمواجهة هذا المسار بناءً على خبرتك بدون استخدام Emojis نهائياً."
+            try:
+                res = call_universal_ai([{"role": "user", "content": prompt}])
+                st.markdown("<div style='background:rgba(255,215,0,0.1); border:1px solid rgba(255,215,0,0.4); padding:20px; border-radius:12px; margin-top:10px;'>", unsafe_allow_html=True)
+                st.markdown(f"<h4 style='color:#ffd700; margin-top:0;'>رؤية المدير الاستراتيجية للمستقبل</h4>", unsafe_allow_html=True)
+                st.markdown(f"<div dir='rtl' style='text-align: right; line-height: 1.8; font-size: 1.05rem; color: #e2e8f0;'>\n\n{res}\n\n</div>", unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+            except Exception:
+                st.error("الخادم غير متاح حالياً لاستخراج الرؤية المستقبلية.")
 
 @st.dialog("تقرير تقييم الأداء التفصيلي", width="large")
 def show_employee_report_dialog(emp_full_name, start_date, end_date):
-    emp_short = emp_full_name.split(" - ")[0].strip()
-    emp_role = emp_full_name.split(" - ")[1].strip() if " - " in emp_full_name else ""
-    
-    emp_data = next((e for e in CFG.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == emp_full_name), None)
-    kpis = emp_data.get('job_desc', 'لا يوجد مهام مسجلة') if emp_data else 'لا يوجد'
-            
-    eval_history = CFG.get('EVAL_HISTORY', {}).get(emp_full_name, [])
-    filtered_evals = []
-    for ev in eval_history:
-        try:
-            ev_date = datetime.strptime(ev['date'], "%Y-%m-%d %H:%M").date()
-            if start_date <= ev_date <= end_date:
-                filtered_evals.append(ev)
-        except: pass
-        
-    activities = []
-    if 'workspace_id' in st.session_state:
-        try:
-            docs = get_workspace_doc().collection('Logs').where('user', '==', emp_full_name).stream()
-            for doc in docs:
-                al = doc.to_dict()
-                al_date = datetime.strptime(al['timestamp'], "%Y-%m-%d %H:%M:%S").date()
-                if start_date <= al_date <= end_date:
-                    activities.append(al)
-        except: pass
+    emp_short = emp_full_name.split(" - ")[0].strip()
+    emp_role = emp_full_name.split(" - ")[1].strip() if " - " in emp_full_name else ""
+    
+    emp_data = next((e for e in CFG.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == emp_full_name), None)
+    kpis = emp_data.get('job_desc', 'لا يوجد مهام مسجلة') if emp_data else 'لا يوجد'
+            
+    eval_history = CFG.get('EVAL_HISTORY', {}).get(emp_full_name, [])
+    filtered_evals = []
+    for ev in eval_history:
+        try:
+            ev_date = datetime.strptime(ev['date'], "%Y-%m-%d %H:%M").date()
+            if start_date <= ev_date <= end_date:
+                filtered_evals.append(ev)
+        except: pass
+        
+    activities = []
+    if 'workspace_id' in st.session_state:
+        try:
+            docs = get_workspace_doc().collection('Logs').where('user', '==', emp_full_name).stream()
+            for doc in docs:
+                al = doc.to_dict()
+                al_date = datetime.strptime(al['timestamp'], "%Y-%m-%d %H:%M:%S").date()
+                if start_date <= al_date <= end_date:
+                    activities.append(al)
+        except: pass
 
-    with st.spinner("جاري تحليل البيانات وتوليد التقرير الذكي بواسطة الذكاء الاصطناعي..."):
-        evals_str = "\n".join([f"[{e['date']}] {e['eval']}" for e in filtered_evals])
-        chats_str = "\n".join([f"[{c['timestamp']}] {'الموظف' if c.get('role')=='user' else 'المدير'}: {c.get('content','')}" for c in activities])
-        
-        if len(evals_str) > 2000: evals_str = "..." + evals_str[-2000:]
-        if len(chats_str) > 3000: chats_str = "..." + chats_str[-3000:]
+    with st.spinner("جاري تحليل البيانات وتوليد التقرير الذكي بواسطة الذكاء الاصطناعي..."):
+        evals_str = "\n".join([f"[{e['date']}] {e['eval']}" for e in filtered_evals])
+        chats_str = "\n".join([f"[{c['timestamp']}] {'الموظف' if c.get('role')=='user' else 'المدير'}: {c.get('content','')}" for c in activities])
+        
+        if len(evals_str) > 2000: evals_str = "..." + evals_str[-2000:]
+        if len(chats_str) > 3000: chats_str = "..." + chats_str[-3000:]
 
-        report_prompt = f"""
-        أنت خبير تقييم أداء (HR Executive). قم بكتابة تقرير أداء ذكي وملخص لموظف بناءً على البيانات التالية حصرياً:
-        - اسم الموظف: {emp_short}
-        - الوظيفة: {emp_role}
-        - الأهداف المطلوبة (KPIs): {kpis}
+        report_prompt = f"""
+        أنت خبير تقييم أداء (HR Executive). قم بكتابة تقرير أداء ذكي وملخص لموظف بناءً على البيانات التالية حصرياً:
+        - اسم الموظف: {emp_short}
+        - الوظيفة: {emp_role}
+        - الأهداف المطلوبة (KPIs): {kpis}
 
-        سجل التقييمات السابقة:
-        {evals_str if evals_str else 'لا يوجد'}
+        سجل التقييمات السابقة:
+        {evals_str if evals_str else 'لا يوجد'}
 
-        مقتطفات من تفاعلات الموظف وتقاريره (الشات):
-        {chats_str if chats_str else 'لا يوجد سجل محادثات'}
+        مقتطفات من تفاعلات الموظف وتقاريره (الشات):
+        {chats_str if chats_str else 'لا يوجد سجل محادثات'}
 
-        المطلوب:
-        اكتب تقرير إداري "موجز جداً ومكثف وفي نقاط سريعة" (لا يتعدى نصف صفحة، بحد أقصى 100 كلمة).
-        أخرج كود HTML فقط للمحتوى الداخلي (استخدم العناوين h4 والفقرات p والقوائم ul, li فقط).
-        تحذير صارم: لا تكتب <!DOCTYPE html> أو <html> أو <body> أو <head> نهائياً. أريد المحتوى الصافي فقط ليتم وضعه داخل حاوية موجودة مسبقاً.
-        ممنوع استخدام أي رموز تعبيرية (Emojis).
-        
-        ركز على: الخلاصة، الإنجاز، التزام الموظف، والتقييم النهائي من 10.
-        """
-        try:
-            smart_report_html = call_universal_ai([{"role": "user", "content": report_prompt}])
-            smart_report_html = smart_report_html.replace('```html', '').replace('```', '')
-            smart_report_html = re.sub(r'<!DOCTYPE[^>]*>', '', smart_report_html, flags=re.IGNORECASE)
-            smart_report_html = re.sub(r'</?html[^>]*>', '', smart_report_html, flags=re.IGNORECASE)
-            smart_report_html = re.sub(r'<head.*?</head>', '', smart_report_html, flags=re.DOTALL|re.IGNORECASE)
-            smart_report_html = re.sub(r'</?body[^>]*>', '', smart_report_html, flags=re.IGNORECASE)
-            smart_report_html = smart_report_html.strip()
+        المطلوب:
+        اكتب تقرير إداري "موجز جداً ومكثف وفي نقاط سريعة" (لا يتعدى نصف صفحة، بحد أقصى 100 كلمة).
+        أخرج كود HTML فقط للمحتوى الداخلي (استخدم العناوين h4 والفقرات p والقوائم ul, li فقط).
+        تحذير صارم: لا تكتب <!DOCTYPE html> أو <html> أو <body> أو <head> نهائياً. أريد المحتوى الصافي فقط ليتم وضعه داخل حاوية موجودة مسبقاً.
+        ممنوع استخدام أي رموز تعبيرية (Emojis).
+        
+        ركز على: الخلاصة، الإنجاز، التزام الموظف، والتقييم النهائي من 10.
+        """
+        try:
+            smart_report_html = call_universal_ai([{"role": "user", "content": report_prompt}])
+            smart_report_html = smart_report_html.replace('```html', '').replace('```', '')
+            smart_report_html = re.sub(r'<!DOCTYPE[^>]*>', '', smart_report_html, flags=re.IGNORECASE)
+            smart_report_html = re.sub(r'</?html[^>]*>', '', smart_report_html, flags=re.IGNORECASE)
+            smart_report_html = re.sub(r'<head.*?</head>', '', smart_report_html, flags=re.DOTALL|re.IGNORECASE)
+            smart_report_html = re.sub(r'</?body[^>]*>', '', smart_report_html, flags=re.IGNORECASE)
+            smart_report_html = smart_report_html.strip()
 
-        except Exception as e:
-            smart_report_html = f"""
-            <div style='text-align: center; padding: 40px; background-color: #ffeef2; border-radius: 12px; border: 1px solid #ff2d78;'>
-                <h3 style='color: #ff2d78; margin-top: 0;'>تعذر الاتصال بالخادم الذكي</h3>
-                <p style='color: #64748b; font-size: 16px;'>عذراً، لم نتمكن من توليد التقرير الذكي في الوقت الحالي.</p>
-            </div>
-            """
+        except Exception as e:
+            smart_report_html = f"""
+            <div style='text-align: center; padding: 40px; background-color: #ffeef2; border-radius: 12px; border: 1px solid #ff2d78;'>
+                <h3 style='color: #ff2d78; margin-top: 0;'>تعذر الاتصال بالخادم الذكي</h3>
+                <p style='color: #64748b; font-size: 16px;'>عذراً، لم نتمكن من توليد التقرير الذكي في الوقت الحالي.</p>
+            </div>
+            """
 
-    html_export = f"""
-    <!DOCTYPE html>
-    <html dir="rtl" lang="ar">
-    <head>
-        <meta charset="utf-8">
-        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
-        <style>
-            body {{ font-family: 'Cairo', sans-serif; background-color: #f8fafc; padding: 40px; color: #1e293b; direction: rtl; text-align: right; line-height: 1.8; }}
-            .report-container {{ max-width: 800px; margin: auto; background: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border-top: 8px solid #005c4b; }}
-            .header {{ text-align: center; padding-bottom: 20px; border-bottom: 2px solid #e2e8f0; margin-bottom: 30px; }}
-            .header h1 {{ color: #005c4b; font-size: 32px; font-weight: 800; margin: 0 0 10px 0; }}
-            .report-content {{ background: #f8fafc; padding: 30px; border-radius: 12px; border-right: 4px solid #005c4b; color: #334155; }}
-            .report-content h2, .report-content h3, .report-content h4 {{ color: #0f172a; margin-top: 0; font-size: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }}
-            .report-content p {{ font-size: 15px; margin-bottom: 10px; }}
-            .report-content ul {{ padding-right: 20px; margin-bottom: 15px; }}
-            .report-content li {{ margin-bottom: 5px; font-size: 15px; }}
-            .footer {{ text-align: center; margin-top: 40px; color: #94a3b8; font-size: 13px; border-top: 1px solid #e2e8f0; padding-top: 20px; }}
-        </style>
-    </head>
-    <body>
-        <div class="report-container">
-            <div class="header">
-                <h1>تقرير الأداء والتقييم الشامل</h1>
-                <div style="color: #64748b; font-size: 15px;">نظام MUDIR OS الاستراتيجي</div>
-            </div>
-            
-            <table width="100%" style="margin-bottom: 20px; background: #f1f5f9; border-radius: 12px; border: 1px solid #cbd5e1; padding: 15px;">
-                <tr>
-                    <td style="text-align: right; font-size: 16px; color: #334155; width: 33%;"><strong>الموظف:</strong> {emp_short}</td>
-                    <td style="text-align: center; font-size: 16px; color: #334155; width: 33%;"><strong>الوظيفة:</strong> {emp_role}</td>
-                    <td style="text-align: left; font-size: 16px; color: #334155; width: 33%; direction: rtl;"><strong>الفترة:</strong> {start_date} / {end_date}</td>
-                </tr>
-            </table>
+    html_export = f"""
+    <!DOCTYPE html>
+    <html dir="rtl" lang="ar">
+    <head>
+        <meta charset="utf-8">
+        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
+        <style>
+            body {{ font-family: 'Cairo', sans-serif; background-color: #f8fafc; padding: 40px; color: #1e293b; direction: rtl; text-align: right; line-height: 1.8; }}
+            .report-container {{ max-width: 800px; margin: auto; background: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border-top: 8px solid #005c4b; }}
+            .header {{ text-align: center; padding-bottom: 20px; border-bottom: 2px solid #e2e8f0; margin-bottom: 30px; }}
+            .header h1 {{ color: #005c4b; font-size: 32px; font-weight: 800; margin: 0 0 10px 0; }}
+            .report-content {{ background: #f8fafc; padding: 30px; border-radius: 12px; border-right: 4px solid #005c4b; color: #334155; }}
+            .report-content h2, .report-content h3, .report-content h4 {{ color: #0f172a; margin-top: 0; font-size: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }}
+            .report-content p {{ font-size: 15px; margin-bottom: 10px; }}
+            .report-content ul {{ padding-right: 20px; margin-bottom: 15px; }}
+            .report-content li {{ margin-bottom: 5px; font-size: 15px; }}
+            .footer {{ text-align: center; margin-top: 40px; color: #94a3b8; font-size: 13px; border-top: 1px solid #e2e8f0; padding-top: 20px; }}
+        </style>
+    </head>
+    <body>
+        <div class="report-container">
+            <div class="header">
+                <h1>تقرير الأداء والتقييم الشامل</h1>
+                <div style="color: #64748b; font-size: 15px;">نظام MUDIR OS الاستراتيجي</div>
+            </div>
+            
+            <table width="100%" style="margin-bottom: 20px; background: #f1f5f9; border-radius: 12px; border: 1px solid #cbd5e1; padding: 15px;">
+                <tr>
+                    <td style="text-align: right; font-size: 16px; color: #334155; width: 33%;"><strong>الموظف:</strong> {emp_short}</td>
+                    <td style="text-align: center; font-size: 16px; color: #334155; width: 33%;"><strong>الوظيفة:</strong> {emp_role}</td>
+                    <td style="text-align: left; font-size: 16px; color: #334155; width: 33%; direction: rtl;"><strong>الفترة:</strong> {start_date} / {end_date}</td>
+                </tr>
+            </table>
 
-            <div class="report-content">
-                {smart_report_html}
-            </div>
+            <div class="report-content">
+                {smart_report_html}
+            </div>
 
-            <div class="footer">
-                تم استخراج هذا التقرير آلياً بواسطة محرك الذكاء الاصطناعي - MUDIR OS<br>
-                تاريخ الاستخراج: {get_local_now().strftime('%Y-%m-%d %H:%M')}
-            </div>
-        </div>
-    </body></html>
-    """
+            <div class="footer">
+                تم استخراج هذا التقرير آلياً بواسطة محرك الذكاء الاصطناعي - MUDIR OS<br>
+                تاريخ الاستخراج: {get_local_now().strftime('%Y-%m-%d %H:%M')}
+            </div>
+        </div>
+    </body></html>
+    """
 
-    st.markdown("### معاينة التقرير المباشرة:")
-    
-    neon_preview_html = f"""
-    <!DOCTYPE html>
-    <html dir="rtl" lang="ar">
-    <head>
-        <meta charset="utf-8">
-        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Orbitron:wght@700&display=swap" rel="stylesheet">
-        <style>
-            body {{ margin: 0; padding: 10px; background-color: #0b141a; color: #e2e8f0; font-family: 'Cairo', sans-serif; direction: rtl; text-align: right; }}
-            .neon-report-wrapper {{ background: linear-gradient(180deg, #04080a 0%, #0b141a 100%); border-radius: 16px; padding: 30px; border: 1px solid rgba(0, 242, 255, 0.3); box-shadow: 0 0 20px rgba(0, 242, 255, 0.1); }}
-            .neon-report-header {{ text-align: center; border-bottom: 1px solid rgba(0, 242, 255, 0.2); padding-bottom: 20px; margin-bottom: 30px; }}
-            .neon-report-header h2 {{ color: #00f2ff; text-shadow: 0 0 10px rgba(0, 242, 255, 0.6); font-weight: 900; font-size: 2.2rem; margin: 0 0 10px 0; }}
-            .neon-report-body {{ background: rgba(0, 0, 0, 0.3); padding: 30px; border-radius: 12px; border-right: 4px solid #00ff82; font-size: 1.1rem; line-height: 1.8; box-shadow: inset 0 0 15px rgba(0,0,0,0.5); }}
-            .neon-report-body h1, .neon-report-body h2, .neon-report-body h3, .neon-report-body h4 {{ color: #00ff82; font-weight: 800; border-bottom: 1px dashed rgba(0, 255, 130, 0.3); padding-bottom: 8px; margin-top: 1.5rem; margin-bottom: 1rem; }}
-            .neon-report-body ul, .neon-report-body ol {{ padding-right: 25px; }}
-            .neon-report-body li {{ margin-bottom: 10px; }}
-            .neon-report-body strong, .neon-report-body b {{ color: #00f2ff; background: rgba(0, 242, 255, 0.1); padding: 2px 6px; border-radius: 4px; }}
-        </style>
-    </head>
-    <body>
-        <div class="neon-report-wrapper">
-            <div class="neon-report-header">
-                <h2>التقرير الاستراتيجي للأداء</h2>
-                <div style="color: #00ff82; font-size: 1.3rem; font-weight: bold; margin-bottom: 5px;">{emp_short} <span style="color:#64748b; font-weight: normal;">| {emp_role}</span></div>
-                <div style="color: #64748b; font-size: 0.95rem; font-family: 'Orbitron', sans-serif;">DATA RANGE: {start_date} // {end_date}</div>
-            </div>
-            <div class="neon-report-body">
-                {smart_report_html}
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    
-    st.components.v1.html(neon_preview_html, height=650, scrolling=True)
+    st.markdown("### معاينة التقرير المباشرة:")
+    
+    neon_preview_html = f"""
+    <!DOCTYPE html>
+    <html dir="rtl" lang="ar">
+    <head>
+        <meta charset="utf-8">
+        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Orbitron:wght@700&display=swap" rel="stylesheet">
+        <style>
+            body {{ margin: 0; padding: 10px; background-color: #0b141a; color: #e2e8f0; font-family: 'Cairo', sans-serif; direction: rtl; text-align: right; }}
+            .neon-report-wrapper {{ background: linear-gradient(180deg, #04080a 0%, #0b141a 100%); border-radius: 16px; padding: 30px; border: 1px solid rgba(0, 242, 255, 0.3); box-shadow: 0 0 20px rgba(0, 242, 255, 0.1); }}
+            .neon-report-header {{ text-align: center; border-bottom: 1px solid rgba(0, 242, 255, 0.2); padding-bottom: 20px; margin-bottom: 30px; }}
+            .neon-report-header h2 {{ color: #00f2ff; text-shadow: 0 0 10px rgba(0, 242, 255, 0.6); font-weight: 900; font-size: 2.2rem; margin: 0 0 10px 0; }}
+            .neon-report-body {{ background: rgba(0, 0, 0, 0.3); padding: 30px; border-radius: 12px; border-right: 4px solid #00ff82; font-size: 1.1rem; line-height: 1.8; box-shadow: inset 0 0 15px rgba(0,0,0,0.5); }}
+            .neon-report-body h1, .neon-report-body h2, .neon-report-body h3, .neon-report-body h4 {{ color: #00ff82; font-weight: 800; border-bottom: 1px dashed rgba(0, 255, 130, 0.3); padding-bottom: 8px; margin-top: 1.5rem; margin-bottom: 1rem; }}
+            .neon-report-body ul, .neon-report-body ol {{ padding-right: 25px; }}
+            .neon-report-body li {{ margin-bottom: 10px; }}
+            .neon-report-body strong, .neon-report-body b {{ color: #00f2ff; background: rgba(0, 242, 255, 0.1); padding: 2px 6px; border-radius: 4px; }}
+        </style>
+    </head>
+    <body>
+        <div class="neon-report-wrapper">
+            <div class="neon-report-header">
+                <h2>التقرير الاستراتيجي للأداء</h2>
+                <div style="color: #00ff82; font-size: 1.3rem; font-weight: bold; margin-bottom: 5px;">{emp_short} <span style="color:#64748b; font-weight: normal;">| {emp_role}</span></div>
+                <div style="color: #64748b; font-size: 0.95rem; font-family: 'Orbitron', sans-serif;">DATA RANGE: {start_date} // {end_date}</div>
+            </div>
+            <div class="neon-report-body">
+                {smart_report_html}
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    st.components.v1.html(neon_preview_html, height=650, scrolling=True)
 
-    c1, c2 = st.columns(2)
-    with c1:
-        st.download_button("📥 حفظ التقرير (Word)", data=html_export.encode('utf-8-sig'), file_name=f"Performance_Report_{emp_short}.doc", mime="application/msword", use_container_width=True)
-    with c2:
-        st.download_button("🖨️ استخراج للطباعة (PDF)", data=(html_export + "<script>window.print();</script>").encode('utf-8-sig'), file_name=f"Performance_Report_{emp_short}.html", mime="text/html", use_container_width=True)
+    c1, c2 = st.columns(2)
+    with c1:
+        st.download_button("📥 حفظ التقرير (Word)", data=html_export.encode('utf-8-sig'), file_name=f"Performance_Report_{emp_short}.doc", mime="application/msword", use_container_width=True)
+    with c2:
+        st.download_button("🖨️ استخراج للطباعة (PDF)", data=(html_export + "<script>window.print();</script>").encode('utf-8-sig'), file_name=f"Performance_Report_{emp_short}.html", mime="text/html", use_container_width=True)
 
 # -------------------------------------------------------------------
 # Fragment المخصص للشات يعمل بشكل مستقل لعدم إعادة تحميل الصفحة
 # -------------------------------------------------------------------
 @st.fragment
 def render_chat_fragment(curr_user, sys_prompt_context, CFG):
-    chat_area = st.container(height=650, border=False)
-    with chat_area:
-        for idx, msg in enumerate(st.session_state.all_chats.get(curr_user, [])):
-            with st.chat_message(msg["role"]):
-                st.markdown(f"<span class='msg-{msg['role']}' style='display:none;'></span>", unsafe_allow_html=True)
-                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(msg['content'])}</div>", unsafe_allow_html=True)
-                
-                # إظهار زر مسح الرسالة فقط داخل شاشة الشات الحالية
-                st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
-                if st.button("🗑️", key=f"dl_{curr_user}_{idx}", help="حذف الرسالة"):
-                    st.session_state.all_chats[curr_user].pop(idx)
-                    save_chat_for_user(curr_user)
-                    st.rerun(scope="fragment")
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-    user_input = st.chat_input("اكتب رسالة...")
+    chat_area = st.container(height=650, border=False)
+    with chat_area:
+        for idx, msg in enumerate(st.session_state.all_chats.get(curr_user, [])):
+            with st.chat_message(msg["role"]):
+                st.markdown(f"<span class='msg-{msg['role']}' style='display:none;'></span>", unsafe_allow_html=True)
+                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(msg['content'])}</div>", unsafe_allow_html=True)
+                
+                # إظهار زر مسح الرسالة فقط داخل شاشة الشات الحالية
+                st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
+                if st.button("🗑️", key=f"dl_{curr_user}_{idx}", help="حذف الرسالة"):
+                    st.session_state.all_chats[curr_user].pop(idx)
+                    save_chat_for_user(curr_user)
+                    st.rerun(scope="fragment")
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+    user_input = st.chat_input("اكتب رسالة...")
 
-    if user_input:
-        if curr_user not in st.session_state.all_chats:
-            st.session_state.all_chats[curr_user] = []
-            
-        user_msg = {"role": "user", "content": user_input}
-        st.session_state.all_chats[curr_user].append(user_msg)
-        
-        user_msg_log = user_msg.copy()
-        user_msg_log['user'] = curr_user
-        log_message(curr_user, user_msg_log)
-        save_chat_for_user(curr_user)
-        
-        with chat_area:
-            with st.chat_message("user"):
-                st.markdown("<span class='msg-user' style='display:none;'></span>", unsafe_allow_html=True)
-                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(user_input)}</div>", unsafe_allow_html=True)
-            
-            with st.spinner("المدير بيفكر..."):
-                api_messages = [{"role": "system", "content": sys_prompt_context}]
-                api_messages.extend(st.session_state.all_chats[curr_user][-20:])
-                
-                try:
-                    response_text = call_universal_ai(api_messages, json_mode=True)
-                    
-                    # تنظيف المخرجات للتأكد من إنها JSON صالح
-                    clean_json_str = response_text.replace('```json', '').replace('```', '').strip()
-                    ai_data = json.loads(clean_json_str)
-                    
-                    actual_response = ai_data.get('response', '')
-                    eval_data = ai_data.get('eval', '')
-                    assigned_task = ai_data.get('task', '')
-                    action_data = ai_data.get('action', '')
+    if user_input:
+        if curr_user not in st.session_state.all_chats:
+            st.session_state.all_chats[curr_user] = []
+            
+        user_msg = {"role": "user", "content": user_input}
+        st.session_state.all_chats[curr_user].append(user_msg)
+        
+        user_msg_log = user_msg.copy()
+        user_msg_log['user'] = curr_user
+        log_message(curr_user, user_msg_log)
+        save_chat_for_user(curr_user)
+        
+        with chat_area:
+            with st.chat_message("user"):
+                st.markdown("<span class='msg-user' style='display:none;'></span>", unsafe_allow_html=True)
+                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(user_input)}</div>", unsafe_allow_html=True)
+            
+            with st.spinner("المدير بيفكر..."):
+                api_messages = [{"role": "system", "content": sys_prompt_context}]
+                api_messages.extend(st.session_state.all_chats[curr_user][-20:])
+                
+                # =========================================================================
+                # 🛡️ نظام الشفاء التلقائي لمعالجة أخطاء JSON Mode (Fallback Mechanism)
+                # =========================================================================
+                max_retries = 2
+                ai_data = None
+                
+                for attempt in range(max_retries):
+                    try:
+                        response_text = call_universal_ai(api_messages, json_mode=True)
+                        clean_json_str = response_text.replace('```json', '').replace('```', '').strip()
+                        ai_data = json.loads(clean_json_str)
+                        break # النجاح! لا يوجد خطأ
+                    except json.JSONDecodeError:
+                        if attempt < max_retries - 1:
+                            # المحاولة مجدداً بصمت في حالة عودة JSON غير صالح
+                            api_messages.append({"role": "user", "content": "الرد السابق كان يحتوي على خطأ برمجي (ليس JSON صالح). يرجى إعادة إرسال ردك ككائن JSON نظيف فقط يحتوي على: response, eval, task, action."})
+                        else:
+                            # الاستجابة الاحتياطية (Fallback) لمنع الانهيار تماماً إذا فشل الموديل مرتين
+                            ai_data = {
+                                "response": "يبدو إن فيه ضغط على النظام والمعلومات مش واضحة قدامي دلوقتي. معلش، ممكن توضح قصدك أو طلبك مرة تانية؟",
+                                "eval": "", "task": "", "action": ""
+                            }
+                # =========================================================================
 
-                    # 1. معالجة الـ ACTION إن وجد
-                    if action_data and "CREATE_SO" in action_data:
-                        client_name = "غير محدد"
-                        amt = "0"
-                        if "|" in action_data:
-                            parts = action_data.split("|")
-                            for p in parts:
-                                if "العميل:" in p: client_name = p.replace("العميل:", "").strip()
-                                if "القيمة:" in p: amt = p.replace("القيمة:", "").strip()
-                                
-                        ai_msg1 = {"role": "assistant", "content": actual_response}
-                        st.session_state.all_chats[curr_user].append(ai_msg1)
-                        
-                        ai_msg1_log = ai_msg1.copy()
-                        ai_msg1_log['user'] = curr_user
-                        log_message(curr_user, ai_msg1_log)
-                        
-                        ai_msg2 = {"role": "system", "content": f"إشعار من النظام: تم إنشاء مسودة عرض سعر بنجاح في النظام للعميل ({client_name}) بقيمة تقديرية ({amt})."}
-                        st.session_state.all_chats[curr_user].append(ai_msg2)
-                        
-                        ai_msg2_log = ai_msg2.copy()
-                        ai_msg2_log['user'] = curr_user
-                        log_message(curr_user, ai_msg2_log)
-                        
-                        save_chat_for_user(curr_user)
-                        st.rerun(scope="fragment")
+                actual_response = ai_data.get('response', '')
+                eval_data = ai_data.get('eval', '')
+                assigned_task = ai_data.get('task', '')
+                action_data = ai_data.get('action', '')
 
-                    # 2. تسجيل المهام
-                    if assigned_task and "المدير العام" not in curr_user:
-                        try:
-                            current_cfg = get_workspace_doc().get().to_dict() or {}
-                            if 'TASK_REGISTRY' not in current_cfg: current_cfg['TASK_REGISTRY'] = []
-                            now_str = get_local_now().strftime("%Y-%m-%d")
-                            task_entry = f"- {assigned_task} (تم حجزها لـ {curr_user.split(' - ')[0]} في {now_str})"
-                            current_cfg['TASK_REGISTRY'].append(task_entry)
-                            get_workspace_doc().set({'TASK_REGISTRY': current_cfg['TASK_REGISTRY']}, merge=True)
-                            st.session_state.app_config['TASK_REGISTRY'] = current_cfg['TASK_REGISTRY']
-                        except Exception:
-                            pass
+                # 1. معالجة الـ ACTION إن وجد
+                if action_data and "CREATE_SO" in action_data:
+                    client_name = "غير محدد"
+                    amt = "0"
+                    if "|" in action_data:
+                        parts = action_data.split("|")
+                        for p in parts:
+                            if "العميل:" in p: client_name = p.replace("العميل:", "").strip()
+                            if "القيمة:" in p: amt = p.replace("القيمة:", "").strip()
+                            
+                    ai_msg1 = {"role": "assistant", "content": actual_response}
+                    st.session_state.all_chats[curr_user].append(ai_msg1)
+                    
+                    ai_msg1_log = ai_msg1.copy()
+                    ai_msg1_log['user'] = curr_user
+                    log_message(curr_user, ai_msg1_log)
+                    
+                    ai_msg2 = {"role": "system", "content": f"إشعار من النظام: تم إنشاء مسودة عرض سعر بنجاح في النظام للعميل ({client_name}) بقيمة تقديرية ({amt})."}
+                    st.session_state.all_chats[curr_user].append(ai_msg2)
+                    
+                    ai_msg2_log = ai_msg2.copy()
+                    ai_msg2_log['user'] = curr_user
+                    log_message(curr_user, ai_msg2_log)
+                    
+                    # 🔔 تسجيل في الإشعارات
+                    try:
+                        current_cfg = get_workspace_doc().get().to_dict() or {}
+                        if 'NOTIFICATIONS' not in current_cfg: current_cfg['NOTIFICATIONS'] = {}
+                        if curr_user not in current_cfg['NOTIFICATIONS']: current_cfg['NOTIFICATIONS'][curr_user] = []
+                        current_cfg['NOTIFICATIONS'][curr_user].append(f"✅ تم تنفيذ أمر تلقائي: إنشاء عرض سعر لـ ({client_name}) بقيمة ({amt}).")
+                        get_workspace_doc().set({'NOTIFICATIONS': current_cfg['NOTIFICATIONS']}, merge=True)
+                        CFG['NOTIFICATIONS'] = current_cfg['NOTIFICATIONS']
+                    except Exception: pass
+                    
+                    save_chat_for_user(curr_user)
+                    st.rerun(scope="fragment")
 
-                    # 3. التقييم
-                    if eval_data and "المدير العام" not in curr_user:
-                        try:
-                            current_cfg = get_workspace_doc().get().to_dict() or {}
-                            if 'EVALUATIONS' not in current_cfg: current_cfg['EVALUATIONS'] = {}
-                            if 'EVAL_HISTORY' not in current_cfg: current_cfg['EVAL_HISTORY'] = {}
-                            if curr_user not in current_cfg['EVAL_HISTORY']: current_cfg['EVAL_HISTORY'][curr_user] = []
-                            now_str = get_local_now().strftime("%Y-%m-%d %H:%M")
-                            current_cfg['EVALUATIONS'][curr_user] = {'eval': eval_data, 'date': now_str}
-                            current_cfg['EVAL_HISTORY'][curr_user].append({'eval': eval_data, 'date': now_str})
-                            get_workspace_doc().set({'EVALUATIONS': current_cfg['EVALUATIONS'], 'EVAL_HISTORY': current_cfg['EVAL_HISTORY']}, merge=True)
-                            st.session_state.app_config['EVALUATIONS'] = current_cfg['EVALUATIONS']
-                            st.session_state.app_config['EVAL_HISTORY'] = current_cfg['EVAL_HISTORY']
-                        except Exception:
-                            pass
-                    
-                    # تخزين الرد الأساسي وعرضه
-                    if actual_response:
-                        ai_final_msg = {"role": "assistant", "content": actual_response}
-                        st.session_state.all_chats[curr_user].append(ai_final_msg)
-                        
-                        ai_final_msg_log = ai_final_msg.copy()
-                        ai_final_msg_log['user'] = curr_user
-                        log_message(curr_user, ai_final_msg_log)
-                        
-                        save_chat_for_user(curr_user)
-                        st.rerun(scope="fragment")
+                # 2. تسجيل المهام (والإشعارات)
+                if assigned_task and "المدير العام" not in curr_user:
+                    try:
+                        current_cfg = get_workspace_doc().get().to_dict() or {}
+                        if 'TASK_REGISTRY' not in current_cfg: current_cfg['TASK_REGISTRY'] = []
+                        now_str = get_local_now().strftime("%Y-%m-%d")
+                        task_entry = f"- {assigned_task} (تم حجزها لـ {curr_user.split(' - ')[0]} في {now_str})"
+                        current_cfg['TASK_REGISTRY'].append(task_entry)
+                        
+                        # 🔔 تسجيل في الإشعارات
+                        if 'NOTIFICATIONS' not in current_cfg: current_cfg['NOTIFICATIONS'] = {}
+                        if curr_user not in current_cfg['NOTIFICATIONS']: current_cfg['NOTIFICATIONS'][curr_user] = []
+                        current_cfg['NOTIFICATIONS'][curr_user].append(f"📌 تكليف جديد من المدير: {assigned_task}")
+                        
+                        get_workspace_doc().set({'TASK_REGISTRY': current_cfg['TASK_REGISTRY'], 'NOTIFICATIONS': current_cfg['NOTIFICATIONS']}, merge=True)
+                        st.session_state.app_config['TASK_REGISTRY'] = current_cfg['TASK_REGISTRY']
+                        st.session_state.app_config['NOTIFICATIONS'] = current_cfg['NOTIFICATIONS']
+                    except Exception:
+                        pass
 
-                except Exception as e:
-                    st.session_state.all_chats[curr_user].pop()
-                    save_chat_for_user(curr_user)
-                    err_msg = str(e).lower()
-                    if "429" in err_msg or "quota" in err_msg or "rate limit" in err_msg:
-                        st.error("فشل الاتصال: الخادم المركزي عليه ضغط أو وصل للحد الأقصى للعمليات. يُرجى مراجعة إعدادات الربط.")
-                    elif "401" in err_msg or "auth" in err_msg:
-                        st.error("فشل الاتصال: إعدادات الخادم المركزي غير مفعلة بشكل صحيح.")
-                    elif "json" in err_msg:
-                        st.error("الموديل لم يرد بصيغة JSON صحيحة. يرجى المحاولة مرة أخرى.")
-                    else:
-                        st.error("المدير مشغول حالياً بمراجعة تقارير أخرى، ممكن حضرتك تكلمني بعد 10 دقايق؟")
+                # 3. التقييم
+                if eval_data and "المدير العام" not in curr_user:
+                    try:
+                        current_cfg = get_workspace_doc().get().to_dict() or {}
+                        if 'EVALUATIONS' not in current_cfg: current_cfg['EVALUATIONS'] = {}
+                        if 'EVAL_HISTORY' not in current_cfg: current_cfg['EVAL_HISTORY'] = {}
+                        if curr_user not in current_cfg['EVAL_HISTORY']: current_cfg['EVAL_HISTORY'][curr_user] = []
+                        now_str = get_local_now().strftime("%Y-%m-%d %H:%M")
+                        current_cfg['EVALUATIONS'][curr_user] = {'eval': eval_data, 'date': now_str}
+                        current_cfg['EVAL_HISTORY'][curr_user].append({'eval': eval_data, 'date': now_str})
+                        get_workspace_doc().set({'EVALUATIONS': current_cfg['EVALUATIONS'], 'EVAL_HISTORY': current_cfg['EVAL_HISTORY']}, merge=True)
+                        st.session_state.app_config['EVALUATIONS'] = current_cfg['EVALUATIONS']
+                        st.session_state.app_config['EVAL_HISTORY'] = current_cfg['EVAL_HISTORY']
+                    except Exception:
+                        pass
+                
+                # تخزين الرد الأساسي وعرضه
+                if actual_response:
+                    ai_final_msg = {"role": "assistant", "content": actual_response}
+                    st.session_state.all_chats[curr_user].append(ai_final_msg)
+                    
+                    ai_final_msg_log = ai_final_msg.copy()
+                    ai_final_msg_log['user'] = curr_user
+                    log_message(curr_user, ai_final_msg_log)
+                    
+                    save_chat_for_user(curr_user)
+                    st.rerun(scope="fragment")
 
 
 def render_ai():
-    
-    CFG = st.session_state.app_config
-    curr_user = st.session_state.current_user
-    
-    now = get_local_now()
-    try:
-        work_start = int(CFG.get('WORK_START', 8))
-        work_end = int(CFG.get('WORK_END', 17))
-    except:
-        work_start, work_end = 8, 17
-        
-    is_working_hours = work_start <= now.hour < work_end
-    
-    time_status_color = "#00ff82" if is_working_hours else "#ff2d78"
-    time_status_text = "داخل أوقات العمل" if is_working_hours else "خارج أوقات العمل"
-    
-    start_am_pm = f"{work_start if work_start <= 12 else work_start - 12} {'ص' if work_start < 12 else 'م'}"
-    end_am_pm = f"{work_end if work_end <= 12 else work_end - 12} {'ص' if work_end < 12 else 'م'}"
-    
-    h12 = now.hour % 12 or 12
-    am_pm_ar = "صباحاً" if now.hour < 12 else "مساءً"
-    current_time_str = f"{h12:02d}:{now.minute:02d} {am_pm_ar}"
-    
-    st.markdown(f"""
-    <div style="background:rgba(0,242,255,0.05); padding:10px 20px; border-radius:12px; border:1px solid rgba(0,242,255,0.2); display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-        <div style="display:flex; align-items:center; gap:10px;">
-            {get_icon('clock', 20, '#00f2ff')}
-            <strong style="color:#00f2ff; font-family:'Orbitron', sans-serif; font-size:1.1rem;">{current_time_str}</strong>
-        </div>
-        <div style="color:{time_status_color}; font-weight:bold; font-size:0.9rem;">
-            ● {time_status_text} ({start_am_pm} - {end_am_pm})
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-        
-    c_header1, c_header2 = st.columns([3, 1])
-    with c_header1:
-        st.markdown(f"""
-        <div style="background-color: #1f2c34; padding: 12px 20px; border-radius: 12px; display: flex; align-items: center; gap: 15px; margin-bottom: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-            <div style="width: 45px; height: 45px; border-radius: 50%; background-color: rgba(0, 242, 255, 0.1); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: bold; color: var(--c-primary); border: 1px solid rgba(0, 242, 255, 0.3);">
-                {get_icon("command", 24, "var(--c-primary)")}
-            </div>
-            <div>
-                <div style="font-weight: 700; font-size: 1.1rem; color: #fff; margin-bottom: -3px;">المدير العام</div>
-                <div style="font-size: 0.85rem; color: #00ff82;">متصل الآن</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    with c_header2:
-        curr_user_for_export = st.session_state.current_user
-        chat_content = ""
-        for msg in st.session_state.all_chats.get(curr_user_for_export, []):
-            role_name = "الموظف" if msg['role'] == 'user' else "المدير"
-            chat_content += f"[{role_name}]: {msg['content']}\n{'-'*40}\n"
-        
-        st.download_button(
-            label="📥 حفظ المحادثة (TXT)",
-            data=chat_content.encode('utf-8-sig'),
-            file_name=f"Chat_Backup_{curr_user_for_export}_{get_local_now().strftime('%Y%m%d')}.txt",
-            mime="text/plain",
-            use_container_width=True
-        )
+    
+    CFG = st.session_state.app_config
+    curr_user = st.session_state.current_user
+    
+    now = get_local_now()
+    try:
+        work_start = int(CFG.get('WORK_START', 8))
+        work_end = int(CFG.get('WORK_END', 17))
+    except:
+        work_start, work_end = 8, 17
+        
+    is_working_hours = work_start <= now.hour < work_end
+    
+    time_status_color = "#00ff82" if is_working_hours else "#ff2d78"
+    time_status_text = "داخل أوقات العمل" if is_working_hours else "خارج أوقات العمل"
+    
+    start_am_pm = f"{work_start if work_start <= 12 else work_start - 12} {'ص' if work_start < 12 else 'م'}"
+    end_am_pm = f"{work_end if work_end <= 12 else work_end - 12} {'ص' if work_end < 12 else 'م'}"
+    
+    h12 = now.hour % 12 or 12
+    am_pm_ar = "صباحاً" if now.hour < 12 else "مساءً"
+    current_time_str = f"{h12:02d}:{now.minute:02d} {am_pm_ar}"
+    
+    st.markdown(f"""
+    <div style="background:rgba(0,242,255,0.05); padding:10px 20px; border-radius:12px; border:1px solid rgba(0,242,255,0.2); display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+            {get_icon('clock', 20, '#00f2ff')}
+            <strong style="color:#00f2ff; font-family:'Orbitron', sans-serif; font-size:1.1rem;">{current_time_str}</strong>
+        </div>
+        <div style="color:{time_status_color}; font-weight:bold; font-size:0.9rem;">
+            ● {time_status_text} ({start_am_pm} - {end_am_pm})
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+        
+    c_header1, c_header2 = st.columns([3, 1])
+    with c_header1:
+        st.markdown(f"""
+        <div style="background-color: #1f2c34; padding: 12px 20px; border-radius: 12px; display: flex; align-items: center; gap: 15px; margin-bottom: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+            <div style="width: 45px; height: 45px; border-radius: 50%; background-color: rgba(0, 242, 255, 0.1); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: bold; color: var(--c-primary); border: 1px solid rgba(0, 242, 255, 0.3);">
+                {get_icon("command", 24, "var(--c-primary)")}
+            </div>
+            <div>
+                <div style="font-weight: 700; font-size: 1.1rem; color: #fff; margin-bottom: -3px;">المدير العام</div>
+                <div style="font-size: 0.85rem; color: #00ff82;">متصل الآن</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c_header2:
+        curr_user_for_export = st.session_state.current_user
+        chat_content = ""
+        for msg in st.session_state.all_chats.get(curr_user_for_export, []):
+            role_name = "الموظف" if msg['role'] == 'user' else "المدير"
+            chat_content += f"[{role_name}]: {msg['content']}\n{'-'*40}\n"
+        
+        st.download_button(
+            label="📥 حفظ المحادثة (TXT)",
+            data=chat_content.encode('utf-8-sig'),
+            file_name=f"Chat_Backup_{curr_user_for_export}_{get_local_now().strftime('%Y%m%d')}.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
 
-    df_s = df_s_master
-    df_p = df_p_master
+    df_s = df_s_master
+    df_p = df_p_master
 
-    t_sales_appr = df_s[df_s['state'].isin(['sale','done'])]['amount_total'].sum() if df_s is not None and not df_s.empty and 'state' in df_s.columns else 0
-    t_sales_draft = df_s[df_s['state'].isin(['draft','sent'])]['amount_total'].sum() if df_s is not None and not df_s.empty and 'state' in df_s.columns else 0
-    t_sales_canc = df_s[df_s['state'] == 'cancel']['amount_total'].sum() if df_s is not None and not df_s.empty and 'state' in df_s.columns else 0
-    p_len = len(df_p) if df_p is not None else 0
-    
-    quotes_summary = "لا توجد عروض أسعار معلقة أو مسودة حالياً."
-    if df_s is not None and not df_s.empty and 'state' in df_s.columns and 'partner_id' in df_s.columns:
-        drafts = df_s[df_s['state'].isin(['draft', 'sent'])].head(5)
-        if not drafts.empty:
-            quotes_summary = " | ".join([f"عرض ({row.get('name', 'N/A')}) للعميل ({clean_odoo_m2o(row['partner_id'])}) بقيمة {row.get('amount_total', 0)} ج.م" for _, row in drafts.iterrows()])
+    t_sales_appr = df_s[df_s['state'].isin(['sale','done'])]['amount_total'].sum() if df_s is not None and not df_s.empty and 'state' in df_s.columns else 0
+    t_sales_draft = df_s[df_s['state'].isin(['draft','sent'])]['amount_total'].sum() if df_s is not None and not df_s.empty and 'state' in df_s.columns else 0
+    t_sales_canc = df_s[df_s['state'] == 'cancel']['amount_total'].sum() if df_s is not None and not df_s.empty and 'state' in df_s.columns else 0
+    p_len = len(df_p) if df_p is not None else 0
+    
+    quotes_summary = "لا توجد عروض أسعار معلقة أو مسودة حالياً."
+    if df_s is not None and not df_s.empty and 'state' in df_s.columns and 'partner_id' in df_s.columns:
+        drafts = df_s[df_s['state'].isin(['draft', 'sent'])].head(5)
+        if not drafts.empty:
+            quotes_summary = " | ".join([f"عرض ({row.get('name', 'N/A')}) للعميل ({clean_odoo_m2o(row['partner_id'])}) بقيمة {row.get('amount_total', 0)} ج.م" for _, row in drafts.iterrows()])
 
-    clients_summary = "لا توجد بيانات عملاء كافية."
-    if df_p is not None and not df_p.empty and 'name' in df_p.columns:
-        sample_df = df_p[['name', 'city', 'total_invoiced']].dropna().sort_values('total_invoiced', ascending=False).head(5)
-        clients_summary = " | ".join([f"{row['name']} ({row.get('city','-')})" for _, row in sample_df.iterrows()])
+    clients_summary = "لا توجد بيانات عملاء كافية."
+    if df_p is not None and not df_p.empty and 'name' in df_p.columns:
+        sample_df = df_p[['name', 'city', 'total_invoiced']].dropna().sort_values('total_invoiced', ascending=False).head(5)
+        clients_summary = " | ".join([f"{row['name']} ({row.get('city','-')})" for _, row in sample_df.iterrows()])
 
-    team_context_lines = []
-    for emp, chat in st.session_state.all_chats.items():
-        if emp == "المدير العام" or emp == curr_user or not chat: continue
-        last_task = next((m['content'] for m in reversed(chat) if m['role'] == 'assistant'), "")
-        if last_task:
-            team_context_lines.append(f"- {emp}: {last_task[:150]}...")
-    team_context_str = "\n".join(team_context_lines) if team_context_lines else "لا توجد تكليفات لزملاء آخرين حالياً."
+    team_context_lines = []
+    for emp, chat in st.session_state.all_chats.items():
+        if emp == "المدير العام" or emp == curr_user or not chat: continue
+        last_task = next((m['content'] for m in reversed(chat) if m['role'] == 'assistant'), "")
+        if last_task:
+            team_context_lines.append(f"- {emp}: {last_task[:150]}...")
+    team_context_str = "\n".join(team_context_lines) if team_context_lines else "لا توجد تكليفات لزملاء آخرين حالياً."
 
-    # تكوين السياق الحي للمدير
-    base_prompt = CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT)
-    curr_emp_data = next((e for e in CFG.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == curr_user), None)
-    job_desc = curr_emp_data.get('job_desc', 'لا يوجد وصف وظيفي محدد.') if curr_emp_data else 'أنت المدير العام.'
-    
-    live_context = f"""
+    # تكوين السياق الحي للمدير
+    base_prompt = CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT)
+    curr_emp_data = next((e for e in CFG.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == curr_user), None)
+    job_desc = curr_emp_data.get('job_desc', 'لا يوجد وصف وظيفي محدد.') if curr_emp_data else 'أنت المدير العام.'
+    
+    live_context = f"""
 === بيانات النظام الحية (يجب أخذها في الاعتبار) ===
 - المبيعات المنفذة (موافق عليه): {t_sales_appr:,.0f} ج.م
 - عروض الأسعار المسودة/المعلقة (قيد الانتظار): {t_sales_draft:,.0f} ج.م
@@ -2107,792 +2149,792 @@ def render_ai():
 
 الموظف اللي بيكلمك دلوقتي: {curr_user}.
 """
-    task_reg = CFG.get('TASK_REGISTRY', [])
-    task_reg_str = "\n".join(task_reg[-100:]) if task_reg else "لا يوجد مهام أو عملاء محجوزين مسبقاً."
+    task_reg = CFG.get('TASK_REGISTRY', [])
+    task_reg_str = "\n".join(task_reg[-100:]) if task_reg else "لا يوجد مهام أو عملاء محجوزين مسبقاً."
 
-    live_context += f"""
+    live_context += f"""
 === سجل المهام والعملاء المحجوزين (الذاكرة المؤسسية) ===
 هذه القائمة تحتوي على المهام والشركات التي تم تكليف موظفين بها سابقاً:
 {task_reg_str}
 تعليمات: إياك أن تكلف الموظف الحالي بمهمة محجوزة.
 """
-    if curr_user != "المدير العام":
-        live_context += f"\n=== ملف الموظف الحالي ({curr_user}) ===\n"
-        live_context += f"المهام والأهداف المطلوبة من هذا الموظف (KPIs):\n{job_desc}\n"
+    if curr_user != "المدير العام":
+        live_context += f"\n=== ملف الموظف الحالي ({curr_user}) ===\n"
+        live_context += f"المهام والأهداف المطلوبة من هذا الموظف (KPIs):\n{job_desc}\n"
 
-    knowledge_base = CFG.get('KNOWLEDGE_BASE', '')
-    if knowledge_base:
-        live_context += f"\n\n=== قاعدة المعرفة ===\n{knowledge_base[:8000]}\n"
+    knowledge_base = CFG.get('KNOWLEDGE_BASE', '')
+    if knowledge_base:
+        live_context += f"\n\n=== قاعدة المعرفة ===\n{knowledge_base[:8000]}\n"
 
-    sys_prompt_context = base_prompt + "\n" + live_context
+    sys_prompt_context = base_prompt + "\n" + live_context
 
 
-    if "المدير العام" in curr_user:
-        gm_tabs = st.tabs(["مراقبة وتقييم الموظفين (سري)", "مكتبي الخاص (توجيهات الإدارة)"])
-        
-        with gm_tabs[0]:
-            cl1, cl2 = st.columns([3, 1])
-            with cl1:
-                st.markdown(f"<div class='g-card-title' style='color:var(--c-gold);'>{get_icon('eye', 22)} آخر تقييمات الموظفين التلقائية</div>", unsafe_allow_html=True)
-            with cl2:
-                # زر لمزامنة الرسائل والمحادثات للمدير العام فقط
-                if st.button("🔄 مزامنة الرسائل الجديدة", use_container_width=True):
-                    st.session_state.all_chats = load_user_chats()
-                    st.rerun()
+    if "المدير العام" in curr_user:
+        gm_tabs = st.tabs(["مراقبة وتقييم الموظفين (سري)", "مكتبي الخاص (توجيهات الإدارة)"])
+        
+        with gm_tabs[0]:
+            cl1, cl2 = st.columns([3, 1])
+            with cl1:
+                st.markdown(f"<div class='g-card-title' style='color:var(--c-gold);'>{get_icon('eye', 22)} آخر تقييمات الموظفين التلقائية</div>", unsafe_allow_html=True)
+            with cl2:
+                # زر لمزامنة الرسائل والمحادثات للمدير العام فقط
+                if st.button("🔄 مزامنة الرسائل الجديدة", use_container_width=True):
+                    st.session_state.all_chats = load_user_chats()
+                    st.rerun()
 
-            evals = CFG.get('EVALUATIONS', {})
-            if not evals:
-                st.info("لا توجد تقييمات مسجلة بعد. سيقوم النظام بتسجيلها تلقائياً عند حديث الموظفين معه.")
-            else:
-                for emp_name, emp_data in evals.items():
-                    st.markdown(f"""<div style="background:rgba(255,255,255,0.02); padding:15px; border-radius:8px; border:1px solid rgba(255,255,255,0.05); margin-bottom:10px;">
-                        <div style="color:var(--c-primary); font-weight:bold; font-size:1.1rem; margin-bottom:5px;">{emp_name}</div>
-                        <div style="font-size:0.85rem; color:var(--c-dim); margin-bottom:10px;">تاريخ آخر تقييم: {emp_data.get('date', '')}</div>
-                        <div style="color:#e2e8f0; font-size:0.95rem; direction:rtl; text-align:right;">{emp_data.get('eval', '')}</div>
-                    </div>""", unsafe_allow_html=True)
-            
-            st.markdown("<hr style='border-color:rgba(255,255,255,0.1); margin: 30px 0;'>", unsafe_allow_html=True)
-            st.markdown(f"<div class='g-card-title' style='color:#00f2ff;'>{get_icon('folder', 22)} تقرير أداء وتقييم الموظف الذكي (للطباعة)</div>", unsafe_allow_html=True)
-            
-            emp_list = [u for u in st.session_state.all_chats.keys() if "المدير العام" not in u]
-            if emp_list:
-                c_r1, c_r2, c_r3, c_r4 = st.columns([2, 1.5, 1.5, 1.5])
-                with c_r1:
-                    sel_rep_emp = st.selectbox("اختر الموظف للتقرير:", emp_list, key="sel_rep_emp", label_visibility="collapsed")
-                with c_r2:
-                    start_d = st.date_input("من تاريخ:", value=get_local_now().date() - timedelta(days=30), key="start_d")
-                with c_r3:
-                    end_d = st.date_input("إلى تاريخ:", value=get_local_now().date(), key="end_d")
-                with c_r4:
-                    if st.button("📄 استخراج التقرير", type="primary", use_container_width=True):
-                        show_employee_report_dialog(sel_rep_emp, start_d, end_d)
-            
-            st.markdown("<hr style='border-color:rgba(255,255,255,0.1); margin: 30px 0;'>", unsafe_allow_html=True)
-            st.markdown(f"<div class='g-card-title' style='color:var(--c-accent);'>{get_icon('search', 22)} أرشيف محادثات الموظفين (إدارة كاملة)</div>", unsafe_allow_html=True)
-            
-            if emp_list:
-                sel_emp = st.selectbox("اختر الموظف لمراجعة محادثته الحية:", emp_list, label_visibility="collapsed")
-                if sel_emp:
-                    c_arc1, c_arc2 = st.columns(2)
-                    with c_arc1:
-                        if st.button(f"🗑️ مسح واجهة الشات لـ {sel_emp.split(' - ')[0]}", use_container_width=True):
-                            st.session_state.all_chats[sel_emp] = [{"role": "assistant", "content": "تم مسح الأرشيف بواسطة الإدارة العليا. مستعد لتلقي التكليفات الجديدة."}]
-                            save_chat_for_user(sel_emp)
-                            st.rerun()
-                    with c_arc2:
-                        if st.button(f"🔄 استعادة المحادثة بالكامل من السجل السري", use_container_width=True, type="primary"):
-                            audit_history = []
-                            try:
-                                docs = get_workspace_doc().collection('Logs').where('user', '==', sel_emp).stream()
-                                for doc in docs:
-                                    audit_history.append(doc.to_dict())
-                            except: pass
-                            
-                            if audit_history:
-                                st.session_state.all_chats[sel_emp] = [{"role": m.get("role", "user"), "content": m.get("content", "")} for m in audit_history]
-                                save_chat_for_user(sel_emp)
-                                st.success("تم استعادة المحادثة بالكامل من السجل السري بنجاح!")
-                                time.sleep(1)
-                                st.rerun()
-                            else:
-                                st.warning("لا يوجد سجل سري مسجل لهذا الموظف بعد.")
-                    
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    show_emp_chat = st.toggle(f"👁️ إظهار رسائل ومحادثة ({sel_emp.split(' - ')[0]})", value=False, help="اضغط هنا لعرض تفاصيل المحادثة كاملة إذا لزم الأمر")
-                    if show_emp_chat:
-                        chat_to_view = st.session_state.all_chats.get(sel_emp, [])
-                        for idx, m in enumerate(chat_to_view):
-                            with st.chat_message(m.get("role", "user")):
-                                st.markdown(f"<span class='msg-{m.get('role', 'user')}' style='display:none;'></span>", unsafe_allow_html=True)
-                                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(m.get('content', ''))}</div>", unsafe_allow_html=True)
-                                
-                                st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
-                                if st.button("🗑️", key=f"gm_dl_{sel_emp}_{idx}", help="حذف الرسالة"):
-                                    st.session_state.all_chats[sel_emp].pop(idx)
-                                    save_chat_for_user(sel_emp)
-                                    st.rerun()
-                                st.markdown('</div>', unsafe_allow_html=True)
-            else:
-                st.info("لا توجد محادثات نشطة للموظفين حتى الآن.")
+            evals = CFG.get('EVALUATIONS', {})
+            if not evals:
+                st.info("لا توجد تقييمات مسجلة بعد. سيقوم النظام بتسجيلها تلقائياً عند حديث الموظفين معه.")
+            else:
+                for emp_name, emp_data in evals.items():
+                    st.markdown(f"""<div style="background:rgba(255,255,255,0.02); padding:15px; border-radius:8px; border:1px solid rgba(255,255,255,0.05); margin-bottom:10px;">
+                        <div style="color:var(--c-primary); font-weight:bold; font-size:1.1rem; margin-bottom:5px;">{emp_name}</div>
+                        <div style="font-size:0.85rem; color:var(--c-dim); margin-bottom:10px;">تاريخ آخر تقييم: {emp_data.get('date', '')}</div>
+                        <div style="color:#e2e8f0; font-size:0.95rem; direction:rtl; text-align:right;">{emp_data.get('eval', '')}</div>
+                    </div>""", unsafe_allow_html=True)
+            
+            st.markdown("<hr style='border-color:rgba(255,255,255,0.1); margin: 30px 0;'>", unsafe_allow_html=True)
+            st.markdown(f"<div class='g-card-title' style='color:#00f2ff;'>{get_icon('folder', 22)} تقرير أداء وتقييم الموظف الذكي (للطباعة)</div>", unsafe_allow_html=True)
+            
+            emp_list = [u for u in st.session_state.all_chats.keys() if "المدير العام" not in u]
+            if emp_list:
+                c_r1, c_r2, c_r3, c_r4 = st.columns([2, 1.5, 1.5, 1.5])
+                with c_r1:
+                    sel_rep_emp = st.selectbox("اختر الموظف للتقرير:", emp_list, key="sel_rep_emp", label_visibility="collapsed")
+                with c_r2:
+                    start_d = st.date_input("من تاريخ:", value=get_local_now().date() - timedelta(days=30), key="start_d")
+                with c_r3:
+                    end_d = st.date_input("إلى تاريخ:", value=get_local_now().date(), key="end_d")
+                with c_r4:
+                    if st.button("📄 استخراج التقرير", type="primary", use_container_width=True):
+                        show_employee_report_dialog(sel_rep_emp, start_d, end_d)
+            
+            st.markdown("<hr style='border-color:rgba(255,255,255,0.1); margin: 30px 0;'>", unsafe_allow_html=True)
+            st.markdown(f"<div class='g-card-title' style='color:var(--c-accent);'>{get_icon('search', 22)} أرشيف محادثات الموظفين (إدارة كاملة)</div>", unsafe_allow_html=True)
+            
+            if emp_list:
+                sel_emp = st.selectbox("اختر الموظف لمراجعة محادثته الحية:", emp_list, label_visibility="collapsed")
+                if sel_emp:
+                    c_arc1, c_arc2 = st.columns(2)
+                    with c_arc1:
+                        if st.button(f"🗑️ مسح واجهة الشات لـ {sel_emp.split(' - ')[0]}", use_container_width=True):
+                            st.session_state.all_chats[sel_emp] = [{"role": "assistant", "content": "تم مسح الأرشيف بواسطة الإدارة العليا. مستعد لتلقي التكليفات الجديدة."}]
+                            save_chat_for_user(sel_emp)
+                            st.rerun()
+                    with c_arc2:
+                        if st.button(f"🔄 استعادة المحادثة بالكامل من السجل السري", use_container_width=True, type="primary"):
+                            audit_history = []
+                            try:
+                                docs = get_workspace_doc().collection('Logs').where('user', '==', sel_emp).stream()
+                                for doc in docs:
+                                    audit_history.append(doc.to_dict())
+                            except: pass
+                            
+                            if audit_history:
+                                st.session_state.all_chats[sel_emp] = [{"role": m.get("role", "user"), "content": m.get("content", "")} for m in audit_history]
+                                save_chat_for_user(sel_emp)
+                                st.success("تم استعادة المحادثة بالكامل من السجل السري بنجاح!")
+                                time.sleep(1)
+                                st.rerun()
+                            else:
+                                st.warning("لا يوجد سجل سري مسجل لهذا الموظف بعد.")
+                    
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    show_emp_chat = st.toggle(f"👁️ إظهار رسائل ومحادثة ({sel_emp.split(' - ')[0]})", value=False, help="اضغط هنا لعرض تفاصيل المحادثة كاملة إذا لزم الأمر")
+                    if show_emp_chat:
+                        chat_to_view = st.session_state.all_chats.get(sel_emp, [])
+                        for idx, m in enumerate(chat_to_view):
+                            with st.chat_message(m.get("role", "user")):
+                                st.markdown(f"<span class='msg-{m.get('role', 'user')}' style='display:none;'></span>", unsafe_allow_html=True)
+                                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(m.get('content', ''))}</div>", unsafe_allow_html=True)
+                                
+                                st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
+                                if st.button("🗑️", key=f"gm_dl_{sel_emp}_{idx}", help="حذف الرسالة"):
+                                    st.session_state.all_chats[sel_emp].pop(idx)
+                                    save_chat_for_user(sel_emp)
+                                    st.rerun()
+                                st.markdown('</div>', unsafe_allow_html=True)
+            else:
+                st.info("لا توجد محادثات نشطة للموظفين حتى الآن.")
 
-        with gm_tabs[1]:
-            render_chat_fragment(curr_user, sys_prompt_context, CFG)
-            
-    else:
-        render_chat_fragment(curr_user, sys_prompt_context, CFG)
+        with gm_tabs[1]:
+            render_chat_fragment(curr_user, sys_prompt_context, CFG)
+            
+    else:
+        render_chat_fragment(curr_user, sys_prompt_context, CFG)
 
 def render_fusion():
-    st.markdown(f"""
-    <div class="page-header" style="justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 24px;">
-            <div class="ph-icon-wrap">{get_icon("fusion", 46, "#00f2ff")}</div>
-            <div>
-                <div class="ph-title">مختبر الاندماج (Data Fusion)</div>
-                <div class="ph-sub">اربط بياناتك الخارجية مع بيانات النواة لاستنتاج الفرص وتغذية عقل المدير</div>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="page-header" style="justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 24px;">
+            <div class="ph-icon-wrap">{get_icon("fusion", 46, "#00f2ff")}</div>
+            <div>
+                <div class="ph-title">مختبر الاندماج (Data Fusion)</div>
+                <div class="ph-sub">اربط بياناتك الخارجية مع بيانات النواة لاستنتاج الفرص وتغذية عقل المدير</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    CFG = st.session_state.app_config
+    CFG = st.session_state.app_config
 
-    st.markdown(f"<div class='g-card-title' style='color:var(--c-gold);'>{get_icon('book', 22)} قاعدة المعرفة للمدير (دليل الصيانة والعمليات)</div>", unsafe_allow_html=True)
-    st.info("ارفع هنا ملفات الـ PDF (مثل أدلة الصيانة أو لوائح الشركة). سيقوم النظام باستخراج النصوص وتخزينها للأبد في عقل المدير لكي يجيب المهندسين والموظفين بناءً عليها مباشرة.")
-    
-    pdf_file = st.file_uploader("ارفع ملف PDF", type=['pdf'], label_visibility="collapsed")
-    
-    col_kb1, col_kb2 = st.columns([1, 3])
-    with col_kb1:
-        if pdf_file and st.button("🧠 استيعاب الملف (تغذية المدير)", type="primary", use_container_width=True):
-            try:
-                import PyPDF2
-                with st.spinner("جاري قراءة واستخراج البيانات الخام من الملف..."):
-                    reader = PyPDF2.PdfReader(pdf_file)
-                    raw_text = ""
-                    for page in reader.pages:
-                        raw_text += page.extract_text() + "\n"
-                
-                with st.spinner("جاري تنظيم وهيكلة البيانات بواسطة الذكاء الاصطناعي لبناء قاعدة معرفة نموذجية..."):
-                    try:
-                        organize_prompt = f"""
-                        بصفتك خبيراً في هندسة النظم وإدارة المعرفة، تم استخراج النص التالي من ملف فني أو دليل صيانة.
-                        المطلوب منك:
-                        1. إعادة هيكلة وتنظيم النص بالكامل وتنسيقه بشكل احترافي باستخدام الماركداون (Markdown).
-                        2. تقسيمه إلى عناوين رئيسية وفرعية واضحة (مثل: الإجراءات، المتطلبات، خطوات الصيانة).
-                        3. استخدام القوائم لتلخيص الخطوات الطويلة وتسهيل قراءتها.
-                        4. الحفاظ التام على أي معلومات فنية، أرقام، مقاييس، وتحذيرات دون فقدانها.
-                        5. تنظيف النص من الشوائب كأرقام الصفحات والهوامش المكررة.
-                        6. لا تضف أي مقدمات أو خاتمات، فقط قدم النص المنظم مباشرة لتخزينه كقاعدة معرفة.
-                        
-                        النص الخام:
-                        {raw_text[:20000]}
-                        """
-                        structured_text = call_universal_ai([{"role": "user", "content": organize_prompt}])
-                    except Exception as ai_e:
-                        st.warning(f"تعذر الاتصال بالذكاء الاصطناعي لتنظيم النص، سيتم حفظ النص الخام. السبب: {ai_e}")
-                        structured_text = raw_text
-                
-                CFG['KNOWLEDGE_BASE'] = structured_text
-                save_config(CFG)
-                st.success("✅ تم التنظيم والاستيعاب بنجاح! قاعدة المعرفة جاهزة الآن.")
-                time.sleep(2)
-                st.rerun()
-            except ImportError:
-                st.error("مكتبة PyPDF2 غير مثبتة. يرجى إضافتها إلى requirements.txt (إن وجد) أو بيئة التشغيل.")
-            except Exception as e:
-                st.error(f"حدث خطأ أثناء القراءة: {e}")
-    with col_kb2:
-        current_kb = CFG.get('KNOWLEDGE_BASE', '')
-        if current_kb:
-            st.markdown(f"<div style='background:rgba(0,255,130,0.1); padding:10px; border-radius:8px; border:1px solid #00ff82; color:#00ff82;'>حجم قاعدة المعرفة الحالية: <b>{len(current_kb):,}</b> حرف مخزن في ذاكرة النظام.</div>", unsafe_allow_html=True)
-            if st.button("🗑️ مسح الذاكرة الحالية"):
-                CFG['KNOWLEDGE_BASE'] = ''
-                save_config(CFG)
-                st.rerun()
+    st.markdown(f"<div class='g-card-title' style='color:var(--c-gold);'>{get_icon('book', 22)} قاعدة المعرفة للمدير (دليل الصيانة والعمليات)</div>", unsafe_allow_html=True)
+    st.info("ارفع هنا ملفات الـ PDF (مثل أدلة الصيانة أو لوائح الشركة). سيقوم النظام باستخراج النصوص وتخزينها للأبد في عقل المدير لكي يجيب المهندسين والموظفين بناءً عليها مباشرة.")
+    
+    pdf_file = st.file_uploader("ارفع ملف PDF", type=['pdf'], label_visibility="collapsed")
+    
+    col_kb1, col_kb2 = st.columns([1, 3])
+    with col_kb1:
+        if pdf_file and st.button("🧠 استيعاب الملف (تغذية المدير)", type="primary", use_container_width=True):
+            try:
+                import PyPDF2
+                with st.spinner("جاري قراءة واستخراج البيانات الخام من الملف..."):
+                    reader = PyPDF2.PdfReader(pdf_file)
+                    raw_text = ""
+                    for page in reader.pages:
+                        raw_text += page.extract_text() + "\n"
+                
+                with st.spinner("جاري تنظيم وهيكلة البيانات بواسطة الذكاء الاصطناعي لبناء قاعدة معرفة نموذجية..."):
+                    try:
+                        organize_prompt = f"""
+                        بصفتك خبيراً في هندسة النظم وإدارة المعرفة، تم استخراج النص التالي من ملف فني أو دليل صيانة.
+                        المطلوب منك:
+                        1. إعادة هيكلة وتنظيم النص بالكامل وتنسيقه بشكل احترافي باستخدام الماركداون (Markdown).
+                        2. تقسيمه إلى عناوين رئيسية وفرعية واضحة (مثل: الإجراءات، المتطلبات، خطوات الصيانة).
+                        3. استخدام القوائم لتلخيص الخطوات الطويلة وتسهيل قراءتها.
+                        4. الحفاظ التام على أي معلومات فنية، أرقام، مقاييس، وتحذيرات دون فقدانها.
+                        5. تنظيف النص من الشوائب كأرقام الصفحات والهوامش المكررة.
+                        6. لا تضف أي مقدمات أو خاتمات، فقط قدم النص المنظم مباشرة لتخزينه كقاعدة معرفة.
+                        
+                        النص الخام:
+                        {raw_text[:20000]}
+                        """
+                        structured_text = call_universal_ai([{"role": "user", "content": organize_prompt}])
+                    except Exception as ai_e:
+                        st.warning(f"تعذر الاتصال بالذكاء الاصطناعي لتنظيم النص، سيتم حفظ النص الخام. السبب: {ai_e}")
+                        structured_text = raw_text
+                
+                CFG['KNOWLEDGE_BASE'] = structured_text
+                save_config(CFG)
+                st.success("✅ تم التنظيم والاستيعاب بنجاح! قاعدة المعرفة جاهزة الآن.")
+                time.sleep(2)
+                st.rerun()
+            except ImportError:
+                st.error("مكتبة PyPDF2 غير مثبتة. يرجى إضافتها إلى requirements.txt (إن وجد) أو بيئة التشغيل.")
+            except Exception as e:
+                st.error(f"حدث خطأ أثناء القراءة: {e}")
+    with col_kb2:
+        current_kb = CFG.get('KNOWLEDGE_BASE', '')
+        if current_kb:
+            st.markdown(f"<div style='background:rgba(0,255,130,0.1); padding:10px; border-radius:8px; border:1px solid #00ff82; color:#00ff82;'>حجم قاعدة المعرفة الحالية: <b>{len(current_kb):,}</b> حرف مخزن في ذاكرة النظام.</div>", unsafe_allow_html=True)
+            if st.button("🗑️ مسح الذاكرة الحالية"):
+                CFG['KNOWLEDGE_BASE'] = ''
+                save_config(CFG)
+                st.rerun()
 
-    st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 30px 0;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 30px 0;'>", unsafe_allow_html=True)
 
-    up1, up2 = st.columns([2,1])
-    with up1:
-        st.markdown(f"<strong style='color:var(--c-primary); display:flex; align-items:center; gap:8px; margin-bottom:10px;'>{get_icon('folder', 18)} إدراج ملف تحليل بيانات مؤقت (Excel / CSV)</strong>", unsafe_allow_html=True)
-        file_up = st.file_uploader("تحليل بيانات مؤقت", type=['csv','xlsx'], label_visibility="collapsed")
-    with up2:
-        st.info("ارفع قائمة موردين، منافسين، أو بيانات سوقية ليدمجها النظام التحليلي مع أرقام مبيعاتنا الحالية ويستخرج التقاطعات الذهبية.")
+    up1, up2 = st.columns([2,1])
+    with up1:
+        st.markdown(f"<strong style='color:var(--c-primary); display:flex; align-items:center; gap:8px; margin-bottom:10px;'>{get_icon('folder', 18)} إدراج ملف تحليل بيانات مؤقت (Excel / CSV)</strong>", unsafe_allow_html=True)
+        file_up = st.file_uploader("تحليل بيانات مؤقت", type=['csv','xlsx'], label_visibility="collapsed")
+    with up2:
+        st.info("ارفع قائمة موردين، منافسين، أو بيانات سوقية ليدمجها النظام التحليلي مع أرقام مبيعاتنا الحالية ويستخرج التقاطعات الذهبية.")
 
-    if file_up:
-        try:
-            ext_df = pd.read_excel(file_up) if file_up.name.endswith('.xlsx') else pd.read_csv(file_up)
-            
-            if st.button(f"📥 تحليل وتصدير البيانات المدخلة (Word / PDF)", use_container_width=True):
-                show_detailed_report("البيانات الخارجية", {"df": {"البيانات المدرجة": ext_df}})
-                
-            st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 20px 0;'>", unsafe_allow_html=True)
+    if file_up:
+        try:
+            ext_df = pd.read_excel(file_up) if file_up.name.endswith('.xlsx') else pd.read_csv(file_up)
+            
+            if st.button(f"📥 تحليل وتصدير البيانات المدخلة (Word / PDF)", use_container_width=True):
+                show_detailed_report("البيانات الخارجية", {"df": {"البيانات المدرجة": ext_df}})
+                
+            st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 20px 0;'>", unsafe_allow_html=True)
 
-            with st.container():
-                st.markdown(f"<div class='g-card-title' style='margin-top:20px; color:var(--c-gold);'>{get_icon('activity', 22)} المسح الإحصائي المبدئي للبيانات</div>", unsafe_allow_html=True)
-                cols_num = ext_df.select_dtypes(include=[np.number]).columns
-                if not cols_num.empty:
-                    stats_cols = st.columns(min(len(cols_num), 4))
-                    for idx, col in enumerate(cols_num[:4]):
-                        with stats_cols[idx]:
-                            st.markdown(f"""
-                            <div class="custom-metric" style="background:rgba(255,215,0,0.05); border-color:rgba(255,215,0,0.2); text-align:center;">
-                                <div style="font-size:0.8rem; color:var(--c-dim); margin-bottom:5px;">متوسط ({col})</div>
-                                <div class="cm-val" style="font-size:1.4rem; color:var(--c-gold); text-shadow: none;">{ext_df[col].mean():,.0f}</div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                
-                st.markdown(f"<div class='g-card-title' style='margin-top:20px;'>{get_icon('chart', 22)} استعراض هيكل البيانات: `{file_up.name}`</div>", unsafe_allow_html=True)
-                st.dataframe(ext_df.head(10), use_container_width=True)
+            with st.container():
+                st.markdown(f"<div class='g-card-title' style='margin-top:20px; color:var(--c-gold);'>{get_icon('activity', 22)} المسح الإحصائي المبدئي للبيانات</div>", unsafe_allow_html=True)
+                cols_num = ext_df.select_dtypes(include=[np.number]).columns
+                if not cols_num.empty:
+                    stats_cols = st.columns(min(len(cols_num), 4))
+                    for idx, col in enumerate(cols_num[:4]):
+                        with stats_cols[idx]:
+                            st.markdown(f"""
+                            <div class="custom-metric" style="background:rgba(255,215,0,0.05); border-color:rgba(255,215,0,0.2); text-align:center;">
+                                <div style="font-size:0.8rem; color:var(--c-dim); margin-bottom:5px;">متوسط ({col})</div>
+                                <div class="cm-val" style="font-size:1.4rem; color:var(--c-gold); text-shadow: none;">{ext_df[col].mean():,.0f}</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                
+                st.markdown(f"<div class='g-card-title' style='margin-top:20px;'>{get_icon('chart', 22)} استعراض هيكل البيانات: `{file_up.name}`</div>", unsafe_allow_html=True)
+                st.dataframe(ext_df.head(10), use_container_width=True)
 
-                if st.button("بدء تفاعل الاندماج المعرفي", type="primary"):
-                    with st.spinner("جاري استخلاص الأنماط المعقدة..."):
-                        t_sales_appr = df_s_master[df_s_master['state'].isin(['sale','done'])]['amount_total'].sum() if not df_s_master.empty else 0
-                        internal_summary = f"المبيعات المعتمدة={t_sales_appr:,.0f}, العملاء={len(df_p_master)}"
-                        fusion_prompt = f"أنت محلل. بياناتنا: {internal_summary}. الملف الخارجي (عينة): {ext_df.head(10).to_string()}. استخرج 3 فرص ذهبية، مخاطر محتملة، وتكتيك للغد. أجب باحترافية تامة وبدون Emojis."
-                        try:
-                            messages = [{"role": "user", "content": fusion_prompt}]
-                            response_text = call_universal_ai(messages)
-                            st.markdown("<div class='g-card' style='background:rgba(112,0,255,0.05); border-color:rgba(112,0,255,0.3);'>", unsafe_allow_html=True)
-                            st.markdown(f"<h3 style='color:#7000ff; margin-top:0; display:flex; align-items:center; gap:10px;'>{get_icon('dna', 28)} تقرير الاندماج فائق الدقة</h3>", unsafe_allow_html=True)
-                            st.markdown(f"<div dir='rtl' style='text-align: right;'>\n\n{response_text}\n\n</div>", unsafe_allow_html=True)
-                            st.markdown("</div>", unsafe_allow_html=True)
-                        except Exception:
-                            st.error("الخادم المركزي عليه ضغط شديد حالياً، يُرجى المحاولة بعد قليل.")
-        except Exception: 
-            st.error("خطأ في قراءة الملف.")
+                if st.button("بدء تفاعل الاندماج المعرفي", type="primary"):
+                    with st.spinner("جاري استخلاص الأنماط المعقدة..."):
+                        t_sales_appr = df_s_master[df_s_master['state'].isin(['sale','done'])]['amount_total'].sum() if not df_s_master.empty else 0
+                        internal_summary = f"المبيعات المعتمدة={t_sales_appr:,.0f}, العملاء={len(df_p_master)}"
+                        fusion_prompt = f"أنت محلل. بياناتنا: {internal_summary}. الملف الخارجي (عينة): {ext_df.head(10).to_string()}. استخرج 3 فرص ذهبية، مخاطر محتملة، وتكتيك للغد. أجب باحترافية تامة وبدون Emojis."
+                        try:
+                            messages = [{"role": "user", "content": fusion_prompt}]
+                            response_text = call_universal_ai(messages)
+                            st.markdown("<div class='g-card' style='background:rgba(112,0,255,0.05); border-color:rgba(112,0,255,0.3);'>", unsafe_allow_html=True)
+                            st.markdown(f"<h3 style='color:#7000ff; margin-top:0; display:flex; align-items:center; gap:10px;'>{get_icon('dna', 28)} تقرير الاندماج فائق الدقة</h3>", unsafe_allow_html=True)
+                            st.markdown(f"<div dir='rtl' style='text-align: right;'>\n\n{response_text}\n\n</div>", unsafe_allow_html=True)
+                            st.markdown("</div>", unsafe_allow_html=True)
+                        except Exception:
+                            st.error("الخادم المركزي عليه ضغط شديد حالياً، يُرجى المحاولة بعد قليل.")
+        except Exception: 
+            st.error("خطأ في قراءة الملف.")
 
 
 def render_territories():
-    st.markdown(f"""
-    <div class="page-header" style="justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 24px;">
-            <div class="ph-icon-wrap">{get_icon("globe", 46, "#00f2ff")}</div>
-            <div>
-                <div class="ph-title">التحليل الجغرافي للاستحواذ</div>
-                <div class="ph-sub">خريطة حرارية لتمركز الإيرادات وتوزيعها (مفلترة زمنياً)</div>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    start_dt, end_dt, _, _ = get_smart_filter_dates("terr")
+    st.markdown(f"""
+    <div class="page-header" style="justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 24px;">
+            <div class="ph-icon-wrap">{get_icon("globe", 46, "#00f2ff")}</div>
+            <div>
+                <div class="ph-title">التحليل الجغرافي للاستحواذ</div>
+                <div class="ph-sub">خريطة حرارية لتمركز الإيرادات وتوزيعها (مفلترة زمنياً)</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    start_dt, end_dt, _, _ = get_smart_filter_dates("terr")
 
-    t_df = df_s_master.copy()
-    if start_dt and end_dt and not t_df.empty and 'date_order' in t_df.columns:
-        t_df = t_df[(t_df['date_order'] >= start_dt) & (t_df['date_order'] <= end_dt)]
+    t_df = df_s_master.copy()
+    if start_dt and end_dt and not t_df.empty and 'date_order' in t_df.columns:
+        t_df = t_df[(t_df['date_order'] >= start_dt) & (t_df['date_order'] <= end_dt)]
 
-    if t_df.empty:
-        return st.warning("البيانات غير كافية للتحليل الجغرافي للفترة المحددة.")
+    if t_df.empty:
+        return st.warning("البيانات غير كافية للتحليل الجغرافي للفترة المحددة.")
 
-    df_s_appr = t_df[t_df['state'].isin(['sale', 'done'])].copy()
-    if df_s_appr.empty:
-        return st.warning("لا توجد مبيعات معتمدة في هذه الفترة.")
-        
-    df_s_appr['اسم العميل'] = df_s_appr['partner_id'].apply(clean_odoo_m2o)
-    city_dict = dict(zip(df_p_master['name'], df_p_master['city'])) if not df_p_master.empty else {}
-    df_s_appr['المدينة'] = df_s_appr['اسم العميل'].map(city_dict).fillna('غير محدد')
+    df_s_appr = t_df[t_df['state'].isin(['sale', 'done'])].copy()
+    if df_s_appr.empty:
+        return st.warning("لا توجد مبيعات معتمدة في هذه الفترة.")
+        
+    df_s_appr['اسم العميل'] = df_s_appr['partner_id'].apply(clean_odoo_m2o)
+    city_dict = dict(zip(df_p_master['name'], df_p_master['city'])) if not df_p_master.empty else {}
+    df_s_appr['المدينة'] = df_s_appr['اسم العميل'].map(city_dict).fillna('غير محدد')
 
-    city_df = df_s_appr.groupby('المدينة')['amount_total'].sum().reset_index()
-    city_df = city_df.rename(columns={'amount_total': 'total_invoiced'})
-    
-    city_details = df_s_appr.groupby('المدينة').agg(
-        عدد_العملاء=('اسم العميل', 'nunique'),
-        إجمالي_الفواتير=('amount_total', 'sum')
-    ).reset_index().sort_values('إجمالي_الفواتير', ascending=False)
-    
-    if st.button(f"📥 تحليل وتصدير التقرير الجغرافي (Word / PDF)", use_container_width=True):
-        export_data = {"المدن والتمركز الجغرافي": city_details}
-        show_detailed_report("التحليل الجغرافي للاستحواذ", {"df": export_data})
-        
-    st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin-bottom: 20px;'>", unsafe_allow_html=True)
-    
-    st.markdown(f"<div class='g-card-title'>{get_icon('globe', 22)} الخريطة الحرارية للاستحواذ المالي بالمدن</div>", unsafe_allow_html=True)
-    if not city_df.empty:
-        fig = px.treemap(city_df, path=[px.Constant("إجمالي الإيرادات"), 'المدينة'], values='total_invoiced',
-                         color='total_invoiced', color_continuous_scale=['#1f2c34', '#7000ff', '#00f2ff'],
-                         template='plotly_dark')
-        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', margin=dict(t=20, b=0, l=0, r=0), hoverlabel=dict(font_family="Cairo", font_size=14))
-        fig.update_traces(textinfo="label+value+percent parent", hovertemplate='<b>%{label}</b><br>القيمة: %{value:,.0f} ج.م<extra></extra>')
-        st.plotly_chart(fig, use_container_width=True)
+    city_df = df_s_appr.groupby('المدينة')['amount_total'].sum().reset_index()
+    city_df = city_df.rename(columns={'amount_total': 'total_invoiced'})
+    
+    city_details = df_s_appr.groupby('المدينة').agg(
+        عدد_العملاء=('اسم العميل', 'nunique'),
+        إجمالي_الفواتير=('amount_total', 'sum')
+    ).reset_index().sort_values('إجمالي_الفواتير', ascending=False)
+    
+    if st.button(f"📥 تحليل وتصدير التقرير الجغرافي (Word / PDF)", use_container_width=True):
+        export_data = {"المدن والتمركز الجغرافي": city_details}
+        show_detailed_report("التحليل الجغرافي للاستحواذ", {"df": export_data})
+        
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin-bottom: 20px;'>", unsafe_allow_html=True)
+    
+    st.markdown(f"<div class='g-card-title'>{get_icon('globe', 22)} الخريطة الحرارية للاستحواذ المالي بالمدن</div>", unsafe_allow_html=True)
+    if not city_df.empty:
+        fig = px.treemap(city_df, path=[px.Constant("إجمالي الإيرادات"), 'المدينة'], values='total_invoiced',
+                         color='total_invoiced', color_continuous_scale=['#1f2c34', '#7000ff', '#00f2ff'],
+                         template='plotly_dark')
+        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', margin=dict(t=20, b=0, l=0, r=0), hoverlabel=dict(font_family="Cairo", font_size=14))
+        fig.update_traces(textinfo="label+value+percent parent", hovertemplate='<b>%{label}</b><br>القيمة: %{value:,.0f} ج.م<extra></extra>')
+        st.plotly_chart(fig, use_container_width=True)
 
-    st.markdown(f"<br><div class='g-card-title'>{get_icon('table', 22)} تفاصيل التمركز الجغرافي وقوة المدن</div>", unsafe_allow_html=True)
-    st.dataframe(style_dataframe(city_details), use_container_width=True, hide_index=True)
+    st.markdown(f"<br><div class='g-card-title'>{get_icon('table', 22)} تفاصيل التمركز الجغرافي وقوة المدن</div>", unsafe_allow_html=True)
+    st.dataframe(style_dataframe(city_details), use_container_width=True, hide_index=True)
 
 
 @st.dialog("تعديل بيانات الموظف")
 def edit_employee_dialog(emp_index, current_emps, view_options):
-    emp = current_emps[emp_index]
-    
-    st.markdown(f"<h3 style='color:var(--c-primary); margin-top:0;'>تعديل الموظف: {emp['name']}</h3>", unsafe_allow_html=True)
-    
-    edited_name = st.text_input("اسم الموظف", value=emp.get('name', ''))
-    edited_role = st.text_input("الوظيفة / القسم", value=emp.get('role', ''))
-    edited_pin = st.text_input("الرقم السري (PIN)", value=emp.get('pin', '0000'))
-    edited_desc = st.text_area("الوصف الوظيفي والأهداف (KPIs)", value=emp.get('job_desc', ''))
-    
-    reverse_views = {v: k for k, v in view_options.items()}
-    current_views_labels = [reverse_views.get(v) for v in emp.get('views', []) if v in reverse_views]
-    
-    edited_views = st.multiselect("الشاشات المسموحة", list(view_options.keys()), default=current_views_labels)
-    
-    if st.button("💾 حفظ التعديلات", type="primary", use_container_width=True):
-        if edited_name and edited_role and edited_pin and edited_views:
-            current_emps[emp_index] = {
-                'name': edited_name,
-                'role': edited_role,
-                'pin': edited_pin,
-                'job_desc': edited_desc,
-                'views': [view_options[k] for k in edited_views]
-            }
-            try:
-                current_cfg = get_workspace_doc().get().to_dict() or {}
-                current_cfg['EMPLOYEES'] = current_emps
-                get_workspace_doc().set(current_cfg, merge=True)
-                st.session_state.app_config['EMPLOYEES'] = current_emps
-                st.success("تم تحديث بيانات الموظف بنجاح!")
-                time.sleep(1)
-                st.rerun()
-            except Exception as e:
-                st.error(f"حدث خطأ أثناء الحفظ: {e}")
-        else:
-            st.warning("يرجى ملء جميع البيانات الأساسية واختيار شاشة واحدة على الأقل.")
+    emp = current_emps[emp_index]
+    
+    st.markdown(f"<h3 style='color:var(--c-primary); margin-top:0;'>تعديل الموظف: {emp['name']}</h3>", unsafe_allow_html=True)
+    
+    edited_name = st.text_input("اسم الموظف", value=emp.get('name', ''))
+    edited_role = st.text_input("الوظيفة / القسم", value=emp.get('role', ''))
+    edited_pin = st.text_input("الرقم السري (PIN)", value=emp.get('pin', '0000'))
+    edited_desc = st.text_area("الوصف الوظيفي والأهداف (KPIs)", value=emp.get('job_desc', ''))
+    
+    reverse_views = {v: k for k, v in view_options.items()}
+    current_views_labels = [reverse_views.get(v) for v in emp.get('views', []) if v in reverse_views]
+    
+    edited_views = st.multiselect("الشاشات المسموحة", list(view_options.keys()), default=current_views_labels)
+    
+    if st.button("💾 حفظ التعديلات", type="primary", use_container_width=True):
+        if edited_name and edited_role and edited_pin and edited_views:
+            current_emps[emp_index] = {
+                'name': edited_name,
+                'role': edited_role,
+                'pin': edited_pin,
+                'job_desc': edited_desc,
+                'views': [view_options[k] for k in edited_views]
+            }
+            try:
+                current_cfg = get_workspace_doc().get().to_dict() or {}
+                current_cfg['EMPLOYEES'] = current_emps
+                get_workspace_doc().set(current_cfg, merge=True)
+                st.session_state.app_config['EMPLOYEES'] = current_emps
+                st.success("تم تحديث بيانات الموظف بنجاح!")
+                time.sleep(1)
+                st.rerun()
+            except Exception as e:
+                st.error(f"حدث خطأ أثناء الحفظ: {e}")
+        else:
+            st.warning("يرجى ملء جميع البيانات الأساسية واختيار شاشة واحدة على الأقل.")
 
 def render_settings():
-    st.markdown(f"""<div class="page-header"><div class="ph-icon-wrap">{get_icon("settings", 46, "#00f2ff")}</div><div><div class="ph-title">إعدادات النواة المركزية</div><div class="ph-sub">إصدار COMMANDER: إدارة شاملة للبيانات، الخوادم، وهيكل الموظفين</div></div></div>""", unsafe_allow_html=True)
+    st.markdown(f"""<div class="page-header"><div class="ph-icon-wrap">{get_icon("settings", 46, "#00f2ff")}</div><div><div class="ph-title">إعدادات النواة المركزية</div><div class="ph-sub">إصدار COMMANDER: إدارة شاملة للبيانات، الخوادم، وهيكل الموظفين</div></div></div>""", unsafe_allow_html=True)
 
-    licenses = load_licenses()
-    ws_id = st.session_state.get('workspace_key', '')
-    ws_data = licenses.get('workspaces', {}).get(ws_id, {})
-    max_devices = ws_data.get('max_devices', 1)
+    licenses = load_licenses()
+    ws_id = st.session_state.get('workspace_key', '')
+    ws_data = licenses.get('workspaces', {}).get(ws_id, {})
+    max_devices = ws_data.get('max_devices', 1)
 
-    st.markdown(f"<div class='g-card-title' style='color:#00ff82;'>{get_icon('folder', 22)} خزنة الشركة (النسخ الاحتياطي السحابي)</div>", unsafe_allow_html=True)
-    st.info("نظراً لطبيعة الخوادم السحابية، يُنصح بتحميل نسخة احتياطية من بيانات شركتك والاحتفاظ بها.")
-    
-    cv1, cv2 = st.columns(2)
-    with cv1:
-        vault_data_str = json.dumps(CFG, ensure_ascii=False, indent=4)
-        st.download_button(
-            label="📥 سحب ملف خزنة الشركة (Backup)",
-            data=vault_data_str.encode('utf-8-sig'),
-            file_name=f"Mudir_Vault_{ws_id}_{get_local_now().strftime('%Y%m%d')}.json",
-            mime="application/json",
-            use_container_width=True
-        )
-    with cv2:
-        uploaded_vault = st.file_uploader("📤 استعادة النظام من الخزنة", type=['json'], label_visibility="collapsed")
-        if uploaded_vault:
-            if st.button("🚨 تأكيد الاستعادة (سيمسح البيانات الحالية)", type="primary", use_container_width=True):
-                try:
-                    restored_data = json.load(uploaded_vault)
-                    st.session_state.app_config = restored_data
-                    save_config(restored_data)
-                    st.success("تم استعادة بيانات الشركة بنجاح! جاري إعادة التشغيل...")
-                    time.sleep(1)
-                    st.rerun()
-                except Exception:
-                    st.error("ملف الخزنة تالف أو غير صالح.")
-    
-    st.markdown("<br><hr style='border-color:rgba(255,255,255,0.05)'><br>", unsafe_allow_html=True)
+    st.markdown(f"<div class='g-card-title' style='color:#00ff82;'>{get_icon('folder', 22)} خزنة الشركة (النسخ الاحتياطي السحابي)</div>", unsafe_allow_html=True)
+    st.info("نظراً لطبيعة الخوادم السحابية، يُنصح بتحميل نسخة احتياطية من بيانات شركتك والاحتفاظ بها.")
+    
+    cv1, cv2 = st.columns(2)
+    with cv1:
+        vault_data_str = json.dumps(CFG, ensure_ascii=False, indent=4)
+        st.download_button(
+            label="📥 سحب ملف خزنة الشركة (Backup)",
+            data=vault_data_str.encode('utf-8-sig'),
+            file_name=f"Mudir_Vault_{ws_id}_{get_local_now().strftime('%Y%m%d')}.json",
+            mime="application/json",
+            use_container_width=True
+        )
+    with cv2:
+        uploaded_vault = st.file_uploader("📤 استعادة النظام من الخزنة", type=['json'], label_visibility="collapsed")
+        if uploaded_vault:
+            if st.button("🚨 تأكيد الاستعادة (سيمسح البيانات الحالية)", type="primary", use_container_width=True):
+                try:
+                    restored_data = json.load(uploaded_vault)
+                    st.session_state.app_config = restored_data
+                    save_config(restored_data)
+                    st.success("تم استعادة بيانات الشركة بنجاح! جاري إعادة التشغيل...")
+                    time.sleep(1)
+                    st.rerun()
+                except Exception:
+                    st.error("ملف الخزنة تالف أو غير صالح.")
+    
+    st.markdown("<br><hr style='border-color:rgba(255,255,255,0.05)'><br>", unsafe_allow_html=True)
 
-    st.markdown(f"<div class='g-card-title'>{get_icon('check', 22)} إعدادات الأمان للمدير العام</div>", unsafe_allow_html=True)
-    m_pin = st.text_input("رمز الدخول السري للمدير (PIN)", value=CFG.get('MANAGER_PIN', '0000'), type="password", disabled=True, help="لا يمكن تغيير الرقم السري إلا من قبل الإدارة العليا (Super Admin).")
+    st.markdown(f"<div class='g-card-title'>{get_icon('check', 22)} إعدادات الأمان للمدير العام</div>", unsafe_allow_html=True)
+    m_pin = st.text_input("رمز الدخول السري للمدير (PIN)", value=CFG.get('MANAGER_PIN', '0000'), type="password", disabled=True, help="لا يمكن تغيير الرقم السري إلا من قبل الإدارة العليا (Super Admin).")
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
 
-    st.markdown(f"<div class='g-card-title'>{get_icon('clock', 22)} مواعيد العمل الرسمية للشركة</div>", unsafe_allow_html=True)
-    st.info("المدير سيستخدم هذه المواعيد لمعرفة متى يبدأ وينتهي الدوام، ليتخذ قرارات مناسبة بشأن توزيع المهام للموظفين والمهندسين.")
-    col_t1, col_t2, col_t3 = st.columns(3)
-    with col_t1:
-        work_start_input = st.number_input("ساعة بدء العمل (نظام 24 ساعة):", min_value=0, max_value=23, value=int(CFG.get('WORK_START', 8)), step=1)
-    with col_t2:
-        work_end_input = st.number_input("ساعة انتهاء العمل (نظام 24 ساعة):", min_value=0, max_value=23, value=int(CFG.get('WORK_END', 17)), step=1)
-    with col_t3:
-        tz_opts = ["Africa/Cairo", "Asia/Riyadh", "Asia/Dubai", "Europe/London", "America/New_York", "UTC"]
-        curr_tz = CFG.get('TIMEZONE', 'Africa/Cairo')
-        if curr_tz not in tz_opts: tz_opts.append(curr_tz)
-        tz_input = st.selectbox("توقيت الشركة (المنطقة الزمنية):", tz_opts, index=tz_opts.index(curr_tz))
-        
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown(f"<div class='g-card-title'>{get_icon('clock', 22)} مواعيد العمل الرسمية للشركة</div>", unsafe_allow_html=True)
+    st.info("المدير سيستخدم هذه المواعيد لمعرفة متى يبدأ وينتهي الدوام، ليتخذ قرارات مناسبة بشأن توزيع المهام للموظفين والمهندسين.")
+    col_t1, col_t2, col_t3 = st.columns(3)
+    with col_t1:
+        work_start_input = st.number_input("ساعة بدء العمل (نظام 24 ساعة):", min_value=0, max_value=23, value=int(CFG.get('WORK_START', 8)), step=1)
+    with col_t2:
+        work_end_input = st.number_input("ساعة انتهاء العمل (نظام 24 ساعة):", min_value=0, max_value=23, value=int(CFG.get('WORK_END', 17)), step=1)
+    with col_t3:
+        tz_opts = ["Africa/Cairo", "Asia/Riyadh", "Asia/Dubai", "Europe/London", "America/New_York", "UTC"]
+        curr_tz = CFG.get('TIMEZONE', 'Africa/Cairo')
+        if curr_tz not in tz_opts: tz_opts.append(curr_tz)
+        tz_input = st.selectbox("توقيت الشركة (المنطقة الزمنية):", tz_opts, index=tz_opts.index(curr_tz))
+        
+    st.markdown("<br>", unsafe_allow_html=True)
 
-    st.markdown(f"<div class='g-card-title'>{get_icon('users', 22)} هيكل الفريق والبطاقات التعريفية (الحد الأقصى: {max_devices} مستخدم)</div>", unsafe_allow_html=True)
-    
-    current_emps = CFG.get('EMPLOYEES', [])
-    view_options = {i[2]: i[0] for i in ALL_NAV_ITEMS if i[0] not in ['settings']}
-    
-    st.info(f"تم استهلاك {len(current_emps)} من أصل {max_devices} مستخدم مسموح به في رخصة شركتك.")
-    
-    with st.expander("➕ إضافة موظف جديد", expanded=False):
-        with st.form("add_emp_form", clear_on_submit=True):
-            c_emp1, c_emp2, c_emp3 = st.columns([2, 2, 2])
-            with c_emp1: new_emp_name = st.text_input("اسم الموظف", placeholder="مثال: أحمد محمود")
-            with c_emp2: new_emp_role = st.text_input("الوظيفة / القسم", placeholder="مثال: مبيعات هاتفية")
-            with c_emp3: new_emp_pin = st.text_input("الرقم السري للموظف (PIN)", placeholder="مثال: 1234")
-            
-            new_emp_desc = st.text_area("الوصف الوظيفي والأهداف (KPIs)", placeholder="اكتب هنا مهام الموظف وما تتوقعه منه، ليقوم الذكاء الاصطناعي بمتابعته وتوجيهه بناءً عليها...")
-            
-            new_emp_views = st.multiselect("الشاشات المسموحة", list(view_options.keys()), default=["مكتب المدير"])
-            submit_emp = st.form_submit_button("إضافة الموظف للنظام", use_container_width=True, type="primary")
+    st.markdown(f"<div class='g-card-title'>{get_icon('users', 22)} هيكل الفريق والبطاقات التعريفية (الحد الأقصى: {max_devices} مستخدم)</div>", unsafe_allow_html=True)
+    
+    current_emps = CFG.get('EMPLOYEES', [])
+    view_options = {i[2]: i[0] for i in ALL_NAV_ITEMS if i[0] not in ['settings']}
+    
+    st.info(f"تم استهلاك {len(current_emps)} من أصل {max_devices} مستخدم مسموح به في رخصة شركتك.")
+    
+    with st.expander("➕ إضافة موظف جديد", expanded=False):
+        with st.form("add_emp_form", clear_on_submit=True):
+            c_emp1, c_emp2, c_emp3 = st.columns([2, 2, 2])
+            with c_emp1: new_emp_name = st.text_input("اسم الموظف", placeholder="مثال: أحمد محمود")
+            with c_emp2: new_emp_role = st.text_input("الوظيفة / القسم", placeholder="مثال: مبيعات هاتفية")
+            with c_emp3: new_emp_pin = st.text_input("الرقم السري للموظف (PIN)", placeholder="مثال: 1234")
+            
+            new_emp_desc = st.text_area("الوصف الوظيفي والأهداف (KPIs)", placeholder="اكتب هنا مهام الموظف وما تتوقعه منه، ليقوم الذكاء الاصطناعي بمتابعته وتوجيهه بناءً عليها...")
+            
+            new_emp_views = st.multiselect("الشاشات المسموحة", list(view_options.keys()), default=["مكتب المدير"])
+            submit_emp = st.form_submit_button("إضافة الموظف للنظام", use_container_width=True, type="primary")
 
-        if submit_emp:
-            if len(current_emps) >= max_devices:
-                st.error("🚫 عذراً! لقد وصلت للحد الأقصى لعدد المستخدمين المسموح به في رخصتك الحالية.")
-            elif any(emp['name'].strip().lower() == new_emp_name.strip().lower() for emp in current_emps):
-                st.error("🚫 عذراً! يوجد موظف مسجل بنفس هذا الاسم مسبقاً. يرجى استخدام اسم مختلف.")
-            elif new_emp_name and new_emp_role and new_emp_views and new_emp_pin:
-                view_keys = [view_options[k] for k in new_emp_views]
-                current_emps.append({
-                    'name': new_emp_name, 
-                    'role': new_emp_role, 
-                    'pin': new_emp_pin, 
-                    'job_desc': new_emp_desc,
-                    'views': view_keys
-                })
-                
-                try:
-                    current_cfg = get_workspace_doc().get().to_dict() or {}
-                    current_cfg['EMPLOYEES'] = current_emps
-                    get_workspace_doc().set(current_cfg, merge=True)
-                except Exception as e:
-                    st.error(f"خطأ في الحفظ: {e}")
-                
-                CFG['EMPLOYEES'] = current_emps
-                st.rerun()
-            else:
-                st.warning("أدخل كافة البيانات (الاسم، الوظيفة، الرمز السري) واختر شاشة واحدة على الأقل.")
-                
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    if current_emps:
-        st.markdown("**📋 بطاقات الموظفين (Cyberpunk UI):**")
-        emp_cols = st.columns(2)
-        
-        for i, emp in enumerate(current_emps):
-            views_str = " | ".join([k for k, v in view_options.items() if emp.get('views') and view_options.get(k) in emp['views']])
-            pin_display = emp.get('pin', '0000')
-            desc_display = emp.get('job_desc', 'لا يوجد وصف مخصص.')
-            
-            with emp_cols[i % 2]:
-                st.markdown(f"""
-                <div class="emp-card-neon">
-                    <div class="emp-header">
-                        <div class="emp-avatar">{emp['name'][:1]}</div>
-                        <div style="margin-right: 15px;">
-                            <div class="emp-name">{emp['name']}</div>
-                            <div class="emp-role">{emp['role']}</div>
-                        </div>
-                    </div>
-                    <div class="emp-info-grid">
-                        <div>
-                            <div class="emp-label">رمز الدخول السري:</div>
-                            <div class="emp-pin-box">✱✱{pin_display[-2:] if len(pin_display)>2 else pin_display}</div>
-                        </div>
-                        <div>
-                            <div class="emp-label">الصلاحيات والشاشات:</div>
-                            <div class="emp-value" style="font-size:0.8rem; line-height: 1.4;">{views_str}</div>
-                        </div>
-                    </div>
-                    <div style="margin-bottom: 15px;">
-                        <div class="emp-label">م مؤشرات الأداء (KPIs):</div>
-                        <div class="emp-value" style="font-size:0.85rem; color:#94a3b8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{desc_display}</div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                btn_col1, btn_col2 = st.columns(2)
-                with btn_col1:
-                    if st.button(f"✏️ تعديل {emp['name']}", key=f"edit_emp_{i}", use_container_width=True):
-                        edit_employee_dialog(i, current_emps, view_options)
-                with btn_col2:
-                    if st.button(f"🗑️ إزالة {emp['name']}", key=f"del_emp_{i}", use_container_width=True, type="secondary"):
-                        current_emps.pop(i)
-                        try:
-                            current_cfg = get_workspace_doc().get().to_dict() or {}
-                            current_cfg['EMPLOYEES'] = current_emps
-                            get_workspace_doc().set(current_cfg, merge=True)
-                        except Exception as e:
-                            st.error(f"خطأ في الحذف: {e}")
-                        CFG['EMPLOYEES'] = current_emps
-                        st.rerun()
-                st.markdown("<br>", unsafe_allow_html=True)
-    else:
-        st.markdown("<div style='color:var(--c-dim); font-size:0.9rem; text-align:center; padding: 20px; border: 1px dashed rgba(255,255,255,0.1); border-radius: 12px;'>لا يوجد موظفين مسجلين حالياً بالهيكل.</div>", unsafe_allow_html=True)
+        if submit_emp:
+            if len(current_emps) >= max_devices:
+                st.error("🚫 عذراً! لقد وصلت للحد الأقصى لعدد المستخدمين المسموح به في رخصتك الحالية.")
+            elif any(emp['name'].strip().lower() == new_emp_name.strip().lower() for emp in current_emps):
+                st.error("🚫 عذراً! يوجد موظف مسجل بنفس هذا الاسم مسبقاً. يرجى استخدام اسم مختلف.")
+            elif new_emp_name and new_emp_role and new_emp_views and new_emp_pin:
+                view_keys = [view_options[k] for k in new_emp_views]
+                current_emps.append({
+                    'name': new_emp_name, 
+                    'role': new_emp_role, 
+                    'pin': new_emp_pin, 
+                    'job_desc': new_emp_desc,
+                    'views': view_keys
+                })
+                
+                try:
+                    current_cfg = get_workspace_doc().get().to_dict() or {}
+                    current_cfg['EMPLOYEES'] = current_emps
+                    get_workspace_doc().set(current_cfg, merge=True)
+                except Exception as e:
+                    st.error(f"خطأ في الحفظ: {e}")
+                
+                CFG['EMPLOYEES'] = current_emps
+                st.rerun()
+            else:
+                st.warning("أدخل كافة البيانات (الاسم، الوظيفة، الرمز السري) واختر شاشة واحدة على الأقل.")
+                
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    if current_emps:
+        st.markdown("**📋 بطاقات الموظفين (Cyberpunk UI):**")
+        emp_cols = st.columns(2)
+        
+        for i, emp in enumerate(current_emps):
+            views_str = " | ".join([k for k, v in view_options.items() if emp.get('views') and view_options.get(k) in emp['views']])
+            pin_display = emp.get('pin', '0000')
+            desc_display = emp.get('job_desc', 'لا يوجد وصف مخصص.')
+            
+            with emp_cols[i % 2]:
+                st.markdown(f"""
+                <div class="emp-card-neon">
+                    <div class="emp-header">
+                        <div class="emp-avatar">{emp['name'][:1]}</div>
+                        <div style="margin-right: 15px;">
+                            <div class="emp-name">{emp['name']}</div>
+                            <div class="emp-role">{emp['role']}</div>
+                        </div>
+                    </div>
+                    <div class="emp-info-grid">
+                        <div>
+                            <div class="emp-label">رمز الدخول السري:</div>
+                            <div class="emp-pin-box">✱✱{pin_display[-2:] if len(pin_display)>2 else pin_display}</div>
+                        </div>
+                        <div>
+                            <div class="emp-label">الصلاحيات والشاشات:</div>
+                            <div class="emp-value" style="font-size:0.8rem; line-height: 1.4;">{views_str}</div>
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <div class="emp-label">م مؤشرات الأداء (KPIs):</div>
+                        <div class="emp-value" style="font-size:0.85rem; color:#94a3b8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{desc_display}</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                btn_col1, btn_col2 = st.columns(2)
+                with btn_col1:
+                    if st.button(f"✏️ تعديل {emp['name']}", key=f"edit_emp_{i}", use_container_width=True):
+                        edit_employee_dialog(i, current_emps, view_options)
+                with btn_col2:
+                    if st.button(f"🗑️ إزالة {emp['name']}", key=f"del_emp_{i}", use_container_width=True, type="secondary"):
+                        current_emps.pop(i)
+                        try:
+                            current_cfg = get_workspace_doc().get().to_dict() or {}
+                            current_cfg['EMPLOYEES'] = current_emps
+                            get_workspace_doc().set(current_cfg, merge=True)
+                        except Exception as e:
+                            st.error(f"خطأ في الحذف: {e}")
+                        CFG['EMPLOYEES'] = current_emps
+                        st.rerun()
+                st.markdown("<br>", unsafe_allow_html=True)
+    else:
+        st.markdown("<div style='color:var(--c-dim); font-size:0.9rem; text-align:center; padding: 20px; border: 1px dashed rgba(255,255,255,0.1); border-radius: 12px;'>لا يوجد موظفين مسجلين حالياً بالهيكل.</div>", unsafe_allow_html=True)
 
-    st.markdown("<br><hr style='border-color:rgba(255,255,255,0.05)'><br>", unsafe_allow_html=True)
+    st.markdown("<br><hr style='border-color:rgba(255,255,255,0.05)'><br>", unsafe_allow_html=True)
 
-    st.markdown(f"<div class='g-card-title'>{get_icon('cpu', 22)} إعدادات الاتصال بالخادم المركزي</div>", unsafe_allow_html=True)
-    
-    st.markdown("### شخصية وتوجيهات المدير (System Prompt)")
-    st.info("هذا النص يحدد شخصية وطريقة تفكير المدير. سيقوم النظام آلياً بفرض JSON Mode بناءً على هذه الإعدادات.")
-    ai_system_prompt = st.text_area("تعليمات الإدارة", value=CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT), height=250)
+    st.markdown(f"<div class='g-card-title'>{get_icon('cpu', 22)} إعدادات الاتصال بالخادم المركزي</div>", unsafe_allow_html=True)
+    
+    st.markdown("### شخصية وتوجيهات المدير (System Prompt)")
+    st.info("هذا النص يحدد شخصية وطريقة تفكير المدير. سيقوم النظام آلياً بفرض JSON Mode بناءً على هذه الإعدادات.")
+    ai_system_prompt = st.text_area("تعليمات الإدارة", value=CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT), height=250)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("### دليل وإعدادات الربط")
-    
-    with st.expander("معلومات إضافية حول روابط الخدمة (انقر للفتح)"):
-        st.markdown("""
-        **لربط الخادم الرئيسي (OpenAI):**
-        - **رابط المزود:** `https://api.openai.com/v1`
-        - **اسم الموديل:** `gpt-4o` أو `gpt-3.5-turbo`
-        
-        **ملاحظة عن JSON Mode:** بعض الموديلات لا تدعم `json_object` صراحة ولكنها تستجيب جيداً. موديلات OpenAI مثل `gpt-4o` تدعمها بكفاءة بشرط تضمين كلمة JSON في التعليمات.
-        """)
-        
-    saved_url = CFG.get('AI_PROVIDER_URL', '')
-    url_presets = ["https://openrouter.ai/api/v1", "https://api.openai.com/v1", "https://api.x.ai/v1", "https://generativelanguage.googleapis.com/v1beta/openai/", ""]
-    if saved_url not in url_presets: url_presets.insert(0, saved_url)
-    url_options = list(dict.fromkeys(url_presets)) + ["مخصص (كتابة يدوية)..."]
-    
-    sel_url = st.selectbox("رابط مزود الخدمة (Base URL)", url_options, index=url_options.index(saved_url) if saved_url in url_options else 0, help="اختر رابط الخدمة أو اكتبه يدوياً باختيار 'مخصص'")
-    ai_url = st.text_input("أدخل الرابط المخصص:", value=saved_url) if sel_url == "مخصص (كتابة يدوية)..." else sel_url
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("### دليل وإعدادات الربط")
+    
+    with st.expander("معلومات إضافية حول روابط الخدمة (انقر للفتح)"):
+        st.markdown("""
+        **لربط الخادم الرئيسي (OpenAI):**
+        - **رابط المزود:** `https://api.openai.com/v1`
+        - **اسم الموديل:** `gpt-4o` أو `gpt-3.5-turbo`
+        
+        **ملاحظة عن JSON Mode:** بعض الموديلات لا تدعم `json_object` صراحة ولكنها تستجيب جيداً. موديلات OpenAI مثل `gpt-4o` تدعمها بكفاءة بشرط تضمين كلمة JSON في التعليمات.
+        """)
+        
+    saved_url = CFG.get('AI_PROVIDER_URL', '')
+    url_presets = ["https://openrouter.ai/api/v1", "https://api.openai.com/v1", "https://api.x.ai/v1", "https://generativelanguage.googleapis.com/v1beta/openai/", ""]
+    if saved_url not in url_presets: url_presets.insert(0, saved_url)
+    url_options = list(dict.fromkeys(url_presets)) + ["مخصص (كتابة يدوية)..."]
+    
+    sel_url = st.selectbox("رابط مزود الخدمة (Base URL)", url_options, index=url_options.index(saved_url) if saved_url in url_options else 0, help="اختر رابط الخدمة أو اكتبه يدوياً باختيار 'مخصص'")
+    ai_url = st.text_input("أدخل الرابط المخصص:", value=saved_url) if sel_url == "مخصص (كتابة يدوية)..." else sel_url
 
-    saved_model = CFG.get('AI_MODEL_NAME', 'gpt-4o')
-    model_presets = ["gpt-4o", "gpt-4o-mini", "openai/gpt-4o-mini", "google/gemini-2.5-flash", "gemini-2.5-flash", "anthropic/claude-3-5-sonnet", "grok-beta"]
-    if saved_model not in model_presets: model_presets.insert(0, saved_model)
-    model_options = list(dict.fromkeys(model_presets)) + ["مخصص (كتابة يدوية)..."]
-    
-    sel_model = st.selectbox("اسم الموديل (Model Name)", model_options, index=model_options.index(saved_model) if saved_model in model_options else 0, help="تأكد من توافق اسم الموديل مع مزود الخدمة (مثال: OpenAI يستخدم gpt-4o)")
-    ai_model = st.text_input("أدخل اسم الموديل المخصص:", value=saved_model) if sel_model == "مخصص (كتابة يدوية)..." else sel_model
+    saved_model = CFG.get('AI_MODEL_NAME', 'gpt-4o')
+    model_presets = ["gpt-4o", "gpt-4o-mini", "openai/gpt-4o-mini", "google/gemini-2.5-flash", "gemini-2.5-flash", "anthropic/claude-3-5-sonnet", "grok-beta"]
+    if saved_model not in model_presets: model_presets.insert(0, saved_model)
+    model_options = list(dict.fromkeys(model_presets)) + ["مخصص (كتابة يدوية)..."]
+    
+    sel_model = st.selectbox("اسم الموديل (Model Name)", model_options, index=model_options.index(saved_model) if saved_model in model_options else 0, help="تأكد من توافق اسم الموديل مع مزود الخدمة (مثال: OpenAI يستخدم gpt-4o)")
+    ai_model = st.text_input("أدخل اسم الموديل المخصص:", value=saved_model) if sel_model == "مخصص (كتابة يدوية)..." else sel_model
 
-    ai_key = st.text_input("مفتاح الربط (API Key)", value=CFG.get('AI_API_KEY', ''), type="password", help="انسخ المفتاح وتأكد من عدم وجود مسافات فارغة قبله أو بعده")
+    ai_key = st.text_input("مفتاح الربط (API Key)", value=CFG.get('AI_API_KEY', ''), type="password", help="انسخ المفتاح وتأكد من عدم وجود مسافات فارغة قبله أو بعده")
 
-    if st.button("فحص اتصال الخادم المركزي", key="test_ai"):
-        if not ai_key.strip():
-            st.warning("الرجاء إدخال مفتاح الربط في الحقل أعلاه قبل إجراء الفحص.")
-        else:
-            try:
-                with st.spinner("جاري فحص الاتصال بالخادم..."):
-                    test_client = OpenAI(api_key=ai_key.strip(), base_url=ai_url.strip() if ai_url.strip() else None)
-                    resp = test_client.chat.completions.create(model=ai_model, messages=[{"role": "user", "content": "Respond with a valid JSON containing key 'status' and value 'OK'."}], response_format={"type": "json_object"}, max_tokens=15)
-                    if resp.choices[0].message.content: st.success("تم الاتصال بالخادم المركزي ودعم الـ JSON Mode بنجاح!")
-            except Exception as e: 
-                err_msg = str(e).lower()
-                st.error(f"فشل الاتصال: {err_msg}")
+    if st.button("فحص اتصال الخادم المركزي", key="test_ai"):
+        if not ai_key.strip():
+            st.warning("الرجاء إدخال مفتاح الربط في الحقل أعلاه قبل إجراء الفحص.")
+        else:
+            try:
+                with st.spinner("جاري فحص الاتصال بالخادم..."):
+                    test_client = OpenAI(api_key=ai_key.strip(), base_url=ai_url.strip() if ai_url.strip() else None)
+                    resp = test_client.chat.completions.create(model=ai_model, messages=[{"role": "user", "content": "Respond with a valid JSON containing key 'status' and value 'OK'."}], response_format={"type": "json_object"}, max_tokens=15)
+                    if resp.choices[0].message.content: st.success("تم الاتصال بالخادم المركزي ودعم الـ JSON Mode بنجاح!")
+            except Exception as e: 
+                err_msg = str(e).lower()
+                st.error(f"فشل الاتصال: {err_msg}")
 
-    st.markdown("<br><hr style='border-color:rgba(255,255,255,0.05)'><br>", unsafe_allow_html=True)
+    st.markdown("<br><hr style='border-color:rgba(255,255,255,0.05)'><br>", unsafe_allow_html=True)
 
-    st.markdown(f"<div class='g-card-title'>{get_icon('fusion', 22)} تكوين قاعدة البيانات (Odoo)</div>", unsafe_allow_html=True)
-    o_url = st.text_input("رابط الخادم (URL)", value=CFG.get('ODOO_URL', ''))
-    o_db = st.text_input("قاعدة البيانات (DB)", value=CFG.get('ODOO_DB', ''))
-    o_usr = st.text_input("المستخدم (User)", value=CFG.get('ODOO_USER', ''))
-    o_pwd = st.text_input("كلمة المرور (Password)", value=CFG.get('ODOO_PASS', ''), type="password")
-    
-    if st.button("فحص اتصال Odoo", key="test_odoo"):
-        try:
-            with st.spinner("جاري فحص الاتصال..."):
-                cm = xmlrpc.client.ServerProxy(f'{o_url}/xmlrpc/2/common')
-                uid = cm.authenticate(o_db, o_usr, o_pwd, {})
-                if uid: st.success("الاتصال بقاعدة البيانات ناجح وموثق!")
-                else: st.error("المصادقة مرفوضة. تأكد من البيانات.")
-        except Exception as e: 
-            st.error(f"خطأ في الاتصال: {e}")
+    st.markdown(f"<div class='g-card-title'>{get_icon('fusion', 22)} تكوين قاعدة البيانات (Odoo)</div>", unsafe_allow_html=True)
+    o_url = st.text_input("رابط الخادم (URL)", value=CFG.get('ODOO_URL', ''))
+    o_db = st.text_input("قاعدة البيانات (DB)", value=CFG.get('ODOO_DB', ''))
+    o_usr = st.text_input("المستخدم (User)", value=CFG.get('ODOO_USER', ''))
+    o_pwd = st.text_input("كلمة المرور (Password)", value=CFG.get('ODOO_PASS', ''), type="password")
+    
+    if st.button("فحص اتصال Odoo", key="test_odoo"):
+        try:
+            with st.spinner("جاري فحص الاتصال..."):
+                cm = xmlrpc.client.ServerProxy(f'{o_url}/xmlrpc/2/common')
+                uid = cm.authenticate(o_db, o_usr, o_pwd, {})
+                if uid: st.success("الاتصال بقاعدة البيانات ناجح وموثق!")
+                else: st.error("المصادقة مرفوضة. تأكد من البيانات.")
+        except Exception as e: 
+            st.error(f"خطأ في الاتصال: {e}")
 
-    st.markdown("<hr style='border-color:rgba(255,255,255,0.1); margin: 30px 0;'>", unsafe_allow_html=True)
-    if st.button("حفظ الإعدادات وإعادة بناء النواة", type="primary", use_container_width=True):
-        
-        try:
-            current_cfg = get_workspace_doc().get().to_dict() or {}
-            
-            if 'ALL_CHATS' in current_cfg: del current_cfg['ALL_CHATS']
-            if 'AUDIT_LOG' in current_cfg: del current_cfg['AUDIT_LOG']
-            
-            current_cfg.update({
-                'ODOO_URL': o_url, 'ODOO_DB': o_db, 'ODOO_USER': o_usr, 'ODOO_PASS': o_pwd, 
-                'AI_PROVIDER_URL': ai_url, 'AI_MODEL_NAME': ai_model, 'AI_API_KEY': ai_key,
-                'AI_SYSTEM_PROMPT': ai_system_prompt,
-                'MANAGER_PIN': m_pin,
-                'EMPLOYEES': current_emps,
-                'WORK_START': int(work_start_input),
-                'WORK_END': int(work_end_input),
-                'TIMEZONE': tz_input
-            })
-            
-            get_workspace_doc().set(current_cfg, merge=True)
-            st.session_state.app_config = current_cfg
-            fetch_master_data.clear()
-            st.session_state.data_loaded = False
-            st.success("تم الحفظ بنجاح على قاعدة البيانات السحابية! جاري إعادة التشغيل...")
-            time.sleep(1)
-            st.rerun()
-        except Exception as e:
-            st.error(f"حدث خطأ أثناء الحفظ على الخادم السحابي: {e}")
-            
-    st.markdown("<div style='text-align: center; color: var(--c-dim); font-size: 0.9rem; margin-top: 50px; font-weight: bold;'>Powered by محمد الحلواني</div>", unsafe_allow_html=True)
+    st.markdown("<hr style='border-color:rgba(255,255,255,0.1); margin: 30px 0;'>", unsafe_allow_html=True)
+    if st.button("حفظ الإعدادات وإعادة بناء النواة", type="primary", use_container_width=True):
+        
+        try:
+            current_cfg = get_workspace_doc().get().to_dict() or {}
+            
+            if 'ALL_CHATS' in current_cfg: del current_cfg['ALL_CHATS']
+            if 'AUDIT_LOG' in current_cfg: del current_cfg['AUDIT_LOG']
+            
+            current_cfg.update({
+                'ODOO_URL': o_url, 'ODOO_DB': o_db, 'ODOO_USER': o_usr, 'ODOO_PASS': o_pwd, 
+                'AI_PROVIDER_URL': ai_url, 'AI_MODEL_NAME': ai_model, 'AI_API_KEY': ai_key,
+                'AI_SYSTEM_PROMPT': ai_system_prompt,
+                'MANAGER_PIN': m_pin,
+                'EMPLOYEES': current_emps,
+                'WORK_START': int(work_start_input),
+                'WORK_END': int(work_end_input),
+                'TIMEZONE': tz_input
+            })
+            
+            get_workspace_doc().set(current_cfg, merge=True)
+            st.session_state.app_config = current_cfg
+            fetch_master_data.clear()
+            st.session_state.data_loaded = False
+            st.success("تم الحفظ بنجاح على قاعدة البيانات السحابية! جاري إعادة التشغيل...")
+            time.sleep(1)
+            st.rerun()
+        except Exception as e:
+            st.error(f"حدث خطأ أثناء الحفظ على الخادم السحابي: {e}")
+            
+    st.markdown("<div style='text-align: center; color: var(--c-dim); font-size: 0.9rem; margin-top: 50px; font-weight: bold;'>Powered by محمد الحلواني</div>", unsafe_allow_html=True)
 
 @st.dialog("إعدادات رخصة الشركة")
 def change_workspace_pin_dialog(ws_id):
-    st.markdown(f"**تغيير الرقم السري لمدير شركة:** `{ws_id}`")
-    
-    try:
-        doc_ref = db.collection('Mudir_Workspaces').document(ws_id)
-        doc = doc_ref.get()
-        ws_cfg = doc.to_dict() if doc.exists else {
-            'ODOO_URL': '', 'ODOO_DB': '', 'ODOO_USER': '', 'ODOO_PASS': '',
-            'AI_PROVIDER_URL': 'https://api.openai.com/v1', 'AI_API_KEY': '',
-            'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
-            'MANAGER_PIN': '0000', 'EMPLOYEES': [], 'EVALUATIONS': {} 
-        }
-    except Exception as e:
-        ws_cfg = {'MANAGER_PIN': '0000'}
-        st.error(f"خطأ: {e}")
-        
-    current_pin = ws_cfg.get('MANAGER_PIN', '0000')
-    new_pin = st.text_input("الرقم السري (PIN) الجديد:", value=current_pin)
-    
-    if st.button("حفظ التغيير", type="primary", use_container_width=True):
-        try:
-            doc_ref.set({'MANAGER_PIN': new_pin}, merge=True)
-            st.success("تم تغيير الرمز السري بنجاح!")
-            time.sleep(1)
-            st.rerun()
-        except Exception as e:
-            st.error(f"حدث خطأ أثناء الحفظ: {e}")
+    st.markdown(f"**تغيير الرقم السري لمدير شركة:** `{ws_id}`")
+    
+    try:
+        doc_ref = db.collection('Mudir_Workspaces').document(ws_id)
+        doc = doc_ref.get()
+        ws_cfg = doc.to_dict() if doc.exists else {
+            'ODOO_URL': '', 'ODOO_DB': '', 'ODOO_USER': '', 'ODOO_PASS': '',
+            'AI_PROVIDER_URL': 'https://api.openai.com/v1', 'AI_API_KEY': '',
+            'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
+            'MANAGER_PIN': '0000', 'EMPLOYEES': [], 'EVALUATIONS': {} 
+        }
+    except Exception as e:
+        ws_cfg = {'MANAGER_PIN': '0000'}
+        st.error(f"خطأ: {e}")
+        
+    current_pin = ws_cfg.get('MANAGER_PIN', '0000')
+    new_pin = st.text_input("الرقم السري (PIN) الجديد:", value=current_pin)
+    
+    if st.button("حفظ التغيير", type="primary", use_container_width=True):
+        try:
+            doc_ref.set({'MANAGER_PIN': new_pin}, merge=True)
+            st.success("تم تغيير الرمز السري بنجاح!")
+            time.sleep(1)
+            st.rerun()
+        except Exception as e:
+            st.error(f"حدث خطأ أثناء الحفظ: {e}")
 
 def render_super_admin():
-    with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v50.0</div></div>""", unsafe_allow_html=True)
-        st.markdown("---")
-        if st.button("🔴 تسجيل الخروج وإغلاق", use_container_width=True, type="primary"):
-            st.query_params.clear()
-            st.session_state.clear()
-            st.rerun()
+    with st.sidebar:
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v50.0</div></div>""", unsafe_allow_html=True)
+        st.markdown("---")
+        if st.button("🔴 تسجيل الخروج وإغلاق", use_container_width=True, type="primary"):
+            st.query_params.clear()
+            st.session_state.clear()
+            st.rerun()
 
-    st.markdown(f"""
-    <div class="page-header" style="justify-content: space-between; background: linear-gradient(135deg, #1a0b2e, #050508);">
-        <div style="display: flex; align-items: center; gap: 24px;">
-            <div class="ph-icon-wrap" style="background:rgba(112,0,255,0.1); border-color:#7000ff;">{get_icon("check", 46, "#7000ff")}</div>
-            <div>
-                <div class="ph-title" style="color:#e2e8f0;">مركز القيادة والتراخيص (SaaS Admin)</div>
-                <div class="ph-sub" style="color:#b490ff;">إدارة اشتراكات الشركات، وخزنة البيانات الشاملة.</div>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="page-header" style="justify-content: space-between; background: linear-gradient(135deg, #1a0b2e, #050508);">
+        <div style="display: flex; align-items: center; gap: 24px;">
+            <div class="ph-icon-wrap" style="background:rgba(112,0,255,0.1); border-color:#7000ff;">{get_icon("check", 46, "#7000ff")}</div>
+            <div>
+                <div class="ph-title" style="color:#e2e8f0;">مركز القيادة والتراخيص (SaaS Admin)</div>
+                <div class="ph-sub" style="color:#b490ff;">إدارة اشتراكات الشركات، وخزنة البيانات الشاملة.</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    licenses = load_licenses()
-    if 'workspaces' not in licenses:
-        licenses['workspaces'] = {}
+    licenses = load_licenses()
+    if 'workspaces' not in licenses:
+        licenses['workspaces'] = {}
 
-    st.markdown("<div class='g-card'>", unsafe_allow_html=True)
-    st.markdown(f"<div class='g-card-title' style='color:#00ff82;'>{get_icon('database', 22)} الخزنة الشاملة للمنصة (Super Vault Backup)</div>", unsafe_allow_html=True)
-    st.info("لحماية بيانات كل الشركات دفعة واحدة من ضياع السيرفرات، قم بتحميل هذا الملف أسبوعياً.")
-    
-    sv1, sv2 = st.columns(2)
-    with sv1:
-        full_platform_backup = {
-            "licenses_db": licenses,
-            "workspaces_db": {}
-        }
-        try:
-            docs = db.collection('Mudir_Workspaces').stream()
-            for doc in docs:
-                full_platform_backup["workspaces_db"][doc.id] = doc.to_dict()
-        except Exception as e:
-            st.error(f"خطأ في قراءة مساحات العمل: {e}")
-            
-        mega_json_str = json.dumps(full_platform_backup, ensure_ascii=False, indent=4)
-        st.download_button(
-            label="📥 سحب ملف الخزنة الشاملة (كل الشركات)",
-            data=mega_json_str.encode('utf-8-sig'),
-            file_name=f"MUDIR_SUPER_VAULT_{get_local_now().strftime('%Y%m%d')}.json",
-            mime="application/json",
-            use_container_width=True
-        )
-    with sv2:
-        mega_upload = st.file_uploader("📤 استعادة كل المنصة من ملف خزنة شامل", type=['json'], label_visibility="collapsed")
-        if mega_upload:
-            if st.button("🚨 تأكيد استعادة المنصة بالكامل", type="primary", use_container_width=True):
-                try:
-                    restored_mega = json.load(mega_upload)
-                    if "licenses_db" in restored_mega: save_licenses(restored_mega["licenses_db"])
-                    if "workspaces_db" in restored_mega:
-                        for ws, ws_data in restored_mega["workspaces_db"].items():
-                            db.collection('Mudir_Workspaces').document(ws).set(ws_data)
-                    st.success("تم استعادة المنصة بالكامل بنجاح!")
-                    time.sleep(1)
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"ملف الخزنة تالف أو غير صالح: {e}")
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("<div class='g-card'>", unsafe_allow_html=True)
+    st.markdown(f"<div class='g-card-title' style='color:#00ff82;'>{get_icon('database', 22)} الخزنة الشاملة للمنصة (Super Vault Backup)</div>", unsafe_allow_html=True)
+    st.info("لحماية بيانات كل الشركات دفعة واحدة من ضياع السيرفرات، قم بتحميل هذا الملف أسبوعياً.")
+    
+    sv1, sv2 = st.columns(2)
+    with sv1:
+        full_platform_backup = {
+            "licenses_db": licenses,
+            "workspaces_db": {}
+        }
+        try:
+            docs = db.collection('Mudir_Workspaces').stream()
+            for doc in docs:
+                full_platform_backup["workspaces_db"][doc.id] = doc.to_dict()
+        except Exception as e:
+            st.error(f"خطأ في قراءة مساحات العمل: {e}")
+            
+        mega_json_str = json.dumps(full_platform_backup, ensure_ascii=False, indent=4)
+        st.download_button(
+            label="📥 سحب ملف الخزنة الشاملة (كل الشركات)",
+            data=mega_json_str.encode('utf-8-sig'),
+            file_name=f"MUDIR_SUPER_VAULT_{get_local_now().strftime('%Y%m%d')}.json",
+            mime="application/json",
+            use_container_width=True
+        )
+    with sv2:
+        mega_upload = st.file_uploader("📤 استعادة كل المنصة من ملف خزنة شامل", type=['json'], label_visibility="collapsed")
+        if mega_upload:
+            if st.button("🚨 تأكيد استعادة المنصة بالكامل", type="primary", use_container_width=True):
+                try:
+                    restored_mega = json.load(mega_upload)
+                    if "licenses_db" in restored_mega: save_licenses(restored_mega["licenses_db"])
+                    if "workspaces_db" in restored_mega:
+                        for ws, ws_data in restored_mega["workspaces_db"].items():
+                            db.collection('Mudir_Workspaces').document(ws).set(ws_data)
+                    st.success("تم استعادة المنصة بالكامل بنجاح!")
+                    time.sleep(1)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"ملف الخزنة تالف أو غير صالح: {e}")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("<div class='g-card'>", unsafe_allow_html=True)
-    st.markdown(f"<div class='g-card-title' style='color:var(--c-gold);'>{get_icon('rocket', 22)} إصدار ترخيص لشركة جديدة</div>", unsafe_allow_html=True)
-    
-    st.markdown("<div style='background:rgba(255,255,255,0.02); padding:20px; border-radius:12px; border:1px solid rgba(255,255,255,0.05); margin-bottom:20px;'>", unsafe_allow_html=True)
-    with st.form("new_license_form", clear_on_submit=True, border=False):
-        c1, c2, c3, c4, c5 = st.columns([2.5, 2, 2, 2, 2])
-        with c1: new_ws_id = st.text_input("كود الشركة (بالإنجليزية):", placeholder="مثال: Ghareeb2026")
-        with c2: duration = st.selectbox("مدة الاشتراك:", ["شهر واحد", "3 شهور", "6 شهور", "سنة كاملة"])
-        with c3: max_dev = st.number_input("أقصى عدد للمستخدمين:", min_value=1, max_value=1000, value=5)
-        with c4: new_m_pin = st.text_input("رقم دخول المدير (PIN):", value="0000")
-        with c5: 
-            st.markdown("<br>", unsafe_allow_html=True)
-            add_btn = st.form_submit_button("تفعيل المساحة", use_container_width=True, type="primary")
+    st.markdown("<div class='g-card'>", unsafe_allow_html=True)
+    st.markdown(f"<div class='g-card-title' style='color:var(--c-gold);'>{get_icon('rocket', 22)} إصدار ترخيص لشركة جديدة</div>", unsafe_allow_html=True)
+    
+    st.markdown("<div style='background:rgba(255,255,255,0.02); padding:20px; border-radius:12px; border:1px solid rgba(255,255,255,0.05); margin-bottom:20px;'>", unsafe_allow_html=True)
+    with st.form("new_license_form", clear_on_submit=True, border=False):
+        c1, c2, c3, c4, c5 = st.columns([2.5, 2, 2, 2, 2])
+        with c1: new_ws_id = st.text_input("كود الشركة (بالإنجليزية):", placeholder="مثال: Ghareeb2026")
+        with c2: duration = st.selectbox("مدة الاشتراك:", ["شهر واحد", "3 شهور", "6 شهور", "سنة كاملة"])
+        with c3: max_dev = st.number_input("أقصى عدد للمستخدمين:", min_value=1, max_value=1000, value=5)
+        with c4: new_m_pin = st.text_input("رقم دخول المدير (PIN):", value="0000")
+        with c5: 
+            st.markdown("<br>", unsafe_allow_html=True)
+            add_btn = st.form_submit_button("تفعيل المساحة", use_container_width=True, type="primary")
 
-    if add_btn:
-        safe_id = "".join(c for c in str(new_ws_id) if c.isalnum() or c in ('_', '-'))
-        if not safe_id:
-            st.error("يرجى إدخال كود صحيح.")
-        elif safe_id in licenses['workspaces']:
-            st.error("هذا الكود موجود بالفعل! اختر كوداً آخر.")
-        else:
-            days = 30 if duration == "شهر واحد" else 90 if duration == "3 شهور" else 180 if duration == "6 شهور" else 365
-            expiry = (get_local_now() + timedelta(days=days)).strftime("%Y-%m-%d")
-            
-            licenses['workspaces'][safe_id] = {
-                "status": "active",
-                "expiry_date": expiry,
-                "created_on": get_local_now().strftime("%Y-%m-%d"),
-                "max_devices": int(max_dev)
-            }
-            
-            initial_config = {
-                'ODOO_URL': '', 'ODOO_DB': '', 'ODOO_USER': '', 'ODOO_PASS': '',
-                'AI_PROVIDER_URL': 'https://api.openai.com/v1', 'AI_API_KEY': '',
-                'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
-                'MANAGER_PIN': new_m_pin, 
-                'EMPLOYEES': [], 'EVALUATIONS': {}, 'EVAL_HISTORY': {}, 'TASK_REGISTRY': [] 
-            }
-            
-            try:
-                save_licenses(licenses)
-                db.collection('Mudir_Workspaces').document(safe_id).set(initial_config)
-                st.success(f"تم إنشاء ترخيص الشركة بنجاح! المستخدمين: {max_dev} | الانتهاء: {expiry}")
-                time.sleep(2)
-                st.rerun()
-            except Exception as e:
-                st.error(f"حدث خطأ أثناء حفظ البيانات في Firebase: {e}")
-                
-    st.markdown("</div>", unsafe_allow_html=True)
+    if add_btn:
+        safe_id = "".join(c for c in str(new_ws_id) if c.isalnum() or c in ('_', '-'))
+        if not safe_id:
+            st.error("يرجى إدخال كود صحيح.")
+        elif safe_id in licenses['workspaces']:
+            st.error("هذا الكود موجود بالفعل! اختر كوداً آخر.")
+        else:
+            days = 30 if duration == "شهر واحد" else 90 if duration == "3 شهور" else 180 if duration == "6 شهور" else 365
+            expiry = (get_local_now() + timedelta(days=days)).strftime("%Y-%m-%d")
+            
+            licenses['workspaces'][safe_id] = {
+                "status": "active",
+                "expiry_date": expiry,
+                "created_on": get_local_now().strftime("%Y-%m-%d"),
+                "max_devices": int(max_dev)
+            }
+            
+            initial_config = {
+                'ODOO_URL': '', 'ODOO_DB': '', 'ODOO_USER': '', 'ODOO_PASS': '',
+                'AI_PROVIDER_URL': 'https://api.openai.com/v1', 'AI_API_KEY': '',
+                'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
+                'MANAGER_PIN': new_m_pin, 
+                'EMPLOYEES': [], 'EVALUATIONS': {}, 'EVAL_HISTORY': {}, 'TASK_REGISTRY': [], 'NOTIFICATIONS': {} 
+            }
+            
+            try:
+                save_licenses(licenses)
+                db.collection('Mudir_Workspaces').document(safe_id).set(initial_config)
+                st.success(f"تم إنشاء ترخيص الشركة بنجاح! المستخدمين: {max_dev} | الانتهاء: {expiry}")
+                time.sleep(2)
+                st.rerun()
+            except Exception as e:
+                st.error(f"حدث خطأ أثناء حفظ البيانات في Firebase: {e}")
+                
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("<div class='g-card'>", unsafe_allow_html=True)
-    st.markdown(f"<div class='g-card-title'>{get_icon('table', 22)} الشركات المشتركة وإدارة التراخيص</div>", unsafe_allow_html=True)
-    
-    if not licenses['workspaces']:
-        st.info("لا توجد أي شركات مسجلة حتى الآن.")
-    else:
-        for ws_id, ws_info in licenses['workspaces'].items():
-            is_active = ws_info['status'] == 'active'
-            exp_date = datetime.strptime(ws_info['expiry_date'], "%Y-%m-%d")
-            is_expired = get_local_now() > exp_date
-            
-            status_html = "<span style='color:#00ff82;'>نشط</span>" if is_active and not is_expired else "<span style='color:#ff2d78;'>منتهي / متوقف</span>"
-            max_d = ws_info.get('max_devices', 1)
-            
-            with st.container():
-                rc1, rc2, rc3, rc4, rc5, rc6 = st.columns([1.5, 1.5, 1.2, 1.5, 1.5, 2.5])
-                rc1.markdown(f"**الشركة:** `{ws_id}`")
-                rc2.markdown(f"**الحالة:** {status_html}", unsafe_allow_html=True)
-                rc3.markdown(f"**مستخدمين:** {max_d}")
-                rc4.markdown(f"**الانتهاء:** {ws_info['expiry_date']}")
-                
-                with rc5:
-                    if st.button("تغيير PIN", key=f"btn_pin_{ws_id}", use_container_width=True):
-                        change_workspace_pin_dialog(ws_id)
-                        
-                with rc6:
-                    action_opts = ["اختر إجراء...", "تجديد +شهر", "تجديد +سنة", "زيادة مستخدمين (+5)", "إيقاف (تعليق)", "تفعيل"]
-                    action = st.selectbox("الإجراء", action_opts, key=f"act_{ws_id}", label_visibility="collapsed")
-                    if action != "اختر إجراء...":
-                        if action == "تجديد +شهر":
-                            new_exp = (exp_date + timedelta(days=30)).strftime("%Y-%m-%d")
-                            licenses['workspaces'][ws_id]['expiry_date'] = new_exp
-                            licenses['workspaces'][ws_id]['status'] = 'active'
-                        elif action == "تجديد +سنة":
-                            new_exp = (exp_date + timedelta(days=365)).strftime("%Y-%m-%d")
-                            licenses['workspaces'][ws_id]['expiry_date'] = new_exp
-                            licenses['workspaces'][ws_id]['status'] = 'active'
-                        elif action == "زيادة مستخدمين (+5)":
-                            licenses['workspaces'][ws_id]['max_devices'] = max_d + 5
-                        elif action == "إيقاف (تعليق)":
-                            licenses['workspaces'][ws_id]['status'] = 'suspended'
-                        elif action == "تفعيل":
-                            licenses['workspaces'][ws_id]['status'] = 'active'
-                            
-                        save_licenses(licenses)
-                        st.rerun()
-                st.markdown("<hr style='border-color:rgba(255,255,255,0.05); margin:10px 0;'>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("<div class='g-card'>", unsafe_allow_html=True)
+    st.markdown(f"<div class='g-card-title'>{get_icon('table', 22)} الشركات المشتركة وإدارة التراخيص</div>", unsafe_allow_html=True)
+    
+    if not licenses['workspaces']:
+        st.info("لا توجد أي شركات مسجلة حتى الآن.")
+    else:
+        for ws_id, ws_info in licenses['workspaces'].items():
+            is_active = ws_info['status'] == 'active'
+            exp_date = datetime.strptime(ws_info['expiry_date'], "%Y-%m-%d")
+            is_expired = get_local_now() > exp_date
+            
+            status_html = "<span style='color:#00ff82;'>نشط</span>" if is_active and not is_expired else "<span style='color:#ff2d78;'>منتهي / متوقف</span>"
+            max_d = ws_info.get('max_devices', 1)
+            
+            with st.container():
+                rc1, rc2, rc3, rc4, rc5, rc6 = st.columns([1.5, 1.5, 1.2, 1.5, 1.5, 2.5])
+                rc1.markdown(f"**الشركة:** `{ws_id}`")
+                rc2.markdown(f"**الحالة:** {status_html}", unsafe_allow_html=True)
+                rc3.markdown(f"**مستخدمين:** {max_d}")
+                rc4.markdown(f"**الانتهاء:** {ws_info['expiry_date']}")
+                
+                with rc5:
+                    if st.button("تغيير PIN", key=f"btn_pin_{ws_id}", use_container_width=True):
+                        change_workspace_pin_dialog(ws_id)
+                        
+                with rc6:
+                    action_opts = ["اختر إجراء...", "تجديد +شهر", "تجديد +سنة", "زيادة مستخدمين (+5)", "إيقاف (تعليق)", "تفعيل"]
+                    action = st.selectbox("الإجراء", action_opts, key=f"act_{ws_id}", label_visibility="collapsed")
+                    if action != "اختر إجراء...":
+                        if action == "تجديد +شهر":
+                            new_exp = (exp_date + timedelta(days=30)).strftime("%Y-%m-%d")
+                            licenses['workspaces'][ws_id]['expiry_date'] = new_exp
+                            licenses['workspaces'][ws_id]['status'] = 'active'
+                        elif action == "تجديد +سنة":
+                            new_exp = (exp_date + timedelta(days=365)).strftime("%Y-%m-%d")
+                            licenses['workspaces'][ws_id]['expiry_date'] = new_exp
+                            licenses['workspaces'][ws_id]['status'] = 'active'
+                        elif action == "زيادة مستخدمين (+5)":
+                            licenses['workspaces'][ws_id]['max_devices'] = max_d + 5
+                        elif action == "إيقاف (تعليق)":
+                            licenses['workspaces'][ws_id]['status'] = 'suspended'
+                        elif action == "تفعيل":
+                            licenses['workspaces'][ws_id]['status'] = 'active'
+                            
+                        save_licenses(licenses)
+                        st.rerun()
+                st.markdown("<hr style='border-color:rgba(255,255,255,0.05); margin:10px 0;'>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────────────────
 # محول العرض (Router الآمن - Crash-Proof)
@@ -2900,18 +2942,18 @@ def render_super_admin():
 view = st.session_state.get('view', 'login')
 curr_user = st.session_state.get('current_user')
 
-if view == "workspace_login": 
-    render_workspace_login()
-elif view == "super_admin": 
-    render_super_admin()
-elif not curr_user or view == "login": 
-    render_login()
+if view == "workspace_login": 
+    render_workspace_login()
+elif view == "super_admin": 
+    render_super_admin()
+elif not curr_user or view == "login": 
+    render_login()
 else:
-    if view == "dashboard": render_dashboard()
-    elif view == "departments": render_departments()
-    elif view == "forecast": render_forecast()
-    elif view == "ai": render_ai()
-    elif view == "fusion": render_fusion()
-    elif view == "territories": render_territories()
-    elif view == "settings": render_settings()
-    else: render_dashboard()
+    if view == "dashboard": render_dashboard()
+    elif view == "departments": render_departments()
+    elif view == "forecast": render_forecast()
+    elif view == "ai": render_ai()
+    elif view == "fusion": render_fusion()
+    elif view == "territories": render_territories()
+    elif view == "settings": render_settings()
+    else: render_dashboard()   و ماذا عن هذا الكود
