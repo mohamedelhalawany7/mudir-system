@@ -770,14 +770,35 @@ html, body, [class*="css"] {
 .ticker-item span { color: var(--c-primary); margin-left: 5px; font-family: 'Orbitron', sans-serif; }
 .ticker-icon { display: flex; align-items: center; margin-left: 8px; }
 
-/* Chat UI */
+/* =========================================================
+   Chat UI & Fixed Lists (Bullets)
+   ========================================================= */
 [data-testid="stChatMessage"] { background: transparent !important; border: none !important; padding: 0 !important; margin-bottom: 12px !important; display: flex !important; width: 100% !important;}
 [data-testid="stChatAvatar"] { display: none !important; }
 [data-testid="stChatMessageContent"] { width: 100% !important; max-width: 100% !important; background: transparent !important; padding: 0 !important; display: flex !important; flex-direction: column !important; }
-.chat-bubble { padding: 8px 12px !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Cairo", Helvetica, Arial, sans-serif !important; font-size: 14.2px !important; line-height: 19px !important; word-wrap: break-word !important; white-space: pre-wrap !important; text-align: right !important; direction: rtl !important; width: fit-content !important; max-width: 75% !important; box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important; margin-bottom: 2px !important; }
-.chat-bubble [data-testid="stMarkdownContainer"] { width: fit-content !important; }
-.chat-bubble p { display: inline-block !important; width: fit-content !important; margin: 0 !important; padding: 0 !important; color: #e9edef !important; font-size: 14.2px !important; line-height: 19px !important;}
-.chat-bubble h1, .chat-bubble h2, .chat-bubble h3 { margin-top: 5px !important; margin-bottom: 5px !important; color: #fff !important; font-size: 1.1rem !important;}
+
+.chat-bubble { 
+    padding: 10px 14px !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Cairo", Helvetica, Arial, sans-serif !important; 
+    font-size: 14.2px !important; line-height: 1.6 !important; word-wrap: break-word !important; white-space: pre-wrap !important; 
+    text-align: right !important; direction: rtl !important; width: fit-content !important; max-width: 75% !important; 
+    box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important; margin-bottom: 2px !important; 
+}
+.chat-bubble [data-testid="stMarkdownContainer"] { width: 100% !important; }
+.chat-bubble p { margin: 0 0 6px 0 !important; padding: 0 !important; color: #e9edef !important; font-size: 14.2px !important; line-height: 1.6 !important; display: block !important;}
+.chat-bubble h1, .chat-bubble h2, .chat-bubble h3, .chat-bubble h4 { margin-top: 5px !important; margin-bottom: 5px !important; color: #fff !important; font-size: 1.1rem !important;}
+
+/* Fix for Bullets inside Chat Bubbles */
+.chat-bubble ul { list-style-type: disc !important; padding-right: 25px !important; margin: 8px 0 !important; direction: rtl !important;}
+.chat-bubble ol { list-style-type: decimal !important; padding-right: 25px !important; margin: 8px 0 !important; direction: rtl !important;}
+.chat-bubble li { 
+    display: list-item !important; 
+    text-align: right !important; 
+    margin-bottom: 5px !important; 
+    font-size: 14.2px !important; 
+    line-height: 1.6 !important; 
+    list-style-position: outside !important;
+}
+
 [data-testid="stChatMessage"]:has(.msg-user) [data-testid="stChatMessageContent"] { align-items: flex-start !important; }
 [data-testid="stChatMessage"]:has(.msg-user) .chat-bubble { background-color: #005c4b !important; color: #e9edef !important; border-radius: 12px 0px 12px 12px !important; }
 [data-testid="stChatMessage"]:has(.msg-assistant) [data-testid="stChatMessageContent"] { align-items: flex-end !important; }
@@ -1661,7 +1682,7 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
         if len(chats_str) > 3000: chats_str = "..." + chats_str[-3000:]
 
         report_prompt = f"""
-        أنت خبير تقييم أداء (HR Executive). قم بكتابة تقرير أداء ذكي وملخص لموظف بناءً على البيانات التالية حصرياً (المحادثات والتقارير المقدمة من الموظف):
+        أنت خبير تقييم أداء (HR Executive). قم بكتابة تقرير أداء ذكي وملخص لموظف بناءً على البيانات التالية حصرياً:
         - اسم الموظف: {emp_short}
         - الوظيفة: {emp_role}
         - الأهداف المطلوبة (KPIs): {kpis}
@@ -1670,31 +1691,31 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
         {evals_str if evals_str else 'لا يوجد'}
 
         مقتطفات من تفاعلات الموظف وتقاريره (الشات):
-        {chats_str if chats_str else 'لا يوجد سجل محادثات في هذه الفترة'}
+        {chats_str if chats_str else 'لا يوجد سجل محادثات'}
 
         المطلوب:
-        اكتب تقرير إداري مكثف ومنظم بصيغة HTML (بدون استخدام Markdown نهائياً، أخرج كود HTML فقط وبدون أن تضعه داخل علامات ```html).
-        استخدم العناوين (h2, h3) والفقرات (p) والقوائم (ul, li). 
-        قسم التقرير إلى:
-        1. الخلاصة التنفيذية.
-        2. تقييم أداء الموظف بناءً على تقاريره وإنجازاته المذكورة في المحادثة حصرياً.
-        3. التزام الموظف والتواصل الفعال وسرعة الاستجابة.
-        4. نقاط القوة ومجالات التحسين.
-        5. التقييم النهائي العام (من 10) في شكل بارز.
-
-        يجب أن يكون الكود HTML نظيف فقط وبدون Emojis. لا تستخدم خلفيات أو ألوان داخل الكود، استخدم الهيكل فقط، أنا سأقوم بتلوينه بالـ CSS الخاص بي.
+        اكتب تقرير إداري "موجز جداً ومكثف وفي نقاط سريعة" (لا يتعدى نصف صفحة، بحد أقصى 100 كلمة).
+        أخرج كود HTML فقط للمحتوى الداخلي (استخدم العناوين h4 والفقرات p والقوائم ul, li فقط).
+        تحذير صارم: لا تكتب <!DOCTYPE html> أو <html> أو <body> أو <head> نهائياً. أريد المحتوى الصافي فقط ليتم وضعه داخل حاوية موجودة مسبقاً.
+        ممنوع استخدام أي رموز تعبيرية (Emojis).
+        
+        ركز على: الخلاصة، الإنجاز، التزام الموظف، والتقييم النهائي من 10.
         """
         try:
             smart_report_html = call_universal_ai([{"role": "user", "content": report_prompt}])
-            # Clean up if AI still wraps it in ```html despite instructions
-            smart_report_html = re.sub(r'```html|```', '', smart_report_html).strip()
+            # تنظيف قوي للـ HTML لضمان إزالة أي أكواد هيكلية زائدة يعيدها الذكاء الاصطناعي
+            smart_report_html = smart_report_html.replace('```html', '').replace('```', '')
+            smart_report_html = re.sub(r'<!DOCTYPE[^>]*>', '', smart_report_html, flags=re.IGNORECASE)
+            smart_report_html = re.sub(r'</?html[^>]*>', '', smart_report_html, flags=re.IGNORECASE)
+            smart_report_html = re.sub(r'<head.*?</head>', '', smart_report_html, flags=re.DOTALL|re.IGNORECASE)
+            smart_report_html = re.sub(r'</?body[^>]*>', '', smart_report_html, flags=re.IGNORECASE)
+            smart_report_html = smart_report_html.strip()
+
         except Exception as e:
             smart_report_html = f"""
             <div style='text-align: center; padding: 40px; background-color: #ffeef2; border-radius: 12px; border: 1px solid #ff2d78;'>
-                <div style='font-size: 50px; margin-bottom: 20px;'>📡</div>
                 <h3 style='color: #ff2d78; margin-top: 0;'>تعذر الاتصال بالخادم الذكي</h3>
-                <p style='color: #64748b; font-size: 16px;'>عذراً، لم نتمكن من توليد التقرير الذكي في الوقت الحالي بسبب ضغط على خوادم الذكاء الاصطناعي أو مشكلة في الاتصال.</p>
-                <p style='color: #94a3b8; font-size: 12px;'>تفاصيل الخطأ التقني: {str(e)}</p>
+                <p style='color: #64748b; font-size: 16px;'>عذراً، لم نتمكن من توليد التقرير الذكي في الوقت الحالي.</p>
             </div>
             """
 
