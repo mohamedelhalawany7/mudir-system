@@ -249,6 +249,14 @@ def get_icon(name: str, size: int = 24, color: str = "currentColor", class_name:
         "calendar": '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
         "edit": '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',
         "bell": '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+        "manager": '<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
+        "employee": '<circle cx="12" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>',
+        "print": '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
+        "activity": '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'
+    }
+    path = svg_map.get(name, "")
+    return f'<svg xmlns="http://www.w3.org/2000/svg" class="{class_name}" width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{path}</svg>'
+
 # دالة مساعدة لدمج الأيقونة في النصوص لضمان العرض
 def get_inline_icon(name: str, size: int = 18, color: str = "#00f2ff") -> str:
     return f'<span style="display:inline-flex; vertical-align:middle; margin-left:8px;">{get_icon(name, size, color)}</span>'
@@ -856,7 +864,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v49.1</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v49.2</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         allowed_navs = []
@@ -1738,17 +1746,17 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
     <html dir="rtl" lang="ar">
     <head>
         <meta charset="utf-8">
-        <link href="[https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap](https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap)" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
         <style>
             body {{ font-family: 'Cairo', sans-serif; background-color: #f8fafc; padding: 40px; color: #1e293b; direction: rtl; text-align: right; line-height: 1.8; }}
             .report-container {{ max-width: 800px; margin: auto; background: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border-top: 8px solid #005c4b; }}
             .header {{ text-align: center; padding-bottom: 20px; border-bottom: 2px solid #e2e8f0; margin-bottom: 30px; }}
             .header h1 {{ color: #005c4b; font-size: 32px; font-weight: 800; margin: 0 0 10px 0; }}
             .report-content {{ background: #f8fafc; padding: 30px; border-radius: 12px; border-right: 4px solid #005c4b; color: #334155; }}
-            .report-content h2, .report-content h3 {{ color: #0f172a; margin-top: 0; font-size: 22px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px; }}
-            .report-content p {{ font-size: 16px; margin-bottom: 15px; }}
-            .report-content ul {{ padding-right: 20px; margin-bottom: 20px; }}
-            .report-content li {{ margin-bottom: 8px; font-size: 16px; }}
+            .report-content h2, .report-content h3, .report-content h4 {{ color: #0f172a; margin-top: 0; font-size: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }}
+            .report-content p {{ font-size: 15px; margin-bottom: 10px; }}
+            .report-content ul {{ padding-right: 20px; margin-bottom: 15px; }}
+            .report-content li {{ margin-bottom: 5px; font-size: 15px; }}
             .footer {{ text-align: center; margin-top: 40px; color: #94a3b8; font-size: 13px; border-top: 1px solid #e2e8f0; padding-top: 20px; }}
         </style>
     </head>
@@ -1773,7 +1781,6 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
 
             <div class="footer">
                 تم استخراج هذا التقرير آلياً بواسطة محرك الذكاء الاصطناعي - MUDIR OS<br>
-                يعتمد التقرير حصرياً على تفاعلات وتقارير الموظف مع النظام.<br>
                 تاريخ الاستخراج: {datetime.now().strftime('%Y-%m-%d %H:%M')}
             </div>
         </div>
