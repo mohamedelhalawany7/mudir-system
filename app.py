@@ -55,7 +55,7 @@ st.set_page_config(
 # ============================================================
 # 0. نظام الحفظ السحابي الفولاذي (Firebase Firestore)
 # ============================================================
-MASTER_ADMIN_CODE = "admin185710" # الكود السري الخاص بك لدخول لوحة تحكم التراخيص
+MASTER_ADMIN_CODE = "admin185710"
 
 if not firebase_admin._apps:
     try:
@@ -181,9 +181,6 @@ def load_licenses():
 def save_licenses(data):
     db.collection('Mudir_System').document('Licenses').set(data, merge=True)
 
-# ============================================================
-# أزرار القائمة الجانبية (Navigation Items)
-# ============================================================
 ALL_NAV_ITEMS = [
     ("dashboard", "dashboard", "لوحة القيادة"),
     ("departments", "layers", "أداء الأقسام"),
@@ -194,9 +191,6 @@ ALL_NAV_ITEMS = [
     ("settings", "settings", "إعدادات النظام")
 ]
 
-# ============================================================
-# التوجيه الذكي للروابط (URL Routing & Initialization)
-# ============================================================
 def init_state():
     url_ws = st.query_params.get("workspace")
     url_view = st.query_params.get("view")
@@ -272,15 +266,9 @@ def call_universal_ai(messages, json_mode=False):
     response = client.chat.completions.create(**kwargs)
     return response.choices[0].message.content
 
-# ============================================================
-# طبقة البيانات والتلوين الذكي المضاد للانهيار
-# ============================================================
-
 def get_icon(name: str, size: int = 24, color: str = "currentColor", class_name: str = "") -> str:
     svg_map = {
         "dashboard": '<path d="M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z"/>',
-        "radar": '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v10l5 5"/>',
-        "cpu": '<rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/>',
         "fusion": '<path d="M9 3v11l-5 6v2h16v-2l-5-6V3M14 3h-4"/>',
         "clock": '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
         "book": '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5V3A2.5 2.5 0 0 1 6.5 0.5H20"/>',
@@ -293,10 +281,7 @@ def get_icon(name: str, size: int = 24, color: str = "currentColor", class_name:
         "check": '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/>',
         "chart": '<path d="M18 20V10M12 20V4M6 20v-4"/>',
         "globe": '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
-        "robot": '<rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4M8 16h.01M16 16h.01"/>',
         "search": '<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>',
-        "download": '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
-        "target": '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
         "folder": '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
         "bulb": '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/><path d="M12 2v2"/>',
         "dna": '<path d="M2 15c6.667-6 13.333 0 20-6"/><path d="M2 9c6.667 6 13.333 0 20 6"/><path d="m17 4-1 1.5"/><path d="m19 6-1 1.5"/><path d="m5 18-1-1.5"/><path d="m7 20-1-1.5"/><path d="m10.5 7.5-1 1.5"/><path d="m14.5 16.5-1-1.5"/>',
@@ -305,25 +290,16 @@ def get_icon(name: str, size: int = 24, color: str = "currentColor", class_name:
         "table": '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>',
         "layers": '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
         "tabs": '<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M2 11h20"/><path d="M6 7v4"/><path d="M12 7v4"/>',
-        "map": '<polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>',
         "command": '<rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><polyline points="9 9 12 12 9 15"/><line x1="13" y1="15" x2="15" y2="15"/>',
-        "handshake": '<path d="M8 12.5L4 16.5M16 12.5L20 16.5M12 15v4M7 8h10"/><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/>',
         "truck": '<rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
         "trending-up": '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
         "trending-down": '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
         "calendar": '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
-        "edit": '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',
         "bell": '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
-        "manager": '<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
-        "employee": '<circle cx="12" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>',
-        "print": '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
         "activity": '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'
     }
     path = svg_map.get(name, "")
     return f'<svg xmlns="http://www.w3.org/2000/svg" class="{class_name}" width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{path}</svg>'
-
-def get_inline_icon(name: str, size: int = 18, color: str = "#00f2ff") -> str:
-    return f'<span style="display:inline-flex; vertical-align:middle; margin-left:8px;">{get_icon(name, size, color)}</span>'
 
 def neonize_numbers(text):
     if not isinstance(text, str): return text
@@ -513,21 +489,26 @@ def get_smart_filter_dates(prefix):
         prev_start_dt = start_dt.replace(year=start_dt.year - 1)
         prev_end_dt = end_dt.replace(year=end_dt.year - 1)
     elif sel == "فترة مخصصة":
-        min_date = get_local_now().date() - timedelta(days=365)
+        min_date = (get_local_now() - timedelta(days=365)).date()
         max_date = get_local_now().date()
+        
         if not st.session_state.df_s.empty and 'date_order' in st.session_state.df_s.columns:
             min_date = st.session_state.df_s['date_order'].min().date()
             max_date = st.session_state.df_s['date_order'].max().date()
         
-        c1, c2, c3 = st.columns([1,1,2])
-        with c1: start_d = st.date_input("من تاريخ", value=min_date, key=f"{prefix}_start")
-        with c2: end_d = st.date_input("إلى تاريخ", value=max_date, key=f"{prefix}_end")
+        # تغيير طريقة الإدخال هنا لتكون Range واحد مدمج وأكثر احترافية
+        date_range = st.date_input("اختر نطاق التاريخ (من - إلى):", value=(min_date, max_date), key=f"{prefix}_range")
         
-        start_dt = pd.to_datetime(start_d)
-        end_dt = pd.to_datetime(end_d) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
-        delta_days = (end_dt - start_dt).days + 1
-        prev_start_dt = start_dt - timedelta(days=delta_days)
-        prev_end_dt = start_dt - timedelta(seconds=1)
+        if len(date_range) == 2:
+            start_dt = pd.to_datetime(date_range[0])
+            end_dt = pd.to_datetime(date_range[1]) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+            delta_days = (end_dt - start_dt).days + 1
+            prev_start_dt = start_dt - timedelta(days=delta_days)
+            prev_end_dt = start_dt - timedelta(seconds=1)
+        else:
+            # إذا لم يكمل المستخدم اختيار النطاق
+            start_dt, end_dt, prev_start_dt, prev_end_dt = None, None, None, None
+            st.warning("يرجى اختيار تاريخ البداية والنهاية معاً.")
         
     return start_dt, end_dt, prev_start_dt, prev_end_dt
 
@@ -888,7 +869,6 @@ html, body, [class*="css"] {
     .cm-val { font-size: 1.3rem !important; }
     .custom-metric { padding: 0.8rem !important; }
     
-    /* تحويل الشبكات والأعمدة لمسار واحد 1fr */
     .emp-info-grid { grid-template-columns: 1fr !important; }
     [data-testid="column"] { 
         width: 100% !important; 
@@ -1033,7 +1013,7 @@ def create_export_buttons(title, df_dict):
         st.download_button(label="استخراج للطباعة وحفظ (PDF)", data=html_content_pdf.encode('utf-8-sig'), file_name=f"Report_{title}.html", mime="text/html", help="سيتم تحميل ملف، بمجرد فتحه ستظهر لك شاشة حفظ بصيغة PDF تلقائياً.", use_container_width=True)
 
 def render_filters_and_export(title, original_df_dict):
-    st.markdown("#### 🔍 فلاتر البيانات الحية للجدول الشامل")
+    st.markdown("#### 🔍 فلاتر البيانات الحية والبحث الشامل")
     
     all_clients = ['الكل']
     for df_val in original_df_dict.values():
@@ -1045,22 +1025,40 @@ def render_filters_and_export(title, original_df_dict):
                 
     all_clients = list(dict.fromkeys(all_clients))
     
-    c1, c2, c3 = st.columns(3)
-    with c1: selected_state = st.selectbox("تصفية بحالة العروض/الأوامر:", ['الكل', 'موافق عليه', 'مسودة', 'ملغي', 'معتمد', 'مسودة / قيد الانتظار'], key=f"state_{title}")
-    with c2: selected_client = st.selectbox("العميل / المورد / الجهة:", all_clients, key=f"client_{title}")
-    with c3: date_filter = st.date_input("تحديد فترة (من - إلى):", value=[], key=f"date_{title}")
+    # واجهة البحث والفلترة المحدثة
+    c_search, c1, c2, c3 = st.columns([2, 1.5, 1.5, 2])
+    with c_search: 
+        general_search = st.text_input("🔎 بحث عام في كل الخانات:", key=f"search_{title}", placeholder="اكتب للبحث...")
+    with c1: 
+        selected_state = st.selectbox("الحالة:", ['الكل', 'موافق عليه', 'مسودة', 'ملغي', 'معتمد', 'مسودة / قيد الانتظار'], key=f"state_{title}")
+    with c2: 
+        selected_client = st.selectbox("الجهة:", all_clients, key=f"client_{title}")
+    with c3: 
+        date_filter = st.date_input("تحديد فترة (من - إلى):", value=(), key=f"date_{title}")
 
     filtered_dict = {}
     for name, df_val in original_df_dict.items():
         df = df_val.data.copy() if hasattr(df_val, 'data') else df_val.copy()
         if not df.empty:
+            
+            # 1. فلتر البحث العام
+            if general_search.strip():
+                # تحويل كل الخلايا لنصوص والبحث بداخلها
+                mask = df.astype(str).apply(lambda row: row.str.contains(general_search, case=False, regex=False).any(), axis=1)
+                df = df[mask]
+                
+            # 2. فلتر الحالة
             if selected_state != 'الكل':
                 if 'الحالة (عربي)' in df.columns: df = df[df['الحالة (عربي)'] == selected_state]
                 elif 'الحالة' in df.columns: df = df[df['الحالة'] == selected_state]
+                
+            # 3. فلتر العميل
             if selected_client != 'الكل':
                 if 'العميل' in df.columns: df = df[df['العميل'] == selected_client]
                 elif 'المورد' in df.columns: df = df[df['المورد'] == selected_client]
                 elif 'اسم الجهة' in df.columns: df = df[df['اسم الجهة'] == selected_client]
+                
+            # 4. فلتر التاريخ    
             if len(date_filter) == 2:
                 start_date, end_date = date_filter
                 start_dt = pd.to_datetime(start_date)
@@ -1070,6 +1068,7 @@ def render_filters_and_export(title, original_df_dict):
                         temp_dt = pd.to_datetime(df['التاريخ'])
                         df = df[(temp_dt >= start_dt) & (temp_dt <= end_dt)]
                     except: pass
+                    
         filtered_dict[name] = style_dataframe(df)
         
     st.markdown("<hr style='border-color: rgba(255,255,255,0.1); margin: 25px 0;'>", unsafe_allow_html=True)
@@ -1338,7 +1337,7 @@ def render_dashboard():
 
     metrics = [
         ("الإيرادات (المعتمدة)", f"{t_sales_appr:,.0f}", "ج.م", "money", get_delta_html(t_sales_appr, t_sales_appr_prev), {
-            'subtitle':'تحليل السيولة النقدية مقسمة حسب الحالة', 
+            'subtitle':'تحليل السيولة النقدية مقسمة حسب الحالة (متزامنة مع الفلتر הזمني)', 
             'kpis': [{'label':'موافق عليه','value':f"{t_sales_appr:,.0f} ج", 'color':'#00ff82'},
                      {'label':'مسودة','value':f"{t_sales_draft:,.0f} ج", 'color':'#ffd700'},
                      {'label':'ملغي','value':f"{t_sales_canc:,.0f} ج", 'color':'#ff2d78'}],
@@ -1346,7 +1345,7 @@ def render_dashboard():
             'df': split_sales_dict
         }),
         ("الطلبات (المعتمدة)", f"{t_orders_appr:,}", "طلب", "orders", get_delta_html(t_orders_appr, t_orders_appr_prev), {
-            'subtitle':'كثافة العمليات موزعة على الحالات', 
+            'subtitle':'كثافة العمليات موزعة على الحالات (متزامنة مع الفلتر הזمني)', 
             'kpis':[{'label':'موافق عليه','value':str(t_orders_appr), 'color':'#00ff82'},
                     {'label':'مسودة','value':str(t_orders_draft), 'color':'#ffd700'},
                     {'label':'ملغي','value':str(t_orders_canc), 'color':'#ff2d78'}],
@@ -1936,7 +1935,6 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 st.markdown(f"<span class='msg-{msg['role']}' style='display:none;'></span>", unsafe_allow_html=True)
                 st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(msg['content'])}</div>", unsafe_allow_html=True)
                 
-                # إظهار زر مسح الرسالة فقط داخل شاشة الشات الحالية
                 st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
                 if st.button("🗑️", key=f"dl_{curr_user}_{idx}", help="حذف الرسالة"):
                     st.session_state.all_chats[curr_user].pop(idx)
@@ -1978,13 +1976,11 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                         response_text = call_universal_ai(api_messages, json_mode=True)
                         clean_json_str = response_text.replace('```json', '').replace('```', '').strip()
                         ai_data = json.loads(clean_json_str)
-                        break # النجاح! لا يوجد خطأ
+                        break 
                     except json.JSONDecodeError:
                         if attempt < max_retries - 1:
-                            # المحاولة مجدداً بصمت في حالة عودة JSON غير صالح
                             api_messages.append({"role": "user", "content": "الرد السابق كان يحتوي على خطأ برمجي (ليس JSON صالح). يرجى إعادة إرسال ردك ككائن JSON نظيف فقط يحتوي على: response, eval, task, action."})
                         else:
-                            # الاستجابة الاحتياطية (Fallback) لمنع الانهيار تماماً إذا فشل الموديل مرتين
                             ai_data = {
                                 "response": "يبدو إن فيه ضغط على النظام والمعلومات مش واضحة قدامي دلوقتي. معلش، ممكن توضح قصدك أو طلبك مرة تانية؟",
                                 "eval": "", "task": "", "action": ""
@@ -2020,7 +2016,6 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                     ai_msg2_log['user'] = curr_user
                     log_message(curr_user, ai_msg2_log)
                     
-                    # 🔔 تسجيل في الإشعارات
                     try:
                         current_cfg = get_workspace_doc().get().to_dict() or {}
                         if 'NOTIFICATIONS' not in current_cfg: current_cfg['NOTIFICATIONS'] = {}
@@ -2042,7 +2037,6 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                         task_entry = f"- {assigned_task} (تم حجزها لـ {curr_user.split(' - ')[0]} في {now_str})"
                         current_cfg['TASK_REGISTRY'].append(task_entry)
                         
-                        # 🔔 تسجيل في الإشعارات
                         if 'NOTIFICATIONS' not in current_cfg: current_cfg['NOTIFICATIONS'] = {}
                         if curr_user not in current_cfg['NOTIFICATIONS']: current_cfg['NOTIFICATIONS'][curr_user] = []
                         current_cfg['NOTIFICATIONS'][curr_user].append(f"📌 تكليف جديد من المدير: {assigned_task}")
@@ -2069,7 +2063,6 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                     except Exception:
                         pass
                 
-                # تخزين الرد الأساسي وعرضه
                 if actual_response:
                     ai_final_msg = {"role": "assistant", "content": actual_response}
                     st.session_state.all_chats[curr_user].append(ai_final_msg)
@@ -2080,7 +2073,6 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                     
                     save_chat_for_user(curr_user)
                     st.rerun(scope="fragment")
-
 
 def render_ai():
     
@@ -2173,7 +2165,6 @@ def render_ai():
             team_context_lines.append(f"- {emp}: {last_task[:150]}...")
     team_context_str = "\n".join(team_context_lines) if team_context_lines else "لا توجد تكليفات لزملاء آخرين حالياً."
 
-    # تكوين السياق الحي للمدير
     base_prompt = CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT)
     curr_emp_data = next((e for e in CFG.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == curr_user), None)
     job_desc = curr_emp_data.get('job_desc', 'لا يوجد وصف وظيفي محدد.') if curr_emp_data else 'أنت المدير العام.'
@@ -2224,7 +2215,6 @@ def render_ai():
             with cl1:
                 st.markdown(f"<div class='g-card-title' style='color:var(--c-gold);'>{get_icon('eye', 22)} آخر تقييمات الموظفين التلقائية</div>", unsafe_allow_html=True)
             with cl2:
-                # زر لمزامنة الرسائل والمحادثات للمدير العام فقط
                 if st.button("🔄 مزامنة الرسائل الجديدة", use_container_width=True):
                     st.session_state.all_chats = load_user_chats()
                     st.rerun()
