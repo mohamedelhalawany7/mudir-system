@@ -252,7 +252,8 @@ def call_universal_ai(messages, json_mode=False):
     
     model_name = st.session_state.app_config.get('AI_MODEL_NAME', 'gpt-4o')
 
-    client = OpenAI(api_key=api_key, base_url=base_url)
+    # تم إضافة timeout (30 ثانية) لمنع تعليق النظام وسقوط الاتصال
+    client = OpenAI(api_key=api_key, base_url=base_url, timeout=30.0)
     
     kwargs = {
         "model": model_name,
@@ -1987,18 +1988,28 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                             raise ValueError("Not a dictionary")
                             
                     except Exception as e:
-                        if attempt < max_retries - 1:
-                            api_messages.append({"role": "user", "content": "الرد السابق لم يكن بصيغة JSON صحيحة. يرجى الرد بكائن JSON فقط يحتوي على: response, eval, task, action."})
+                        err_msg = str(e).lower()
+                        # إذا كان الخطأ متعلق بتحليل الـ JSON (استجابة غير صحيحة)
+                        if "json" in err_msg or "empty response" in err_msg or "dictionary" in err_msg:
+                            if attempt < max_retries - 1:
+                                api_messages.append({"role": "user", "content": "الرد السابق لم يكن بصيغة JSON صحيحة. يرجى الرد بكائن JSON فقط يحتوي على: response, eval, task, action."})
+                            else:
+                                ai_data = {
+                                    "response": "يبدو إن فيه ضغط على النظام والمعلومات مش واضحة قدامي دلوقتي. معلش، ممكن توضح قصدك أو طلبك مرة تانية؟",
+                                    "eval": "", "task": "", "action": ""
+                                }
                         else:
+                            # إذا كان الخطأ من الخادم نفسه (نفاد رصيد، سيرفر واقع، Timeout)
                             ai_data = {
-                                "response": "يبدو إن فيه ضغط على النظام والمعلومات مش واضحة قدامي دلوقتي. معلش، ممكن توضح قصدك أو طلبك مرة تانية؟",
+                                "response": "أنا مشغول جداً في اجتماع مجلس إدارة طارئ دلوقتي. من فضلك حاول تكلمني تاني بعد 10 دقايق.",
                                 "eval": "", "task": "", "action": ""
                             }
+                            break # الخروج من حلقة المحاولة لأن المشكلة في الخادم وليست في التنسيق
                             
                 # تأمين إضافي لضمان عدم حدوث انهيار في حالة استمرار المشكلة
-                if not isinstance(ai_data, dict):
+                if not isinstance(ai_data, dict) or not ai_data:
                     ai_data = {
-                        "response": "عذراً، حدث خطأ غير متوقع في معالجة البيانات من الخادم المركزي.",
+                        "response": "عذراً، أنا مشغول جداً في اجتماع إدارة مهم دلوقتي. من فضلك حاول بعد 10 دقائق.",
                         "eval": "", "task": "", "action": ""
                     }
                 # =========================================================================
