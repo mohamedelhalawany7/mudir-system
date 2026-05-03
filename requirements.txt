@@ -9,3 +9,4 @@ filelock
 firebase-admin
 PyPDF2
 pytz
+statsmodels
