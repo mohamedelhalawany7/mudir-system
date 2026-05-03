@@ -2893,6 +2893,33 @@ def change_workspace_pin_dialog(ws_id):
         except Exception as e:
             st.error(f"حدث خطأ أثناء الحفظ: {e}")
 
+@st.dialog("تعديل مستخدمي الشركة")
+def edit_workspace_devices_dialog(ws_id, licenses):
+    st.markdown(f"**تعديل الحد الأقصى للمستخدمين لشركة:** `{ws_id}`")
+    current_max = licenses['workspaces'][ws_id].get('max_devices', 5)
+    new_max = st.number_input("العدد الجديد:", min_value=1, max_value=1000, value=int(current_max))
+    if st.button("حفظ التعديل", type="primary", use_container_width=True):
+        licenses['workspaces'][ws_id]['max_devices'] = new_max
+        save_licenses(licenses)
+        st.success("تم تحديث عدد المستخدمين بنجاح!")
+        time.sleep(1)
+        st.rerun()
+
+@st.dialog("تأكيد حذف الشركة")
+def delete_workspace_dialog(ws_id, licenses):
+    st.error(f"⚠️ تحذير: أنت على وشك حذف ترخيص الشركة '{ws_id}' نهائياً!")
+    st.markdown("هذا الإجراء سيوقف وصول الموظفين فوراً لبياناتهم.")
+    confirm_ws_id = st.text_input("للتأكيد، اكتب كود الشركة هنا بدقة:")
+    if st.button("حذف نهائي 🗑️", type="primary", use_container_width=True):
+        if confirm_ws_id == ws_id:
+            del licenses['workspaces'][ws_id]
+            save_licenses(licenses)
+            st.success("تم الحذف بنجاح.")
+            time.sleep(1)
+            st.rerun()
+        else:
+            st.warning("الكود غير متطابق. لم يتم الحذف.")
+
 def render_super_admin():
     with st.sidebar:
         st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v51.1</div></div>""", unsafe_allow_html=True)
@@ -3035,26 +3062,36 @@ def render_super_admin():
                         change_workspace_pin_dialog(ws_id)
                         
                 with rc6:
-                    action_opts = ["اختر إجراء...", "تجديد +شهر", "تجديد +سنة", "زيادة مستخدمين (+5)", "إيقاف (تعليق)", "تفعيل"]
-                    action = st.selectbox("الإجراء", action_opts, key=f"act_{ws_id}", label_visibility="collapsed")
-                    if action != "اختر إجراء...":
-                        if action == "تجديد +شهر":
-                            new_exp = (exp_date + timedelta(days=30)).strftime("%Y-%m-%d")
-                            licenses['workspaces'][ws_id]['expiry_date'] = new_exp
-                            licenses['workspaces'][ws_id]['status'] = 'active'
-                        elif action == "تجديد +سنة":
-                            new_exp = (exp_date + timedelta(days=365)).strftime("%Y-%m-%d")
-                            licenses['workspaces'][ws_id]['expiry_date'] = new_exp
-                            licenses['workspaces'][ws_id]['status'] = 'active'
-                        elif action == "زيادة مستخدمين (+5)":
-                            licenses['workspaces'][ws_id]['max_devices'] = max_d + 5
-                        elif action == "إيقاف (تعليق)":
-                            licenses['workspaces'][ws_id]['status'] = 'suspended'
-                        elif action == "تفعيل":
-                            licenses['workspaces'][ws_id]['status'] = 'active'
-                            
-                        save_licenses(licenses)
-                        st.rerun()
+                    c_act1, c_act2 = st.columns([2, 1])
+                    with c_act1:
+                        action_opts = ["اختر إجراء...", "تجديد +شهر", "تجديد +سنة", "تعديل المستخدمين", "إيقاف (تعليق)", "تفعيل", "حذف المساحة"]
+                        action = st.selectbox("الإجراء", action_opts, key=f"act_{ws_id}", label_visibility="collapsed")
+                    with c_act2:
+                        if st.button("تنفيذ", key=f"exec_{ws_id}", use_container_width=True):
+                            if action == "تجديد +شهر":
+                                new_exp = (exp_date + timedelta(days=30)).strftime("%Y-%m-%d")
+                                licenses['workspaces'][ws_id]['expiry_date'] = new_exp
+                                licenses['workspaces'][ws_id]['status'] = 'active'
+                                save_licenses(licenses)
+                                st.rerun()
+                            elif action == "تجديد +سنة":
+                                new_exp = (exp_date + timedelta(days=365)).strftime("%Y-%m-%d")
+                                licenses['workspaces'][ws_id]['expiry_date'] = new_exp
+                                licenses['workspaces'][ws_id]['status'] = 'active'
+                                save_licenses(licenses)
+                                st.rerun()
+                            elif action == "تعديل المستخدمين":
+                                edit_workspace_devices_dialog(ws_id, licenses)
+                            elif action == "إيقاف (تعليق)":
+                                licenses['workspaces'][ws_id]['status'] = 'suspended'
+                                save_licenses(licenses)
+                                st.rerun()
+                            elif action == "تفعيل":
+                                licenses['workspaces'][ws_id]['status'] = 'active'
+                                save_licenses(licenses)
+                                st.rerun()
+                            elif action == "حذف المساحة":
+                                delete_workspace_dialog(ws_id, licenses)
                 st.markdown("<hr style='border-color:rgba(255,255,255,0.05); margin:10px 0;'>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
