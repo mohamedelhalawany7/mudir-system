@@ -43,7 +43,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v51.0 (QUANTUM FORECAST)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v52.0 (SMART FUSION)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -928,7 +928,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v51.0</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v52.0</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         if st.session_state.current_user and st.session_state.current_user != "المدير العام":
@@ -1033,68 +1033,119 @@ def create_export_buttons(title, df_dict):
         st.download_button(label="استخراج للطباعة وحفظ (PDF)", data=html_content_pdf.encode('utf-8-sig'), file_name=f"Report_{title}.html", mime="text/html", help="سيتم تحميل ملف، بمجرد فتحه ستظهر لك شاشة حفظ بصيغة PDF تلقائياً.", use_container_width=True)
 
 def render_filters_and_export(title, original_df_dict):
-    st.markdown("#### 🔍 فلاتر البيانات الحية للجدول الشامل")
-    
-    all_clients = ['الكل']
+    st.markdown(f"""
+    <div style='background: linear-gradient(90deg, rgba(0,242,255,0.05) 0%, rgba(112,0,255,0.05) 100%); border: 1px solid rgba(0,242,255,0.2); border-radius: 12px; padding: 15px; margin-bottom: 20px;'>
+        <div style='font-weight: 900; color: #00f2ff; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;'>
+            {get_icon('search', 20)} محرك البحث والتصفية الذكي للبيانات الحية
+        </div>
+    """, unsafe_allow_html=True)
+
+    c1, c2, c3 = st.columns([2, 1.5, 1.5])
+    with c1:
+        search_q = st.text_input("🔍 بحث شامل وحر (اسم عميل، رقم، مدينة...)", placeholder="اكتب للبحث السريع في كامل السجل...", key=f"search_{title}")
+
+    # اكتشاف جميع الحالات الممكنة في البيانات ديناميكياً لتجنب الأخطاء
+    all_states = set()
     for df_val in original_df_dict.values():
         df = df_val.data if hasattr(df_val, 'data') else df_val
-        if df is not None and not df.empty:
-            if 'العميل' in df.columns: all_clients.extend(df['العميل'].dropna().astype(str).unique())
-            elif 'المورد' in df.columns: all_clients.extend(df['المورد'].dropna().astype(str).unique())
-            elif 'اسم الجهة' in df.columns: all_clients.extend(df['اسم الجهة'].dropna().astype(str).unique())
-                
-    all_clients = list(dict.fromkeys(all_clients))
-    
-    c1, c2, c3 = st.columns(3)
-    with c1: selected_state = st.selectbox("تصفية بحالة العروض/الأوامر:", ['الكل', 'موافق عليه', 'مسودة', 'ملغي', 'معتمد', 'مسودة / قيد الانتظار'], key=f"state_{title}")
-    with c2: selected_client = st.selectbox("العميل / المورد / الجهة:", all_clients, key=f"client_{title}")
-    with c3: date_filter = st.date_input("تحديد فترة (من - إلى):", value=[], key=f"date_{title}")
+        if not df.empty:
+            for col in ['الحالة (عربي)', 'الحالة', 'state']:
+                if col in df.columns:
+                    all_states.update(df[col].dropna().astype(str).unique())
+
+    with c2:
+        if all_states:
+            sel_states = st.multiselect("📊 تصفية بحالة الطلبات", list(all_states), default=[], key=f"state_{title}", placeholder="اختر الحالات...")
+        else:
+            sel_states = []
+            st.write("") # placeholder للحفاظ على التنسيق
+
+    with c3:
+        date_filter = st.date_input("📅 تحديد فترة زمنية", value=[], key=f"date_{title}", help="اختر تاريخ البداية والنهاية")
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
     filtered_dict = {}
     for name, df_val in original_df_dict.items():
         df = df_val.data.copy() if hasattr(df_val, 'data') else df_val.copy()
-        if not df.empty:
-            if selected_state != 'الكل':
-                if 'الحالة (عربي)' in df.columns: df = df[df['الحالة (عربي)'] == selected_state]
-                elif 'الحالة' in df.columns: df = df[df['الحالة'] == selected_state]
-            if selected_client != 'الكل':
-                if 'العميل' in df.columns: df = df[df['العميل'] == selected_client]
-                elif 'المورد' in df.columns: df = df[df['المورد'] == selected_client]
-                elif 'اسم الجهة' in df.columns: df = df[df['اسم الجهة'] == selected_client]
-            if len(date_filter) == 2:
-                start_date, end_date = date_filter
-                start_dt = pd.to_datetime(start_date)
-                end_dt = pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
-                if 'التاريخ' in df.columns:
-                    try:
-                        temp_dt = pd.to_datetime(df['التاريخ'])
-                        df = df[(temp_dt >= start_dt) & (temp_dt <= end_dt)]
-                    except: pass
+        if df.empty:
+            filtered_dict[name] = style_dataframe(df)
+            continue
+
+        # 1. فلترة التاريخ (بشكل آمن)
+        if len(date_filter) == 2:
+            start_dt = pd.to_datetime(date_filter[0])
+            end_dt = pd.to_datetime(date_filter[1]) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+            date_cols = [c for c in df.columns if 'تاريخ' in c or 'date' in c.lower()]
+            if date_cols:
+                try:
+                    temp_dt = pd.to_datetime(df[date_cols[0]], errors='coerce')
+                    df = df[(temp_dt >= start_dt) & (temp_dt <= end_dt)]
+                except: pass
+
+        # 2. فلترة الحالات
+        if sel_states:
+            s_cols = [c for c in df.columns if c in ['الحالة (عربي)', 'الحالة', 'state']]
+            if s_cols:
+                df = df[df[s_cols[0]].isin(sel_states)]
+
+        # 3. محرك البحث الشامل الحر
+        if search_q:
+            mask = df.astype(str).apply(lambda x: x.str.contains(search_q, case=False, na=False)).any(axis=1)
+            df = df[mask]
+
         filtered_dict[name] = style_dataframe(df)
-        
-    st.markdown("<hr style='border-color: rgba(255,255,255,0.1); margin: 25px 0;'>", unsafe_allow_html=True)
-    create_export_buttons(title, filtered_dict)
+
     return filtered_dict
 
 @st.dialog("التحليل الاستراتيجي التفصيلي والتصدير", width="large")
 def show_detailed_report(title: str, data: dict):
     st.markdown(f"<h3 style='color:var(--c-primary); margin-top:0; margin-bottom: 20px;'>{title}</h3>", unsafe_allow_html=True)
     
+    if 'kpis' in data or 'bars' in data or 'badges' in data:
+        st.markdown(build_infographic_html(data), unsafe_allow_html=True)
+        st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 20px 0;'>", unsafe_allow_html=True)
+    
     df_dict = {}
     if 'df' in data and data['df'] is not None:
         if isinstance(data['df'], dict): df_dict = data['df']
         else: df_dict = {"البيانات التفصيلية": data['df']}
             
-    filtered_dict = {}
     if df_dict:
+        # عرض محرك البحث واسترجاع البيانات المفلترة
         filtered_dict = render_filters_and_export(title, df_dict)
-        st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 20px 0;'>", unsafe_allow_html=True)
+        
+        # === الأرقام والإحصائيات التفاعلية السريعة (تتحدث مع الفلترة) ===
+        total_records = 0
+        total_value = 0.0
+        
+        for df_val in filtered_dict.values():
+            df = df_val.data if hasattr(df_val, 'data') else df_val
+            if not df.empty:
+                total_records += len(df)
+                val_cols = [c for c in df.columns if 'قيمة' in c or 'إجمالي' in c or 'سعر' in c or 'مبلغ' in c]
+                if val_cols:
+                    try:
+                        # تنظيف العملات وحساب المجموع
+                        cleaned_col = df[val_cols[0]].astype(str).str.replace(r'[^\d.-]', '', regex=True)
+                        total_value += pd.to_numeric(cleaned_col, errors='coerce').fillna(0).sum()
+                    except: pass
+                    
+        st.markdown(f"""
+        <div style="display:flex; gap:15px; margin-bottom: 25px;">
+            <div style="flex:1; background:rgba(0, 242, 255, 0.05); border: 1px solid rgba(0, 242, 255, 0.2); border-radius: 12px; padding: 15px; text-align: center;">
+                <div style="color: #94a3b8; font-size: 0.9rem; font-weight: bold; margin-bottom: 5px;">عدد السجلات المعروضة (بعد التصفية)</div>
+                <div style="color: #00f2ff; font-family: 'Orbitron', sans-serif; font-size: 1.8rem; font-weight: 900; text-shadow: 0 0 10px rgba(0,242,255,0.4);">{total_records:,}</div>
+            </div>
+            <div style="flex:1; background:rgba(255, 215, 0, 0.05); border: 1px solid rgba(255, 215, 0, 0.2); border-radius: 12px; padding: 15px; text-align: center;">
+                <div style="color: #94a3b8; font-size: 0.9rem; font-weight: bold; margin-bottom: 5px;">إجمالي القيمة المالية للبيانات المعروضة</div>
+                <div style="color: #ffd700; font-family: 'Orbitron', sans-serif; font-size: 1.8rem; font-weight: 900; text-shadow: 0 0 10px rgba(255,215,0,0.4);">{total_value:,.0f} <span style='font-size:1rem; color:#94a3b8;'>ج.م</span></div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        # =================================================================
 
-    if 'kpis' in data or 'bars' in data or 'badges' in data:
-        st.markdown(build_infographic_html(data), unsafe_allow_html=True)
-    
-    if filtered_dict:
-        st.markdown(f"""<div style="margin-top:25px; margin-bottom:15px; font-weight:900; font-size:1.1rem; color:var(--c-primary); display:flex; align-items:center; gap:8px;">{get_icon('table', 20)} استعراض السجل الشامل (بعد الفلترة)</div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div style="margin-top:10px; margin-bottom:15px; font-weight:900; font-size:1.1rem; color:var(--c-primary); display:flex; align-items:center; gap:8px;">{get_icon('table', 20)} استعراض السجل الشامل</div>""", unsafe_allow_html=True)
         
         tab_titles = []
         for tab_name, df_val in filtered_dict.items():
@@ -1107,7 +1158,10 @@ def show_detailed_report(title: str, data: dict):
             with tabs[i]:
                 raw_check = df_val.data if hasattr(df_val, 'data') else df_val
                 if not raw_check.empty: st.dataframe(df_val, use_container_width=True, hide_index=True)
-                else: st.info("لا توجد بيانات مطابقة للفلاتر التي قمت بتحديدها.")
+                else: st.info("لا توجد بيانات مطابقة للبحث أو الفلاتر التي قمت بتحديدها.")
+                
+        st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 25px 0 15px 0;'>", unsafe_allow_html=True)
+        create_export_buttons(title, filtered_dict)
 
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("إغلاق التقرير", type="primary", use_container_width=True):
@@ -2819,7 +2873,7 @@ def change_workspace_pin_dialog(ws_id):
 
 def render_super_admin():
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v51.0</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v52.0</div></div>""", unsafe_allow_html=True)
         st.markdown("---")
         if st.button("🔴 تسجيل الخروج وإغلاق", use_container_width=True, type="primary"):
             st.query_params.clear()
@@ -2869,138 +2923,3 @@ def render_super_admin():
         )
     with sv2:
         mega_upload = st.file_uploader("📤 استعادة كل المنصة من ملف خزنة شامل", type=['json'], label_visibility="collapsed")
-        if mega_upload:
-            if st.button("🚨 تأكيد استعادة المنصة بالكامل", type="primary", use_container_width=True):
-                try:
-                    restored_mega = json.load(mega_upload)
-                    if "licenses_db" in restored_mega: save_licenses(restored_mega["licenses_db"])
-                    if "workspaces_db" in restored_mega:
-                        for ws, ws_data in restored_mega["workspaces_db"].items():
-                            db.collection('Mudir_Workspaces').document(ws).set(ws_data)
-                    st.success("تم استعادة المنصة بالكامل بنجاح!")
-                    time.sleep(1)
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"ملف الخزنة تالف أو غير صالح: {e}")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown("<div class='g-card'>", unsafe_allow_html=True)
-    st.markdown(f"<div class='g-card-title' style='color:var(--c-gold);'>{get_icon('rocket', 22)} إصدار ترخيص لشركة جديدة</div>", unsafe_allow_html=True)
-    
-    st.markdown("<div style='background:rgba(255,255,255,0.02); padding:20px; border-radius:12px; border:1px solid rgba(255,255,255,0.05); margin-bottom:20px;'>", unsafe_allow_html=True)
-    with st.form("new_license_form", clear_on_submit=True, border=False):
-        c1, c2, c3, c4, c5 = st.columns([2.5, 2, 2, 2, 2])
-        with c1: new_ws_id = st.text_input("كود الشركة (بالإنجليزية):", placeholder="مثال: Ghareeb2026")
-        with c2: duration = st.selectbox("مدة الاشتراك:", ["شهر واحد", "3 شهور", "6 شهور", "سنة كاملة"])
-        with c3: max_dev = st.number_input("أقصى عدد للمستخدمين:", min_value=1, max_value=1000, value=5)
-        with c4: new_m_pin = st.text_input("رقم دخول المدير (PIN):", value="0000")
-        with c5: 
-            st.markdown("<br>", unsafe_allow_html=True)
-            add_btn = st.form_submit_button("تفعيل المساحة", use_container_width=True, type="primary")
-
-    if add_btn:
-        safe_id = "".join(c for c in str(new_ws_id) if c.isalnum() or c in ('_', '-'))
-        if not safe_id:
-            st.error("يرجى إدخال كود صحيح.")
-        elif safe_id in licenses['workspaces']:
-            st.error("هذا الكود موجود بالفعل! اختر كوداً آخر.")
-        else:
-            days = 30 if duration == "شهر واحد" else 90 if duration == "3 شهور" else 180 if duration == "6 شهور" else 365
-            expiry = (get_local_now() + timedelta(days=days)).strftime("%Y-%m-%d")
-            
-            licenses['workspaces'][safe_id] = {
-                "status": "active",
-                "expiry_date": expiry,
-                "created_on": get_local_now().strftime("%Y-%m-%d"),
-                "max_devices": int(max_dev)
-            }
-            
-            initial_config = {
-                'ODOO_URL': '', 'ODOO_DB': '', 'ODOO_USER': '', 'ODOO_PASS': '',
-                'AI_PROVIDER_URL': 'https://api.openai.com/v1', 'AI_API_KEY': '',
-                'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
-                'MANAGER_PIN': new_m_pin, 
-                'EMPLOYEES': [], 'EVALUATIONS': {}, 'EVAL_HISTORY': {}, 'TASK_REGISTRY': [], 'NOTIFICATIONS': {} 
-            }
-            
-            try:
-                save_licenses(licenses)
-                db.collection('Mudir_Workspaces').document(safe_id).set(initial_config)
-                st.success(f"تم إنشاء ترخيص الشركة بنجاح! المستخدمين: {max_dev} | الانتهاء: {expiry}")
-                time.sleep(2)
-                st.rerun()
-            except Exception as e:
-                st.error(f"حدث خطأ أثناء حفظ البيانات في Firebase: {e}")
-                
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown("<div class='g-card'>", unsafe_allow_html=True)
-    st.markdown(f"<div class='g-card-title'>{get_icon('table', 22)} الشركات المشتركة وإدارة التراخيص</div>", unsafe_allow_html=True)
-    
-    if not licenses['workspaces']:
-        st.info("لا توجد أي شركات مسجلة حتى الآن.")
-    else:
-        for ws_id, ws_info in licenses['workspaces'].items():
-            is_active = ws_info['status'] == 'active'
-            exp_date = datetime.strptime(ws_info['expiry_date'], "%Y-%m-%d")
-            is_expired = get_local_now() > exp_date
-            
-            status_html = "<span style='color:#00ff82;'>نشط</span>" if is_active and not is_expired else "<span style='color:#ff2d78;'>منتهي / متوقف</span>"
-            max_d = ws_info.get('max_devices', 1)
-            
-            with st.container():
-                rc1, rc2, rc3, rc4, rc5, rc6 = st.columns([1.5, 1.5, 1.2, 1.5, 1.5, 2.5])
-                rc1.markdown(f"**الشركة:** `{ws_id}`")
-                rc2.markdown(f"**الحالة:** {status_html}", unsafe_allow_html=True)
-                rc3.markdown(f"**مستخدمين:** {max_d}")
-                rc4.markdown(f"**الانتهاء:** {ws_info['expiry_date']}")
-                
-                with rc5:
-                    if st.button("تغيير PIN", key=f"btn_pin_{ws_id}", use_container_width=True):
-                        change_workspace_pin_dialog(ws_id)
-                        
-                with rc6:
-                    action_opts = ["اختر إجراء...", "تجديد +شهر", "تجديد +سنة", "زيادة مستخدمين (+5)", "إيقاف (تعليق)", "تفعيل"]
-                    action = st.selectbox("الإجراء", action_opts, key=f"act_{ws_id}", label_visibility="collapsed")
-                    if action != "اختر إجراء...":
-                        if action == "تجديد +شهر":
-                            new_exp = (exp_date + timedelta(days=30)).strftime("%Y-%m-%d")
-                            licenses['workspaces'][ws_id]['expiry_date'] = new_exp
-                            licenses['workspaces'][ws_id]['status'] = 'active'
-                        elif action == "تجديد +سنة":
-                            new_exp = (exp_date + timedelta(days=365)).strftime("%Y-%m-%d")
-                            licenses['workspaces'][ws_id]['expiry_date'] = new_exp
-                            licenses['workspaces'][ws_id]['status'] = 'active'
-                        elif action == "زيادة مستخدمين (+5)":
-                            licenses['workspaces'][ws_id]['max_devices'] = max_d + 5
-                        elif action == "إيقاف (تعليق)":
-                            licenses['workspaces'][ws_id]['status'] = 'suspended'
-                        elif action == "تفعيل":
-                            licenses['workspaces'][ws_id]['status'] = 'active'
-                            
-                        save_licenses(licenses)
-                        st.rerun()
-                st.markdown("<hr style='border-color:rgba(255,255,255,0.05); margin:10px 0;'>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# ────────────────────────────────────────────────────────────
-# محول العرض (Router الآمن - Crash-Proof)
-# ────────────────────────────────────────────────────────────
-view = st.session_state.get('view', 'login')
-curr_user = st.session_state.get('current_user')
-
-if view == "workspace_login": 
-    render_workspace_login()
-elif view == "super_admin": 
-    render_super_admin()
-elif not curr_user or view == "login": 
-    render_login()
-else:
-    if view == "dashboard": render_dashboard()
-    elif view == "departments": render_departments()
-    elif view == "forecast": render_forecast()
-    elif view == "ai": render_ai()
-    elif view == "fusion": render_fusion()
-    elif view == "territories": render_territories()
-    elif view == "settings": render_settings()
-    else: render_dashboard()
