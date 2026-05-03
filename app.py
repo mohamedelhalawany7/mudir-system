@@ -1969,22 +1969,38 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 # 🛡️ نظام الشفاء التلقائي لمعالجة أخطاء JSON Mode (Fallback Mechanism)
                 # =========================================================================
                 max_retries = 2
-                ai_data = None
+                ai_data = {}
                 
                 for attempt in range(max_retries):
                     try:
                         response_text = call_universal_ai(api_messages, json_mode=True)
+                        if not response_text:
+                            raise ValueError("Empty response")
+                            
                         clean_json_str = response_text.replace('```json', '').replace('```', '').strip()
-                        ai_data = json.loads(clean_json_str)
-                        break 
-                    except json.JSONDecodeError:
+                        parsed_data = json.loads(clean_json_str)
+                        
+                        if isinstance(parsed_data, dict):
+                            ai_data = parsed_data
+                            break 
+                        else:
+                            raise ValueError("Not a dictionary")
+                            
+                    except Exception as e:
                         if attempt < max_retries - 1:
-                            api_messages.append({"role": "user", "content": "الرد السابق كان يحتوي على خطأ برمجي (ليس JSON صالح). يرجى إعادة إرسال ردك ككائن JSON نظيف فقط يحتوي على: response, eval, task, action."})
+                            api_messages.append({"role": "user", "content": "الرد السابق لم يكن بصيغة JSON صحيحة. يرجى الرد بكائن JSON فقط يحتوي على: response, eval, task, action."})
                         else:
                             ai_data = {
                                 "response": "يبدو إن فيه ضغط على النظام والمعلومات مش واضحة قدامي دلوقتي. معلش، ممكن توضح قصدك أو طلبك مرة تانية؟",
                                 "eval": "", "task": "", "action": ""
                             }
+                            
+                # تأمين إضافي لضمان عدم حدوث انهيار في حالة استمرار المشكلة
+                if not isinstance(ai_data, dict):
+                    ai_data = {
+                        "response": "عذراً، حدث خطأ غير متوقع في معالجة البيانات من الخادم المركزي.",
+                        "eval": "", "task": "", "action": ""
+                    }
                 # =========================================================================
 
                 actual_response = ai_data.get('response', '')
