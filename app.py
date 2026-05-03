@@ -2923,3 +2923,138 @@ def render_super_admin():
         )
     with sv2:
         mega_upload = st.file_uploader("📤 استعادة كل المنصة من ملف خزنة شامل", type=['json'], label_visibility="collapsed")
+        if mega_upload:
+            if st.button("🚨 تأكيد استعادة المنصة بالكامل", type="primary", use_container_width=True):
+                try:
+                    restored_mega = json.load(mega_upload)
+                    if "licenses_db" in restored_mega: save_licenses(restored_mega["licenses_db"])
+                    if "workspaces_db" in restored_mega:
+                        for ws, ws_data in restored_mega["workspaces_db"].items():
+                            db.collection('Mudir_Workspaces').document(ws).set(ws_data)
+                    st.success("تم استعادة المنصة بالكامل بنجاح!")
+                    time.sleep(1)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"ملف الخزنة تالف أو غير صالح: {e}")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("<div class='g-card'>", unsafe_allow_html=True)
+    st.markdown(f"<div class='g-card-title' style='color:var(--c-gold);'>{get_icon('rocket', 22)} إصدار ترخيص لشركة جديدة</div>", unsafe_allow_html=True)
+    
+    st.markdown("<div style='background:rgba(255,255,255,0.02); padding:20px; border-radius:12px; border:1px solid rgba(255,255,255,0.05); margin-bottom:20px;'>", unsafe_allow_html=True)
+    with st.form("new_license_form", clear_on_submit=True, border=False):
+        c1, c2, c3, c4, c5 = st.columns([2.5, 2, 2, 2, 2])
+        with c1: new_ws_id = st.text_input("كود الشركة (بالإنجليزية):", placeholder="مثال: Ghareeb2026")
+        with c2: duration = st.selectbox("مدة الاشتراك:", ["شهر واحد", "3 شهور", "6 شهور", "سنة كاملة"])
+        with c3: max_dev = st.number_input("أقصى عدد للمستخدمين:", min_value=1, max_value=1000, value=5)
+        with c4: new_m_pin = st.text_input("رقم دخول المدير (PIN):", value="0000")
+        with c5: 
+            st.markdown("<br>", unsafe_allow_html=True)
+            add_btn = st.form_submit_button("تفعيل المساحة", use_container_width=True, type="primary")
+
+    if add_btn:
+        safe_id = "".join(c for c in str(new_ws_id) if c.isalnum() or c in ('_', '-'))
+        if not safe_id:
+            st.error("يرجى إدخال كود صحيح.")
+        elif safe_id in licenses['workspaces']:
+            st.error("هذا الكود موجود بالفعل! اختر كوداً آخر.")
+        else:
+            days = 30 if duration == "شهر واحد" else 90 if duration == "3 شهور" else 180 if duration == "6 شهور" else 365
+            expiry = (get_local_now() + timedelta(days=days)).strftime("%Y-%m-%d")
+            
+            licenses['workspaces'][safe_id] = {
+                "status": "active",
+                "expiry_date": expiry,
+                "created_on": get_local_now().strftime("%Y-%m-%d"),
+                "max_devices": int(max_dev)
+            }
+            
+            initial_config = {
+                'ODOO_URL': '', 'ODOO_DB': '', 'ODOO_USER': '', 'ODOO_PASS': '',
+                'AI_PROVIDER_URL': 'https://api.openai.com/v1', 'AI_API_KEY': '',
+                'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
+                'MANAGER_PIN': new_m_pin, 
+                'EMPLOYEES': [], 'EVALUATIONS': {}, 'EVAL_HISTORY': {}, 'TASK_REGISTRY': [], 'NOTIFICATIONS': {} 
+            }
+            
+            try:
+                save_licenses(licenses)
+                db.collection('Mudir_Workspaces').document(safe_id).set(initial_config)
+                st.success(f"تم إنشاء ترخيص الشركة بنجاح! المستخدمين: {max_dev} | الانتهاء: {expiry}")
+                time.sleep(2)
+                st.rerun()
+            except Exception as e:
+                st.error(f"حدث خطأ أثناء حفظ البيانات في Firebase: {e}")
+                
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("<div class='g-card'>", unsafe_allow_html=True)
+    st.markdown(f"<div class='g-card-title'>{get_icon('table', 22)} الشركات المشتركة وإدارة التراخيص</div>", unsafe_allow_html=True)
+    
+    if not licenses['workspaces']:
+        st.info("لا توجد أي شركات مسجلة حتى الآن.")
+    else:
+        for ws_id, ws_info in licenses['workspaces'].items():
+            is_active = ws_info['status'] == 'active'
+            exp_date = datetime.strptime(ws_info['expiry_date'], "%Y-%m-%d")
+            is_expired = get_local_now() > exp_date
+            
+            status_html = "<span style='color:#00ff82;'>نشط</span>" if is_active and not is_expired else "<span style='color:#ff2d78;'>منتهي / متوقف</span>"
+            max_d = ws_info.get('max_devices', 1)
+            
+            with st.container():
+                rc1, rc2, rc3, rc4, rc5, rc6 = st.columns([1.5, 1.5, 1.2, 1.5, 1.5, 2.5])
+                rc1.markdown(f"**الشركة:** `{ws_id}`")
+                rc2.markdown(f"**الحالة:** {status_html}", unsafe_allow_html=True)
+                rc3.markdown(f"**مستخدمين:** {max_d}")
+                rc4.markdown(f"**الانتهاء:** {ws_info['expiry_date']}")
+                
+                with rc5:
+                    if st.button("تغيير PIN", key=f"btn_pin_{ws_id}", use_container_width=True):
+                        change_workspace_pin_dialog(ws_id)
+                        
+                with rc6:
+                    action_opts = ["اختر إجراء...", "تجديد +شهر", "تجديد +سنة", "زيادة مستخدمين (+5)", "إيقاف (تعليق)", "تفعيل"]
+                    action = st.selectbox("الإجراء", action_opts, key=f"act_{ws_id}", label_visibility="collapsed")
+                    if action != "اختر إجراء...":
+                        if action == "تجديد +شهر":
+                            new_exp = (exp_date + timedelta(days=30)).strftime("%Y-%m-%d")
+                            licenses['workspaces'][ws_id]['expiry_date'] = new_exp
+                            licenses['workspaces'][ws_id]['status'] = 'active'
+                        elif action == "تجديد +سنة":
+                            new_exp = (exp_date + timedelta(days=365)).strftime("%Y-%m-%d")
+                            licenses['workspaces'][ws_id]['expiry_date'] = new_exp
+                            licenses['workspaces'][ws_id]['status'] = 'active'
+                        elif action == "زيادة مستخدمين (+5)":
+                            licenses['workspaces'][ws_id]['max_devices'] = max_d + 5
+                        elif action == "إيقاف (تعليق)":
+                            licenses['workspaces'][ws_id]['status'] = 'suspended'
+                        elif action == "تفعيل":
+                            licenses['workspaces'][ws_id]['status'] = 'active'
+                            
+                        save_licenses(licenses)
+                        st.rerun()
+                st.markdown("<hr style='border-color:rgba(255,255,255,0.05); margin:10px 0;'>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# ────────────────────────────────────────────────────────────
+# محول العرض (Router الآمن - Crash-Proof)
+# ────────────────────────────────────────────────────────────
+view = st.session_state.get('view', 'login')
+curr_user = st.session_state.get('current_user')
+
+if view == "workspace_login": 
+    render_workspace_login()
+elif view == "super_admin": 
+    render_super_admin()
+elif not curr_user or view == "login": 
+    render_login()
+else:
+    if view == "dashboard": render_dashboard()
+    elif view == "departments": render_departments()
+    elif view == "forecast": render_forecast()
+    elif view == "ai": render_ai()
+    elif view == "fusion": render_fusion()
+    elif view == "territories": render_territories()
+    elif view == "settings": render_settings()
+    else: render_dashboard()
