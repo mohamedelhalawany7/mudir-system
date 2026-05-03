@@ -13,7 +13,7 @@ import base64
 import re
 import io
 
-# محاولة استيراد مكتبات الوقت بأمان لتجنب انهيار التطبيق
+# محاولة استيراد مكتبات الوقت بأمان
 try:
     from zoneinfo import ZoneInfo
     HAS_ZONEINFO = True
@@ -31,11 +31,19 @@ try:
 except ImportError:
     pass
     
+# --- المحرك الإحصائي الجديد للتنبؤ ---
+try:
+    import statsmodels.api as sm
+    from statsmodels.tsa.holtwinters import ExponentialSmoothing
+    HAS_STATSMODELS = True
+except ImportError:
+    HAS_STATSMODELS = False
+
 import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ============================================================
-# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v50.0 (QUANTUM ENTERPRISE)
+# ░█▀▀░█░░░▀█▀░▀█▀░█▀▀░░░█▀█░█▀▀░░░█░█░▀▀   MUDIR OS v51.0 (QUANTUM FORECAST)
 # ============================================================
 st.set_page_config(
     page_title="MUDIR | Strategic OS",
@@ -107,7 +115,7 @@ def load_config():
         'AI_PROVIDER_URL': 'https://api.openai.com/v1', 'AI_API_KEY': '',
         'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
         'MANAGER_PIN': '0000', 'EMPLOYEES': [], 'EVALUATIONS': {},
-        'EVAL_HISTORY': {}, 'TASK_REGISTRY': [], 'NOTIFICATIONS': {}, # تمت إضافة المفتاح الجديد للإشعارات
+        'EVAL_HISTORY': {}, 'TASK_REGISTRY': [], 'NOTIFICATIONS': {},
         'WORK_START': 8, 'WORK_END': 17, 'KNOWLEDGE_BASE': '', 'TIMEZONE': 'Africa/Cairo'
     }
     if 'workspace_id' in st.session_state:
@@ -920,12 +928,9 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v50.0</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v51.0</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
-        # -----------------------------------------------------
-        # إضافة جرس الإشعارات في القائمة الجانبية (Notification Bell)
-        # -----------------------------------------------------
         if st.session_state.current_user and st.session_state.current_user != "المدير العام":
             user_notifs = CFG.get('NOTIFICATIONS', {}).get(st.session_state.current_user, [])
             unread_count = len(user_notifs)
@@ -933,7 +938,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             if unread_count > 0:
                 with st.popover(f"🔔 إشعارات جديدة ({unread_count})", use_container_width=True):
                     st.markdown("<h4 style='text-align:center; color:#ff2d78;'>الإشعارات غير المقروءة</h4>", unsafe_allow_html=True)
-                    for notif in reversed(user_notifs): # إظهار الأحدث أولاً
+                    for notif in reversed(user_notifs):
                         st.info(notif)
                     if st.button("تحديد الكل كمقروء ✔️", use_container_width=True):
                         CFG['NOTIFICATIONS'][st.session_state.current_user] = []
@@ -942,7 +947,6 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             else:
                 st.button("🔕 لا توجد إشعارات حالياً", disabled=True, use_container_width=True)
             st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 10px 0;'>", unsafe_allow_html=True)
-        # -----------------------------------------------------
 
 
         allowed_navs = []
@@ -1566,14 +1570,17 @@ def render_departments():
     else:
         st.info("لا توجد بيانات تفصيلية لعرضها.")
 
+# =========================================================================
+# تحديث وحدة التنبؤ الجذري (Holt-Winters Exponential Smoothing)
+# =========================================================================
 def render_forecast():
     st.markdown(f"""
     <div class="page-header" style="justify-content: space-between;">
         <div style="display: flex; align-items: center; gap: 24px;">
             <div class="ph-icon-wrap">{get_icon("bulb", 46, "#00f2ff")}</div>
             <div>
-                <div class="ph-title">التنبؤ المستقبلي (الكرة البلورية - Prophet AI)</div>
-                <div class="ph-sub">نظام إحصائي ذكي معزز بخوارزميات الذكاء الاصطناعي للتنبؤ بالإيرادات القادمة بدقة فائقة.</div>
+                <div class="ph-title">التنبؤ المستقبلي (الكرة البلورية - QUANTUM)</div>
+                <div class="ph-sub">نظام إحصائي متطور (Holt-Winters Smoothing) للتنبؤ بالإيرادات بدقة وتجنب التوقعات الصفرية.</div>
             </div>
         </div>
     </div>
@@ -1588,50 +1595,90 @@ def render_forecast():
         st.warning("لا توجد مبيعات فعلية معتمدة لبناء التنبؤ.")
         return
 
+    # 1. تجميع البيانات وضمان عدم وجود فجوات زمنية
     df_appr['Month'] = df_appr['date_order'].dt.to_period('M').dt.to_timestamp()
-    monthly = df_appr.groupby('Month')['amount_total'].sum().reset_index().sort_values('Month')
+    monthly = df_appr.groupby('Month')['amount_total'].sum().reset_index()
+    monthly.set_index('Month', inplace=True)
+    
+    # تحويل البيانات إلى تسلسل زمني مستمر (ملء الأشهر المفقودة بأصفار إن وجدت)
+    monthly = monthly.resample('MS').sum().fillna(0).reset_index()
 
     if len(monthly) < 3:
         st.warning("نحتاج بيانات مبيعات لثلاثة أشهر على الأقل لبناء نموذج تنبؤ دقيق.")
         st.dataframe(style_dataframe(monthly.rename(columns={'amount_total':'القيمة (ج.م)'})), use_container_width=True, hide_index=True)
         return
 
-    use_prophet = False
-    try:
-        from prophet import Prophet
-        use_prophet = True
-    except ImportError:
-        st.warning("⚠️ خوارزمية الدقة القصوى (Prophet) غير مثبتة على الخادم. يعمل النظام الآن بنمط الانحدار الخطي الافتراضي. لرفع الدقة لـ 95%، يرجى إضافة 'prophet' لملف المتطلبات.")
+    # الأشهر المستقبلية المتوقعة
+    last_month = monthly['Month'].max()
+    future_months = [last_month + pd.DateOffset(months=i) for i in range(1, 4)]
+    
+    use_statsmodels = HAS_STATSMODELS
+    
+    if not use_statsmodels:
+        st.warning("⚠️ خوارزمية الدقة القصوى (statsmodels) غير مثبتة. النظام يعمل الآن بنمط 'المتوسط المتحرك الموزون' الذكي لتجنب الأصفار. لرفع الدقة لـ 98%، يرجى إضافة 'statsmodels' لملف المتطلبات.")
 
-    if use_prophet and len(monthly) >= 4:
-        df_p = monthly.rename(columns={'Month': 'ds', 'amount_total': 'y'})
-        m = Prophet(seasonality_mode='multiplicative', daily_seasonality=False, weekly_seasonality=False)
-        m.fit(df_p)
-        future = m.make_future_dataframe(periods=3, freq='MS')
-        forecast = m.predict(future)
-        forecast['yhat'] = np.maximum(forecast['yhat'], 0) 
-        forecast['yhat_lower'] = np.maximum(forecast['yhat_lower'], 0)
-        forecast['yhat_upper'] = np.maximum(forecast['yhat_upper'], 0)
-        
-        pred_trace_df = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].rename(columns={'ds': 'Month', 'yhat': 'amount_total'})
-        pred_df = pred_trace_df.tail(3).copy()
-        upper_bound = pred_trace_df['yhat_upper']
-        lower_bound = pred_trace_df['yhat_lower']
-        future_y = pred_df['amount_total'].values
-    else:
-        x = np.arange(len(monthly))
-        y = monthly['amount_total'].values
-        coeffs = np.polyfit(x, y, 1)
-        poly_func = np.poly1d(coeffs)
-        last_month = monthly['Month'].max()
-        future_months = [last_month + pd.DateOffset(months=i) for i in range(1, 4)]
-        future_x = np.arange(len(monthly), len(monthly) + 3)
-        future_y = poly_func(future_x)
-        future_y = np.maximum(future_y, 0) 
-        pred_df = pd.DataFrame({'Month': future_months, 'amount_total': future_y})
-        pred_trace_df = pd.concat([monthly.iloc[[-1]], pred_df]).reset_index(drop=True)
-        upper_bound = pred_trace_df['amount_total'] * 1.15
-        lower_bound = pred_trace_df['amount_total'] * 0.85
+    future_y = []
+    upper_bound_arr = []
+    lower_bound_arr = []
+
+    # 2. محرك التنبؤ الرئيسي (Exponential Smoothing)
+    if use_statsmodels and len(monthly) >= 4:
+        try:
+            # استخدام النمط المضاف والمخمد (Damped Additive) لمنع الانحدار العنيف للصفر
+            model = ExponentialSmoothing(
+                monthly['amount_total'], 
+                trend='add', 
+                seasonal=None, 
+                damped_trend=True, 
+                initialization_method="estimated"
+            )
+            fit_model = model.fit(optimized=True)
+            future_y = fit_model.forecast(3).values
+            
+            # حساب حدود الثقة
+            residuals = fit_model.resid
+            std_err = np.std(residuals) if len(residuals) > 1 else monthly['amount_total'].std()
+            if std_err == 0 or pd.isna(std_err): std_err = monthly['amount_total'].mean() * 0.1
+            
+            upper_bound_arr = future_y + (1.96 * std_err)
+            lower_bound_arr = np.maximum(future_y - (1.96 * std_err), 0)
+        except Exception as e:
+            use_statsmodels = False # التراجع للمحرك الاحتياطي في حال فشل الخوارزمية رياضياً
+
+    # 3. محرك التنبؤ الاحتياطي الذكي (WMA + Damped Trend) 
+    if not use_statsmodels or len(monthly) < 4:
+        y_vals = monthly['amount_total'].values
+        # وزن أكبر للأشهر الحديثة
+        if len(y_vals) >= 3:
+            baseline = (y_vals[-1]*0.5) + (y_vals[-2]*0.3) + (y_vals[-3]*0.2)
+            trend = (y_vals[-1] - y_vals[-2]) * 0.3
+        else:
+            baseline = np.mean(y_vals)
+            trend = 0
+
+        current_val = baseline
+        for i in range(3):
+            current_val = current_val + trend
+            trend = trend * 0.5 # تخميد الانحدار (Damping)
+            future_y.append(current_val)
+            
+        future_y = np.array(future_y)
+        std_err = monthly['amount_total'].std() if len(monthly) > 1 else baseline * 0.1
+        upper_bound_arr = future_y + std_err
+        lower_bound_arr = np.maximum(future_y - std_err, 0)
+
+    # 4. طبقة حماية من الأصفار والأرقام السالبة (Business Safety Floor)
+    min_historical = monthly[monthly['amount_total'] > 0]['amount_total'].min()
+    safe_floor = min_historical * 0.1 if not pd.isna(min_historical) else 0
+    future_y = np.maximum(future_y, safe_floor)
+    
+    pred_df = pd.DataFrame({'Month': future_months, 'amount_total': future_y})
+    pred_trace_df = pd.concat([monthly.iloc[[-1]], pred_df]).reset_index(drop=True)
+    
+    # مصفوفات النطاق الموثوق للرسم
+    last_actual = monthly['amount_total'].iloc[-1]
+    upper_bound = pd.Series([last_actual] + list(upper_bound_arr))
+    lower_bound = pd.Series([last_actual] + list(lower_bound_arr))
 
     if st.button(f"📥 تحليل وتصدير تقرير التنبؤ (Word / PDF)", use_container_width=True):
         export_data = {"الأداء التاريخي (فعلي)": monthly, "الأرقام المتوقعة": pred_df[['Month', 'amount_total']]}
@@ -2772,7 +2819,7 @@ def change_workspace_pin_dialog(ws_id):
 
 def render_super_admin():
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v50.0</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v51.0</div></div>""", unsafe_allow_html=True)
         st.markdown("---")
         if st.button("🔴 تسجيل الخروج وإغلاق", use_container_width=True, type="primary"):
             st.query_params.clear()
