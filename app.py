@@ -1989,27 +1989,27 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                             
                     except Exception as e:
                         err_msg = str(e).lower()
-                        # إذا كان الخطأ متعلق بتحليل الـ JSON (استجابة غير صحيحة)
-                        if "json" in err_msg or "empty response" in err_msg or "dictionary" in err_msg:
-                            if attempt < max_retries - 1:
-                                api_messages.append({"role": "user", "content": "الرد السابق لم يكن بصيغة JSON صحيحة. يرجى الرد بكائن JSON فقط يحتوي على: response, eval, task, action."})
-                            else:
-                                ai_data = {
-                                    "response": "يبدو إن فيه ضغط على النظام والمعلومات مش واضحة قدامي دلوقتي. معلش، ممكن توضح قصدك أو طلبك مرة تانية؟",
-                                    "eval": "", "task": "", "action": ""
-                                }
-                        else:
-                            # إذا كان الخطأ من الخادم نفسه (نفاد رصيد، سيرفر واقع، Timeout)
+                        # التمييز بين خطأ الاتصال وخطأ التحليل
+                        if "api_key" in err_msg or "مفتاح" in err_msg or "connection" in err_msg or "timeout" in err_msg:
                             ai_data = {
                                 "response": "أنا مشغول جداً في اجتماع مجلس إدارة طارئ دلوقتي. من فضلك حاول تكلمني تاني بعد 10 دقايق.",
                                 "eval": "", "task": "", "action": ""
                             }
-                            break # الخروج من حلقة المحاولة لأن المشكلة في الخادم وليست في التنسيق
+                            break
+                            
+                        if attempt < max_retries - 1:
+                            api_messages.append({"role": "user", "content": "الرد السابق لم يكن بصيغة JSON صحيحة. يرجى الرد بكائن JSON فقط يحتوي على: response, eval, task, action."})
+                        else:
+                            ai_data = {
+                                "response": "أنا مشغول جداً في اجتماع مجلس إدارة طارئ دلوقتي. من فضلك حاول تكلمني تاني بعد 10 دقايق.",
+                                "eval": "", "task": "", "action": ""
+                            }
+                            break
                             
                 # تأمين إضافي لضمان عدم حدوث انهيار في حالة استمرار المشكلة
-                if not isinstance(ai_data, dict) or not ai_data:
+                if not isinstance(ai_data, dict) or not ai_data or 'response' not in ai_data:
                     ai_data = {
-                        "response": "عذراً، أنا مشغول جداً في اجتماع إدارة مهم دلوقتي. من فضلك حاول بعد 10 دقائق.",
+                        "response": "أنا مشغول جداً في اجتماع مجلس إدارة طارئ دلوقتي. من فضلك حاول تكلمني تاني بعد 10 دقايق.",
                         "eval": "", "task": "", "action": ""
                     }
                 # =========================================================================
