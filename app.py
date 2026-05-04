@@ -174,7 +174,7 @@ DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري
 - لإنهاء مهمة منجزة: [CLOSE_TASK: اسم المهمة]
 - لتقييم الموظف بناءً على حديثه: [EVAL: 8/10 لأنه فعل كذا وكذا]
 - لحفظ معلومة في ذاكرتك عن الموظف لتتذكرها لاحقاً: [MEMO: الموظف جيد في التفاوض]
-- لإنشاء مسودة عرض سعر في النظام: [ACTION: CREATE_SO|العميل:اسم العميل|القيمة:1000]
+- لإنشاء عرض سعر في النظام: [ACTION: CREATE_SO|العميل:اسم العميل|القيمة:1000]
 
 مثال على ردك:
 يا أحمد، أنا شايف إنك متأخر في تسليم عروض أسعار شركة الأمل. خلصها النهاردة ضروري وابدأ في تحليل مبيعات ربع السنة.
@@ -201,14 +201,17 @@ def load_config():
                     if k in data: del data[k]
                 defaults.update(data)
                 
-                pwd = defaults.get('ODOO_PASS', '')
-                if pwd and not is_encrypted(pwd) and HAS_CRYPTO:
-                    enc_pwd = encrypt_password(pwd)
-                    if FIREBASE_CONNECTED and db:
-                        get_workspace_doc().set({'ODOO_PASS': enc_pwd}, merge=True)
-                elif pwd:
-                    defaults['ODOO_PASS'] = decrypt_password(pwd)
-                    
+                # Decrypt Passwords & PINs
+                for k in ['ODOO_PASS', 'MANAGER_PIN']:
+                    val = defaults.get(k, '')
+                    if val and is_encrypted(val):
+                        defaults[k] = decrypt_password(val)
+                    elif val and HAS_CRYPTO:
+                        # Auto-encrypt if found plain
+                        enc_val = encrypt_password(val)
+                        if FIREBASE_CONNECTED and db:
+                            get_workspace_doc().set({k: enc_val}, merge=True)
+                            
         except Exception as e:
             pass
     return defaults
@@ -220,9 +223,11 @@ def save_config(cfg_dict):
             for k in ['ALL_CHATS', 'AUDIT_LOG']:
                 if k in safe_cfg: del safe_cfg[k]
             
-            pwd = safe_cfg.get('ODOO_PASS', '')
-            if pwd and not is_encrypted(pwd):
-                safe_cfg['ODOO_PASS'] = encrypt_password(pwd)
+            # Encrypt sensitive fields
+            for k in ['ODOO_PASS', 'MANAGER_PIN']:
+                val = safe_cfg.get(k, '')
+                if val and not is_encrypted(val):
+                    safe_cfg[k] = encrypt_password(val)
                 
             get_workspace_doc().set(safe_cfg, merge=True)
         except Exception as e:
@@ -256,16 +261,31 @@ def append_employee_memory(curr_user, new_memo):
             get_workspace_doc().update({f'MEMORIES.{curr_user}': updated_memo})
         except Exception: pass
 
-def save_chat_for_user(user_key):
+def append_chat_message(user_key, message):
+    """إضافة رسالة واحدة فقط باستخدام ArrayUnion لتوفير التوكنز وعمليات الكتابة"""
     if 'workspace_id' in st.session_state:
-        chats = st.session_state.all_chats.get(user_key, [])[-500:]
+        try:
+            if FIREBASE_CONNECTED and db:
+                get_workspace_doc().collection('Chats').document(user_key).set(
+                    {'messages': firestore.ArrayUnion([message]), 'updated_at': firestore.SERVER_TIMESTAMP}, 
+                    merge=True
+                )
+            else:
+                if 'Chats' not in st.session_state.offline_db: st.session_state.offline_db['Chats'] = {}
+                if user_key not in st.session_state.offline_db['Chats']: st.session_state.offline_db['Chats'][user_key] = {'messages': []}
+                st.session_state.offline_db['Chats'][user_key]['messages'].append(message)
+        except Exception: pass
+
+def overwrite_chat_for_user(user_key, chats):
+    """تستخدم لمسح الشات أو الاستعادة الكاملة (كتابة ثقيلة)"""
+    if 'workspace_id' in st.session_state:
         try:
             if FIREBASE_CONNECTED and db:
                 get_workspace_doc().collection('Chats').document(user_key).set({'messages': chats}, merge=True)
             else:
                 if 'Chats' not in st.session_state.offline_db: st.session_state.offline_db['Chats'] = {}
                 st.session_state.offline_db['Chats'][user_key] = {'messages': chats}
-        except Exception as e: pass
+        except Exception: pass
 
 def log_message(user, msg_dict):
     if 'workspace_id' in st.session_state:
@@ -716,7 +736,8 @@ def render_login():
         
     if st.button("دخول للنظام", type="primary", use_container_width=True):
         if "المدير العام" in selected_user:
-            if pin == st.session_state.app_config.get('MANAGER_PIN', '0000'):
+            m_pin_dec = decrypt_password(st.session_state.app_config.get('MANAGER_PIN', '0000'))
+            if pin == m_pin_dec or pin == st.session_state.app_config.get('MANAGER_PIN', '0000'):
                 st.session_state.current_user = "المدير العام"
                 st.session_state.view = 'dashboard'
                 st.query_params["view"] = "dashboard"
@@ -726,7 +747,7 @@ def render_login():
                     initial_msg = {"role": "assistant", "content": "أهلاً بك. الأرقام والبيانات جاهزة للعرض والمناقشة."}
                     st.session_state.all_chats[selected_user] = [initial_msg]
                     log_message(selected_user, initial_msg)
-                    save_chat_for_user(selected_user)
+                    overwrite_chat_for_user(selected_user, st.session_state.all_chats[selected_user])
                 st.rerun()
             else:
                 st.error("عذراً، رمز الدخول غير صحيح!")
@@ -749,7 +770,7 @@ def render_login():
                     initial_msg = {"role": "assistant", "content": f"أهلاً بيك يا {emp_name_only}. أنا مديرك. مفيش وقت نضيعه، وريني إيه اللي وراك النهاردة."}
                     st.session_state.all_chats[selected_user] = [initial_msg]
                     log_message(selected_user, initial_msg)
-                    save_chat_for_user(selected_user)
+                    overwrite_chat_for_user(selected_user, st.session_state.all_chats[selected_user])
                 st.rerun()
             else:
                 st.error("عذراً، رمز الدخول السري الخاص بك غير صحيح!")
@@ -866,8 +887,8 @@ html, body, [class*="css"] {
 }
 .custom-metric:hover {
     transform: translateY(-5px) scale(1.02);
-    border-color: rgba(0, 242, 255, 0.5) !important;
-    box-shadow: 0 10px 25px rgba(0, 242, 255, 0.15) !important;
+    border-color: rgba(0, 242, 255, 0.15) !important;
+    box-shadow: 0 10px 25px rgba(0, 242, 255, 0.05) !important;
 }
 .cm-top { display: flex; justify-content: space-between; align-items: center; }
 .cm-label { color: #cbd5e1; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
@@ -2232,385 +2253,6 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
                 if st.button("🗑️", key=f"dl_{curr_user}_{idx}", help="حذف الرسالة"):
                     st.session_state.all_chats[curr_user].pop(idx)
-                    save_chat_for_user(curr_user)
-                    st.rerun(scope="fragment")
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-    user_input = st.chat_input("اكتب رسالة للمدير...")
-
-    if user_input:
-        current_time = time.time()
-        if current_time - st.session_state.get('last_msg_time', 0) < 3:
-            st.warning("رجاءً انتظر 3 ثوانٍ قبل إرسال رسالة جديدة لتجنب الضغط على النظام.")
-            st.stop()
-        st.session_state.last_msg_time = current_time
-
-        if curr_user not in st.session_state.all_chats:
-            st.session_state.all_chats[curr_user] = []
-            
-        user_msg = {"role": "user", "content": user_input}
-        st.session_state.all_chats[curr_user].append(user_msg)
-        
-        user_msg_log = user_msg.copy()
-        user_msg_log['user'] = curr_user
-        log_message(curr_user, user_msg_log)
-        save_chat_for_user(curr_user)
-        
-        with chat_area:
-            with st.chat_message("user"):
-                st.markdown("<span class='msg-user' style='display:none;'></span>", unsafe_allow_html=True)
-                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(user_input)}</div>", unsafe_allow_html=True)
-            
-            with st.spinner("المدير يفكر بحزم..."):
-                recent_history = st.session_state.all_chats[curr_user][-6:]
-                api_messages = [{"role": "system", "content": sys_prompt_context}]
-                
-                fs_updates = {} # إضافة ثانية: تجميع التحديثات في عملية واحدة (Batch Writes)
-                
-                # إضافة أولى: إغلاق المهام التلقائي
-                auto_close_words = ['خلصت', 'أنهيت', 'تم', 'اتعمل']
-                if any(word in user_input for word in auto_close_words) and "المدير العام" not in curr_user:
-                    emp_short = curr_user.split(' - ')[0]
-                    global_tasks = st.session_state.app_config.get('GLOBAL_TASKS', {})
-                    for tid, tinfo in global_tasks.items():
-                        if tinfo.get('status') == 'open' and tinfo.get('emp') == emp_short:
-                            tinfo['status'] = 'closed'
-                            fs_updates[f'GLOBAL_TASKS.{tid}.status'] = 'closed'
-                
-                # إضافة ثالثة: الإرسال الشرطي لقاعدة المعرفة
-                knowledge_base = CFG.get('KNOWLEDGE_BASE', '')
-                tech_keywords = ['صيانة', 'مواصفات', 'إجراء', 'خطوات', 'تعليمات']
-                if knowledge_base and any(kw in user_input for kw in tech_keywords):
-                    api_messages[0]['content'] += f"\n=== لوائح وقوانين الشركة ===\n{knowledge_base[:3000]}\n"
-                    
-                api_messages.extend(recent_history)
-                
-                try:
-                    raw_ai_text = call_universal_ai(api_messages, json_mode=False)
-                    
-                    task_match = re.search(r'\[TASK:(.*?)\]', raw_ai_text, re.IGNORECASE | re.DOTALL)
-                    close_task_match = re.search(r'\[CLOSE_TASK:(.*?)\]', raw_ai_text, re.IGNORECASE | re.DOTALL)
-                    eval_match = re.search(r'\[EVAL:(.*?)\]', raw_ai_text, re.IGNORECASE | re.DOTALL)
-                    memo_match = re.search(r'\[MEMO:(.*?)\]', raw_ai_text, re.IGNORECASE | re.DOTALL)
-                    action_match = re.search(r'\[ACTION:(.*?)\]', raw_ai_text, re.IGNORECASE | re.DOTALL)
-                    
-                    clean_response = re.sub(r'\[(TASK|CLOSE_TASK|EVAL|MEMO|ACTION):.*?\]', '', raw_ai_text, flags=re.IGNORECASE | re.DOTALL).strip()
-                    if not clean_response: clean_response = "تمام، جاري المتابعة والتنفيذ."
-
-                except Exception as e:
-                    clean_response = "السيستم عليه ضغط كبير دلوقتي. راجعني كمان 5 دقايق."
-                    task_match, close_task_match, eval_match, memo_match, action_match = None, None, None, None, None
-
-                # 1. ACTION
-                if action_match and "CREATE_SO" in action_match.group(1):
-                    action_data = action_match.group(1).strip()
-                    client_name, amt = "غير محدد", "0"
-                    for p in action_data.split("|"):
-                        if "العميل:" in p: client_name = p.replace("العميل:", "").strip()
-                        if "القيمة:" in p: amt = p.replace("القيمة:", "").strip()
-                    
-                    notif_msg = f"✅ تم تنفيذ أمر تلقائي من المدير: إنشاء عرض سعر لـ ({client_name}) بقيمة ({amt})."
-                    fs_updates[f'NOTIFICATIONS.{curr_user}'] = firestore.ArrayUnion([notif_msg])
-                    st.session_state.app_config.setdefault('NOTIFICATIONS', {}).setdefault(curr_user, []).append(notif_msg)
-
-                # 2. TASK
-                if task_match and "المدير العام" not in curr_user:
-                    assigned_task = task_match.group(1).strip()
-                    emp_short = curr_user.split(' - ')[0]
-                    task_id = str(int(time.time() * 1000))
-                    now_str = get_local_now().strftime("%Y-%m-%d")
-                    new_task = {'emp': emp_short, 'task': assigned_task, 'status': 'open', 'date': now_str}
-                    notif_msg = f"📌 تكليف جديد من المدير: {assigned_task}"
-                    
-                    fs_updates[f'GLOBAL_TASKS.{task_id}'] = new_task
-                    fs_updates[f'NOTIFICATIONS.{curr_user}'] = firestore.ArrayUnion([notif_msg])
-                    
-                    st.session_state.app_config.setdefault('GLOBAL_TASKS', {})[task_id] = new_task
-                    st.session_state.app_config.setdefault('NOTIFICATIONS', {}).setdefault(curr_user, []).append(notif_msg)
-
-                # 3. CLOSE_TASK (من المدير صراحةً)
-                if close_task_match and "المدير العام" not in curr_user:
-                    emp_short = curr_user.split(' - ')[0]
-                    global_tasks = st.session_state.app_config.get('GLOBAL_TASKS', {})
-                    for tid, tinfo in global_tasks.items():
-                        if tinfo.get('status') == 'open' and tinfo.get('emp') == emp_short:
-                            tinfo['status'] = 'closed'
-                            fs_updates[f'GLOBAL_TASKS.{tid}.status'] = 'closed'
-                            break
-
-                # 4. EVAL
-                if eval_match and "المدير العام" not in curr_user:
-                    eval_data = eval_match.group(1).strip()
-                    now_str = get_local_now().strftime("%Y-%m-%d %H:%M")
-                    eval_obj = {'eval': eval_data, 'date': now_str}
-                    
-                    fs_updates[f'EVALUATIONS.{curr_user}'] = eval_obj
-                    fs_updates[f'EVAL_HISTORY.{curr_user}'] = firestore.ArrayUnion([eval_obj])
-                    
-                    st.session_state.app_config.setdefault('EVALUATIONS', {})[curr_user] = eval_obj
-                    st.session_state.app_config.setdefault('EVAL_HISTORY', {}).setdefault(curr_user, []).append(eval_obj)
-
-                # 5. MEMO
-                if memo_match and "المدير العام" not in curr_user:
-                    memo_data = memo_match.group(1).strip()
-                    current_memo = get_employee_memory(curr_user)
-                    updated_memo = f"{current_memo} | {memo_data}" if current_memo else memo_data
-                    if len(updated_memo) > 500:
-                        updated_memo = "..." + updated_memo[-490:]
-                    st.session_state.app_config.setdefault('MEMORIES', {})[curr_user] = updated_memo
-                    fs_updates[f'MEMORIES.{curr_user}'] = updated_memo
-
-                # إضافة ثانية: تنفيذ جميع التحديثات دفعة واحدة (Batch Write)
-                if FIREBASE_CONNECTED and db and fs_updates:
-                    try:
-                        get_workspace_doc().update(fs_updates)
-                    except Exception: pass
-
-                # عرض وإضافة الرد النهائي للشات
-                ai_final_msg = {"role": "assistant", "content": clean_response}
-                st.session_state.all_chats[curr_user].append(ai_final_msg)
-                
-                ai_final_msg_log = ai_final_msg.copy()
-                ai_final_msg_log['user'] = curr_user
-                log_message(curr_user, ai_final_msg_log)
-                
-                save_chat_for_user(curr_user)
-                st.rerun(scope="fragment")
-
-def render_ai():
-    
-    CFG = st.session_state.app_config
-    curr_user = st.session_state.current_user
-    
-    now = get_local_now()
-    try:
-        work_start = int(CFG.get('WORK_START', 8))
-        work_end = int(CFG.get('WORK_END', 17))
-    except:
-        work_start, work_end = 8, 17
-        
-    is_working_hours = work_start <= now.hour < work_end
-    
-    time_status_color = "#00ff82" if is_working_hours else "#ff2d78"
-    time_status_text = "داخل أوقات العمل" if is_working_hours else "خارج أوقات العمل"
-    
-    start_am_pm = f"{work_start if work_start <= 12 else work_start - 12} {'ص' if work_start < 12 else 'م'}"
-    end_am_pm = f"{work_end if work_end <= 12 else work_end - 12} {'ص' if work_end < 12 else 'م'}"
-    
-    h12 = now.hour % 12 or 12
-    am_pm_ar = "صباحاً" if now.hour < 12 else "مساءً"
-    current_time_str = f"{h12:02d}:{now.minute:02d} {am_pm_ar}"
-    
-    st.markdown(f"""
-    <div style="background:rgba(0,242,255,0.05); padding:10px 20px; border-radius:12px; border:1px solid rgba(0,242,255,0.2); display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-        <div style="display:flex; align-items:center; gap:10px;">
-            {get_icon('clock', 20, '#00f2ff')}
-            <strong style="color:#00f2ff; font-family:'Orbitron', sans-serif; font-size:1.1rem;">{current_time_str}</strong>
-        </div>
-        <div style="color:{time_status_color}; font-weight:bold; font-size:0.9rem;">
-            ● {time_status_text} ({start_am_pm} - {end_am_pm})
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-        
-    c_header1, c_header2 = st.columns([3, 1])
-    with c_header1:
-        st.markdown(f"""
-        <div style="background-color: #1f2c34; padding: 12px 20px; border-radius: 12px; display: flex; align-items: center; gap: 15px; margin-bottom: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-            <div style="width: 45px; height: 45px; border-radius: 50%; background-color: rgba(0, 242, 255, 0.1); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: bold; color: var(--c-primary); border: 1px solid rgba(0, 242, 255, 0.3);">
-                {get_icon("command", 24, "var(--c-primary)")}
-            </div>
-            <div>
-                <div style="font-weight: 700; font-size: 1.1rem; color: #fff; margin-bottom: -3px;">المدير العام</div>
-                <div style="font-size: 0.85rem; color: #00ff82;">متصل الآن</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    with c_header2:
-        curr_user_for_export = st.session_state.current_user
-        chat_content = ""
-        for msg in st.session_state.all_chats.get(curr_user_for_export, []):
-            role_name = "الموظف" if msg['role'] == 'user' else "المدير"
-            chat_content += f"[{role_name}]: {msg['content']}\n{'-'*40}\n"
-        
-        st.download_button(
-            label="📥 حفظ المحادثة",
-            data=chat_content.encode('utf-8-sig'),
-            file_name=f"Chat_{curr_user_for_export}.txt",
-            mime="text/plain",
-            use_container_width=True
-        )
-
-    # -------------------------------------------------------------
-    # بناء السياق المعرفي المضغوط (Odoo Context Compression)
-    # -------------------------------------------------------------
-    df_s = df_s_master
-    df_p = df_p_master
-
-    t_sales_appr = df_s[df_s['state'].isin(['sale','done'])]['amount_total'].sum() if df_s is not None and not df_s.empty and 'state' in df_s.columns else 0
-    t_sales_draft = df_s[df_s['state'].isin(['draft','sent'])]['amount_total'].sum() if df_s is not None and not df_s.empty and 'state' in df_s.columns else 0
-    p_len = len(df_p) if df_p is not None else 0
-    
-    # فلترة العروض المفتوحة التي تخص الموظف الحالي فقط لتوفير التوكنز
-    my_quotes = "لا يوجد مسودات تخصك حالياً."
-    if df_s is not None and not df_s.empty and 'state' in df_s.columns and 'user_id' in df_s.columns:
-        emp_short = curr_user.split(" - ")[0]
-        # البحث عن اسم الموظف داخل خانة المبيعات
-        mask = df_s['user_id'].astype(str).str.contains(emp_short, na=False, case=False)
-        my_drafts = df_s[(df_s['state'].isin(['draft', 'sent'])) & mask].head(3)
-        if not my_drafts.empty:
-            my_quotes = " | ".join([f"عرض ({row.get('name', 'N/A')}) للعميل ({clean_odoo_m2o(row.get('partner_id', ''))}) بقيمة {row.get('amount_total', 0)} ج" for _, row in my_drafts.iterrows()])
-
-    # جلب الذاكرة المركزية الخاصة بالموظف
-    emp_memo = get_employee_memory(curr_user)
-
-    # جلب جميع المهام المفتوحة لبقية الشركة (حتى لا يتم التكرار) وتوفير التوكنز
-    global_tasks = CFG.get('GLOBAL_TASKS', {})
-    emp_short = curr_user.split(" - ")[0]
-    open_tasks = []
-    for t in list(global_tasks.values())[-30:]:
-        if t.get('status') == 'open':
-            if t['emp'] == emp_short or curr_user == "المدير العام":
-                open_tasks.append(f"مهمة لـ {t['emp']}: {t['task']}")
-            else:
-                open_tasks.append(f"مهمة لـ {t['emp']} (محجوزة)")
-    open_tasks_str = "\n".join(open_tasks) if open_tasks else "لا يوجد مهام مفتوحة حالياً."
-
-    base_prompt = CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT)
-    curr_emp_data = next((e for e in CFG.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == curr_user), None)
-    job_desc = curr_emp_data.get('job_desc', 'لا يوجد وصف.') if curr_emp_data else 'أنت تتحدث مع المدير العام.'
-    
-    live_context = f"""
-=== حقائق Odoo (أرقام سريعة) ===
-إجمالي المبيعات المعتمدة بالشركة: {t_sales_appr:,.0f} ج | المسودات العامة: {t_sales_draft:,.0f} ج | إجمالي العملاء: {p_len}
-
-=== بيانات الموظف اللي بيكلمك ({curr_user.split(' - ')[0]}) ===
-وصف وظيفته: {job_desc}
-عروض الأسعار المفتوحة الخاصة به حالياً: {my_quotes}
-ذاكرتك الشخصية عن الموظف ده (لا تنساها): {emp_memo if emp_memo else 'لا توجد ملاحظات سابقة.'}
-
-=== خريطة المهام المفتوحة في الشركة (لا تكرر إسنادها) ===
-{open_tasks_str}
-"""
-
-    sys_prompt_context = base_prompt + "\n" + live_context
-
-    if "المدير العام" in curr_user:
-        gm_tabs = st.tabs(["مراقبة وتقييم الموظفين (سري)", "مكتبي الخاص (توجيهات الإدارة)"])
-        
-        with gm_tabs[0]:
-            cl1, cl2 = st.columns([3, 1])
-            with cl1:
-                st.markdown(f"<div class='g-card-title' style='color:var(--c-gold);'>{get_icon('eye', 22)} آخر تقييمات الموظفين التلقائية</div>", unsafe_allow_html=True)
-            with cl2:
-                if st.button("🔄 مزامنة الرسائل الجديدة", use_container_width=True):
-                    st.session_state.all_chats = load_user_chats()
-                    st.rerun()
-
-            evals = CFG.get('EVALUATIONS', {})
-            if not evals:
-                st.info("لا توجد تقييمات مسجلة بعد. سيقوم النظام بتسجيلها تلقائياً عند حديث الموظفين معه.")
-            else:
-                for emp_name, emp_data in evals.items():
-                    st.markdown(f"""<div style="background:rgba(255,255,255,0.02); padding:15px; border-radius:8px; border:1px solid rgba(255,255,255,0.05); margin-bottom:10px;">
-                        <div style="color:var(--c-primary); font-weight:bold; font-size:1.1rem; margin-bottom:5px;">{emp_name}</div>
-                        <div style="font-size:0.85rem; color:var(--c-dim); margin-bottom:10px;">تاريخ آخر تقييم: {emp_data.get('date', '')}</div>
-                        <div style="color:#e2e8f0; font-size:0.95rem; direction:rtl; text-align:right;">{emp_data.get('eval', '')}</div>
-                    </div>""", unsafe_allow_html=True)
-            
-            st.markdown("<hr style='border-color:rgba(255,255,255,0.1); margin: 30px 0;'>", unsafe_allow_html=True)
-            
-            # قسم عرض المهام والذكريات الشاملة للمدير
-            st.markdown(f"<div class='g-card-title' style='color:#00ff82;'>{get_icon('layers', 22)} لوحة تحكم المهام وذاكرة الموظفين</div>", unsafe_allow_html=True)
-            
-            memories = CFG.get('MEMORIES', {})
-            if memories:
-                st.markdown("**ملاحظاتك المسجلة عن الموظفين:**")
-                for m_emp, m_text in memories.items():
-                    st.markdown(f"- **{m_emp}:** {m_text}")
-                    
-            st.markdown("<hr style='border-color:rgba(255,255,255,0.1); margin: 30px 0;'>", unsafe_allow_html=True)
-            st.markdown(f"<div class='g-card-title' style='color:#00f2ff;'>{get_icon('folder', 22)} تقرير أداء وتقييم الموظف الذكي (للطباعة)</div>", unsafe_allow_html=True)
-            
-            emp_list = [u for u in st.session_state.all_chats.keys() if "المدير العام" not in u]
-            if emp_list:
-                c_r1, c_r2, c_r3, c_r4 = st.columns([2, 1.5, 1.5, 1.5])
-                with c_r1:
-                    sel_rep_emp = st.selectbox("اختر الموظف للتقرير:", emp_list, key="sel_rep_emp", label_visibility="collapsed")
-                with c_r2:
-                    start_d = st.date_input("من تاريخ:", value=get_local_now().date() - timedelta(days=30), key="start_d")
-                with c_r3:
-                    end_d = st.date_input("إلى تاريخ:", value=get_local_now().date(), key="end_d")
-                with c_r4:
-                    if st.button("📄 استخراج التقرير", type="primary", use_container_width=True):
-                        show_employee_report_dialog(sel_rep_emp, start_d, end_d)
-            
-            st.markdown("<hr style='border-color:rgba(255,255,255,0.1); margin: 30px 0;'>", unsafe_allow_html=True)
-            st.markdown(f"<div class='g-card-title' style='color:var(--c-accent);'>{get_icon('search', 22)} أرشيف محادثات الموظفين (إدارة كاملة)</div>", unsafe_allow_html=True)
-            
-            if emp_list:
-                sel_emp = st.selectbox("اختر الموظف لمراجعة محادثته الحية:", emp_list, label_visibility="collapsed")
-                if sel_emp:
-                    c_arc1, c_arc2 = st.columns(2)
-                    with c_arc1:
-                        if st.button(f"🗑️ مسح واجهة الشات لـ {sel_emp.split(' - ')[0]}", use_container_width=True):
-                            st.session_state.all_chats[sel_emp] = [{"role": "assistant", "content": "تم مسح الأرشيف بواسطة الإدارة العليا. مستعد لتلقي التكليفات الجديدة."}]
-                            overwrite_chat_for_user(sel_emp, st.session_state.all_chats[sel_emp])
-                            st.rerun()
-                    with c_arc2:
-                        if st.button(f"🔄 استعادة المحادثة بالكامل من السجل السري", use_container_width=True, type="primary"):
-                            audit_history = []
-                            try:
-                                docs = get_workspace_doc().collection('Logs').where('user', '==', sel_emp).stream()
-                                for doc in docs:
-                                    audit_history.append(doc.to_dict())
-                            except: pass
-                            
-                            if audit_history:
-                                st.session_state.all_chats[sel_emp] = [{"role": m.get("role", "user"), "content": m.get("content", "")} for m in audit_history]
-                                overwrite_chat_for_user(sel_emp, st.session_state.all_chats[sel_emp])
-                                st.success("تم استعادة المحادثة بالكامل من السجل السري بنجاح!")
-                                time.sleep(1)
-                                st.rerun()
-                            else:
-                                st.warning("لا يوجد سجل سري مسجل لهذا الموظف بعد.")
-                    
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    show_emp_chat = st.toggle(f"👁️ إظهار رسائل ومحادثة ({sel_emp.split(' - ')[0]})", value=False, help="اضغط هنا لعرض تفاصيل المحادثة كاملة إذا لزم الأمر")
-                    if show_emp_chat:
-                        chat_to_view = st.session_state.all_chats.get(sel_emp, [])
-                        for idx, m in enumerate(chat_to_view):
-                            with st.chat_message(m.get("role", "user")):
-                                st.markdown(f"<span class='msg-{m.get('role', 'user')}' style='display:none;'></span>", unsafe_allow_html=True)
-                                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(m.get('content', ''))}</div>", unsafe_allow_html=True)
-                                
-                                st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
-                                if st.button("🗑️", key=f"gm_dl_{sel_emp}_{idx}", help="حذف الرسالة"):
-                                    st.session_state.all_chats[sel_emp].pop(idx)
-                                    overwrite_chat_for_user(sel_emp, st.session_state.all_chats[sel_emp])
-                                    st.rerun()
-                                st.markdown('</div>', unsafe_allow_html=True)
-            else:
-                st.info("لا توجد محادثات نشطة للموظفين حتى الآن.")
-            
-        with gm_tabs[1]:
-            render_chat_fragment(curr_user, sys_prompt_context, CFG)
-            
-    else:
-        render_chat_fragment(curr_user, sys_prompt_context, CFG)
-
-@st.fragment
-def render_chat_fragment(curr_user, sys_prompt_context, CFG):
-    chat_area = st.container(height=650, border=False)
-    with chat_area:
-        for idx, msg in enumerate(st.session_state.all_chats.get(curr_user, [])):
-            with st.chat_message(msg["role"]):
-                st.markdown(f"<span class='msg-{msg['role']}' style='display:none;'></span>", unsafe_allow_html=True)
-                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(msg['content'])}</div>", unsafe_allow_html=True)
-                
-                st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
-                if st.button("🗑️", key=f"dl_{curr_user}_{idx}", help="حذف الرسالة"):
-                    st.session_state.all_chats[curr_user].pop(idx)
                     overwrite_chat_for_user(curr_user, st.session_state.all_chats[curr_user])
                     st.rerun(scope="fragment")
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -2623,6 +2265,11 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
             st.warning("رجاءً انتظر 3 ثوانٍ قبل إرسال رسالة جديدة لتجنب الضغط على النظام.")
             st.stop()
         st.session_state.last_msg_time = current_time
+
+        now_time = get_local_now()
+        work_start = int(CFG.get('WORK_START', 8))
+        work_end = int(CFG.get('WORK_END', 17))
+        is_working_hours = work_start <= now_time.hour < work_end
 
         if curr_user not in st.session_state.all_chats:
             st.session_state.all_chats[curr_user] = []
@@ -2640,6 +2287,14 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 st.markdown("<span class='msg-user' style='display:none;'></span>", unsafe_allow_html=True)
                 st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(user_input)}</div>", unsafe_allow_html=True)
             
+            if not is_working_hours and curr_user != "المدير العام":
+                auto_reply = "عذراً نحن خارج أوقات العمل، أراك غداً"
+                ai_final_msg = {"role": "assistant", "content": auto_reply}
+                st.session_state.all_chats[curr_user].append(ai_final_msg)
+                log_message(curr_user, ai_final_msg)
+                append_chat_message(curr_user, ai_final_msg)
+                st.rerun(scope="fragment")
+
             with st.spinner("المدير يفكر بحزم..."):
                 recent_history = st.session_state.all_chats[curr_user][-6:]
                 api_messages = [{"role": "system", "content": sys_prompt_context}]
@@ -2683,10 +2338,10 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
 
                 if task_match and "المدير العام" not in curr_user:
                     assigned_task = task_match.group(1).strip()
-                    emp_short = curr_user.split(' - ')[0]
+                    emp_short_name = curr_user.split(' - ')[0]
                     task_id = str(int(time.time() * 1000))
                     now_str = get_local_now().strftime("%Y-%m-%d")
-                    new_task = {'emp': emp_short, 'task': assigned_task, 'status': 'open', 'date': now_str}
+                    new_task = {'emp': emp_short_name, 'task': assigned_task, 'status': 'open', 'date': now_str}
                     notif_msg = f"📌 تكليف جديد من المدير: {assigned_task}"
                     
                     fs_updates[f'GLOBAL_TASKS.{task_id}'] = new_task
@@ -2697,10 +2352,10 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
 
                 if close_task_match and "المدير العام" not in curr_user:
                     task_to_close = close_task_match.group(1).strip()
-                    emp_short = curr_user.split(' - ')[0]
-                    global_tasks = st.session_state.app_config.get('GLOBAL_TASKS', {})
-                    for tid, tinfo in global_tasks.items():
-                        if tinfo.get('status') == 'open' and tinfo.get('emp') == emp_short and task_to_close in tinfo.get('task', ''):
+                    emp_short_name = curr_user.split(' - ')[0]
+                    global_tasks_map = st.session_state.app_config.get('GLOBAL_TASKS', {})
+                    for tid, tinfo in global_tasks_map.items():
+                        if tinfo.get('status') == 'open' and tinfo.get('emp') == emp_short_name and task_to_close in tinfo.get('task', ''):
                             tinfo['status'] = 'closed'
                             fs_updates[f'GLOBAL_TASKS.{tid}.status'] = 'closed'
                             break
@@ -2799,11 +2454,15 @@ def change_workspace_pin_dialog(ws_id):
         st.error(f"خطأ: {e}")
         
     current_pin = ws_cfg.get('MANAGER_PIN', '0000')
+    if is_encrypted(current_pin):
+        current_pin = decrypt_password(current_pin)
+
     new_pin = st.text_input("الرقم السري (PIN) الجديد:", value=current_pin)
     
     if st.button("حفظ التغيير", type="primary", use_container_width=True):
         try:
-            doc_ref.set({'MANAGER_PIN': new_pin}, merge=True)
+            enc_pin = encrypt_password(new_pin) if HAS_CRYPTO else new_pin
+            doc_ref.set({'MANAGER_PIN': enc_pin}, merge=True)
             st.success("تم تغيير الرمز السري بنجاح!")
             time.sleep(1)
             st.rerun()
@@ -2938,11 +2597,12 @@ def render_super_admin():
                 "max_devices": int(max_dev)
             }
             
+            enc_pin = encrypt_password(new_m_pin) if HAS_CRYPTO else new_m_pin
             initial_config = {
                 'ODOO_URL': '', 'ODOO_DB': '', 'ODOO_USER': '', 'ODOO_PASS': '',
                 'AI_PROVIDER_URL': 'https://api.openai.com/v1', 'AI_API_KEY': '',
                 'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
-                'MANAGER_PIN': new_m_pin, 
+                'MANAGER_PIN': enc_pin, 
                 'EMPLOYEES': [], 'EVALUATIONS': {}, 'EVAL_HISTORY': {}, 'TASK_REGISTRY': [], 'GLOBAL_TASKS': {}, 'NOTIFICATIONS': {}, 'MEMORIES': {} 
             }
             
@@ -3192,7 +2852,7 @@ def render_settings():
     st.markdown(f"<div class='g-card-title'>{get_icon('cpu', 22)} إعدادات الاتصال بالخادم المركزي</div>", unsafe_allow_html=True)
     
     st.markdown("### شخصية وتوجيهات المدير (System Prompt)")
-    st.info("تنبيه: لا تقم بتغيير هيكل العلامات السرية (TASK, EVAL, MEMO) حتى لا يفقد المدير ذاكرته.")
+    st.info("تنبيه: لا تقم بتغيير هيكل العلامات السرية (TASK, CLOSE_TASK, EVAL, MEMO) حتى لا يفقد المدير ذاكرته.")
     ai_system_prompt = st.text_area("تعليمات الإدارة", value=CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT), height=250)
     
     if st.button("💾 حفظ تعليمات الإدارة فقط", key="save_prompt", use_container_width=True):
