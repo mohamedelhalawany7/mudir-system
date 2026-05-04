@@ -2233,7 +2233,16 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                         else:
                             raise ValueError("Not a dictionary")
                             
-                    except ValueError:
+                    except Exception as e:
+                        err_msg = str(e).lower()
+                        if "api_key" in err_msg or "quota" in err_msg or "401" in err_msg or "429" in err_msg or "timeout" in err_msg:
+                            add_system_notification("المدير العام", f"🚨 تنبيه عاجل: فشل اتصال بخادم الذكاء الاصطناعي بسبب ({err_msg}). يرجى المراجعة.")
+                            ai_data = {
+                                "response": "أنا مشغول جداً في اجتماع طارئ لمجلس الإدارة. بلغت الإدارة العليا بالمشكلة، يرجى المحاولة لاحقاً.",
+                                "eval": "", "task": "", "action": ""
+                            }
+                            break
+                            
                         if attempt < max_retries - 1:
                             api_messages.append({"role": "user", "content": "الرد السابق لم يكن بصيغة JSON صحيحة. يرجى الرد بكائن JSON فقط يحتوي على: response, eval, task, action."})
                         else:
@@ -2242,13 +2251,6 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                                 "eval": "", "task": "", "action": ""
                             }
                             break
-                    except Exception:
-                        add_system_notification("المدير العام", "🚨 تنبيه عاجل: فشل الاتصال بخادم الذكاء الاصطناعي. يرجى مراجعة الرابط ومفتاح الربط (API Key).")
-                        ai_data = {
-                            "response": "أنا مشغول جداً في اجتماع طارئ لمجلس الإدارة. بلغت الإدارة العليا بالمشكلة، يرجى المحاولة لاحقاً.",
-                            "eval": "", "task": "", "action": ""
-                        }
-                        break
                             
                 if not isinstance(ai_data, dict) or not ai_data or 'response' not in ai_data:
                     ai_data = {
@@ -2856,13 +2858,12 @@ def render_settings():
         st.markdown("### شخصية وتوجيهات المدير (System Prompt)")
         ai_system_prompt = st.text_area("تعليمات الإدارة", value=CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT), height=200)
 
-        st.selectbox("💡 إرشادات الروابط (Base URL) الأفضل لكل نموذج:", [
-            "📌 اختر مزود الخدمة من هنا لمعرفة الرابط الأفضل...",
-            "🟢 ChatGPT (OpenAI) ➔ https://api.openai.com/v1",
-            "🟣 Claude (عبر OpenRouter لتفادي الأخطاء) ➔ https://openrouter.ai/api/v1",
-            "🔵 Gemini (Google) ➔ https://generativelanguage.googleapis.com/v1beta/openai/",
-            "⚫ Grok (X.ai) ➔ https://api.x.ai/v1"
-        ])
+        st.info("""💡 **تنبيهات إعداد مزودي الذكاء الاصطناعي:**
+        - **ChatGPT (OpenAI):** استخدم الرابط الافتراضي (`https://api.openai.com/v1`).
+        - **Claude & النماذج المتعددة:** لتفادي أخطاء الـ JSON، نوصي بشدة باستخدام رابط OpenRouter (`https://openrouter.ai/api/v1`).
+        - **Gemini (Google):** استخدم رابط التوافق مع OpenAI المخصص (`https://generativelanguage.googleapis.com/v1beta/openai/`).
+        - **Grok (X.ai):** استخدم الرابط الرسمي (`https://api.x.ai/v1`) أو قم بربطه عبر OpenRouter.
+        """)
 
         saved_url = CFG.get('AI_PROVIDER_URL', '')
         url_presets = [
@@ -2913,9 +2914,9 @@ def render_settings():
                             })
                             st.success("تم التحقق من الاتصال واستخراج الـ JSON بنجاح وتم حفظ الإعدادات!")
                         else:
-                            st.warning("تم الاتصال لكن الموديل لم يرجع JSON صالح. تأكد من أن النموذج يدعم JSON أو راجع الرابط.")
-                except Exception:
-                    st.error("❌ فشل الاتصال بالخادم. تأكد من صحة الرابط (Base URL) ومفتاح الربط (API Key) وأن الرصيد كافٍ.")
+                            st.warning(f"تم الاتصال لكن الموديل لم يرجع JSON صالح. الرد كان: {raw_text}")
+                except Exception as e:
+                    st.error(f"❌ فشل الاتصال بالخادم. لن يتم الحفظ. تفاصيل الخطأ: {str(e).lower()}")
             else:
                 st.warning("يرجى إدخال مفتاح الربط API Key أولاً.")
 
