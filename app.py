@@ -171,6 +171,7 @@ DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري
 [بروتوكول الأوامر السرية - هام جداً]:
 أنت ترد بنص عادي (Markdown) حر وبأي طول تريده. لكن، إذا أردت تنفيذ إجراء برمجي في النظام، أضف العلامات التالية في **نهاية** رسالتك تماماً (ويمكنك استخدام أكثر من علامة في نفس الرد):
 - لإسناد مهمة للموظف الحالي: [TASK: اكتب وصف المهمة باختصار هنا]
+- لإنهاء مهمة منجزة: [CLOSE_TASK: اسم المهمة]
 - لتقييم الموظف بناءً على حديثه: [EVAL: 8/10 لأنه فعل كذا وكذا]
 - لحفظ معلومة في ذاكرتك عن الموظف لتتذكرها لاحقاً: [MEMO: الموظف جيد في التفاوض]
 - لإنشاء مسودة عرض سعر في النظام: [ACTION: CREATE_SO|العميل:اسم العميل|القيمة:1000]
@@ -178,6 +179,7 @@ DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري
 مثال على ردك:
 يا أحمد، أنا شايف إنك متأخر في تسليم عروض أسعار شركة الأمل. خلصها النهاردة ضروري وابدأ في تحليل مبيعات ربع السنة.
 [TASK: إنهاء عروض شركة الأمل وبدء تحليل مبيعات ربع السنة]
+[CLOSE_TASK: مراجعة حسابات الشهر الماضي]
 [MEMO: يحتاج متابعة يومية لتسليم العروض]"""
 
 def load_config():
@@ -238,27 +240,21 @@ def update_system_config(updates_dict):
         save_config(st.session_state.get('app_config', {}))
 
 def get_employee_memory(curr_user):
-    try:
-        if FIREBASE_CONNECTED and db:
-            doc = get_workspace_doc().get()
-            if doc.exists:
-                return doc.to_dict().get('MEMORIES', {}).get(curr_user, "")
-    except: pass
     return st.session_state.app_config.get('MEMORIES', {}).get(curr_user, "")
 
 def append_employee_memory(curr_user, new_memo):
     current_memo = get_employee_memory(curr_user)
     updated_memo = f"{current_memo} | {new_memo}" if current_memo else new_memo
     
-    # Keep memory concise (last 500 chars)
     if len(updated_memo) > 500:
         updated_memo = "..." + updated_memo[-490:]
         
-    cfg = st.session_state.get('app_config', {})
-    memories = cfg.get('MEMORIES', {})
-    memories[curr_user] = updated_memo
-    cfg['MEMORIES'] = memories
-    update_system_config({'MEMORIES': memories})
+    st.session_state.app_config.setdefault('MEMORIES', {})[curr_user] = updated_memo
+    
+    if FIREBASE_CONNECTED and db and 'workspace_id' in st.session_state:
+        try:
+            get_workspace_doc().update({f'MEMORIES.{curr_user}': updated_memo})
+        except Exception: pass
 
 def save_chat_for_user(user_key):
     if 'workspace_id' in st.session_state:
@@ -1052,10 +1048,11 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
                     for notif in reversed(user_notifs):
                         st.info(notif)
                     if st.button("تحديد الكل كمقروء ✔️", use_container_width=True):
-                        current_cfg = get_workspace_doc().get().to_dict() or {}
-                        notifs = current_cfg.get('NOTIFICATIONS', {})
-                        notifs[st.session_state.current_user] = []
-                        update_system_config({'NOTIFICATIONS': notifs})
+                        st.session_state.app_config.setdefault('NOTIFICATIONS', {})[st.session_state.current_user] = []
+                        if FIREBASE_CONNECTED and db:
+                            try:
+                                get_workspace_doc().update({f'NOTIFICATIONS.{st.session_state.current_user}': []})
+                            except Exception: pass
                         st.rerun()
             else:
                 st.button("🔕 لا توجد إشعارات حالياً", disabled=True, use_container_width=True)
@@ -2259,89 +2256,97 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(user_input)}</div>", unsafe_allow_html=True)
             
             with st.spinner("المدير يفكر بحزم..."):
-                # ضغط الذاكرة: إرسال آخر 6 رسائل فقط للحفاظ على التوكنز
                 recent_history = st.session_state.all_chats[curr_user][-6:]
                 api_messages = [{"role": "system", "content": sys_prompt_context}]
+                
+                # إدراج قاعدة المعرفة بذكاء (لتوفير التوكنز)
+                knowledge_base = CFG.get('KNOWLEDGE_BASE', '')
+                tech_keywords = ['صيانة', 'عطل', 'مشكلة', 'لوائح', 'دليل', 'كيف', 'طريقة', 'خطوات', 'قانون', 'إجراء', 'كتالوج']
+                if knowledge_base and any(kw in user_input for kw in tech_keywords):
+                    api_messages[0]['content'] += f"\n=== لوائح وقوانين الشركة ===\n{knowledge_base[:3000]}\n"
+                    
                 api_messages.extend(recent_history)
                 
                 try:
-                    # تعطيل الـ JSON Mode لاسترجاع إجابات طويلة وحرة بدون انهيار
                     raw_ai_text = call_universal_ai(api_messages, json_mode=False)
                     
-                    # استخراج الأوامر باستخدام Regex (Smart Tagging Protocol)
                     task_match = re.search(r'\[TASK:(.*?)\]', raw_ai_text, re.IGNORECASE | re.DOTALL)
+                    close_task_match = re.search(r'\[CLOSE_TASK:(.*?)\]', raw_ai_text, re.IGNORECASE | re.DOTALL)
                     eval_match = re.search(r'\[EVAL:(.*?)\]', raw_ai_text, re.IGNORECASE | re.DOTALL)
                     memo_match = re.search(r'\[MEMO:(.*?)\]', raw_ai_text, re.IGNORECASE | re.DOTALL)
                     action_match = re.search(r'\[ACTION:(.*?)\]', raw_ai_text, re.IGNORECASE | re.DOTALL)
                     
-                    # تنظيف النص ليراه الموظف كرسالة طبيعية بدون أكواد
-                    clean_response = re.sub(r'\[(TASK|EVAL|MEMO|ACTION):.*?\]', '', raw_ai_text, flags=re.IGNORECASE | re.DOTALL).strip()
-                    
-                    if not clean_response:
-                        clean_response = "تمام، جاري المتابعة والتنفيذ."
+                    clean_response = re.sub(r'\[(TASK|CLOSE_TASK|EVAL|MEMO|ACTION):.*?\]', '', raw_ai_text, flags=re.IGNORECASE | re.DOTALL).strip()
+                    if not clean_response: clean_response = "تمام، جاري المتابعة والتنفيذ."
 
                 except Exception as e:
                     clean_response = "السيستم عليه ضغط كبير دلوقتي. راجعني كمان 5 دقايق."
-                    task_match, eval_match, memo_match, action_match = None, None, None, None
+                    task_match, close_task_match, eval_match, memo_match, action_match = None, None, None, None, None
 
-                # 1. تنفيذ وتخزين الـ ACTION إن وجد (إنشاء مسودة عرض سعر)
+                # 1. ACTION
                 if action_match and "CREATE_SO" in action_match.group(1):
                     action_data = action_match.group(1).strip()
-                    client_name = "غير محدد"
-                    amt = "0"
-                    parts = action_data.split("|")
-                    for p in parts:
+                    client_name, amt = "غير محدد", "0"
+                    for p in action_data.split("|"):
                         if "العميل:" in p: client_name = p.replace("العميل:", "").strip()
                         if "القيمة:" in p: amt = p.replace("القيمة:", "").strip()
                     
-                    try:
-                        current_cfg = get_workspace_doc().get().to_dict() or {}
-                        if 'NOTIFICATIONS' not in current_cfg: current_cfg['NOTIFICATIONS'] = {}
-                        if curr_user not in current_cfg['NOTIFICATIONS']: current_cfg['NOTIFICATIONS'][curr_user] = []
-                        current_cfg['NOTIFICATIONS'][curr_user].append(f"✅ تم تنفيذ أمر تلقائي من المدير: إنشاء عرض سعر لـ ({client_name}) بقيمة ({amt}).")
-                        get_workspace_doc().set({'NOTIFICATIONS': current_cfg['NOTIFICATIONS']}, merge=True)
-                        CFG['NOTIFICATIONS'] = current_cfg['NOTIFICATIONS']
-                    except Exception: pass
+                    notif_msg = f"✅ تم تنفيذ أمر تلقائي من المدير: إنشاء عرض سعر لـ ({client_name}) بقيمة ({amt})."
+                    if FIREBASE_CONNECTED and db:
+                        try:
+                            get_workspace_doc().update({f'NOTIFICATIONS.{curr_user}': firestore.ArrayUnion([notif_msg])})
+                        except Exception: pass
+                    st.session_state.app_config.setdefault('NOTIFICATIONS', {}).setdefault(curr_user, []).append(notif_msg)
 
-                # 2. تسجيل المهام (وتجنب التكرار بربط المهمة باسم الموظف)
+                # 2. TASK
                 if task_match and "المدير العام" not in curr_user:
                     assigned_task = task_match.group(1).strip()
-                    try:
-                        current_cfg = get_workspace_doc().get().to_dict() or {}
-                        if 'TASK_REGISTRY' not in current_cfg: current_cfg['TASK_REGISTRY'] = []
-                        now_str = get_local_now().strftime("%Y-%m-%d")
+                    emp_short = curr_user.split(' - ')[0]
+                    task_id = str(int(time.time() * 1000))
+                    now_str = get_local_now().strftime("%Y-%m-%d")
+                    new_task = {'emp': emp_short, 'task': assigned_task, 'status': 'open', 'date': now_str}
+                    notif_msg = f"📌 تكليف جديد من المدير: {assigned_task}"
+                    
+                    if FIREBASE_CONNECTED and db:
+                        try:
+                            get_workspace_doc().update({
+                                f'GLOBAL_TASKS.{task_id}': new_task,
+                                f'NOTIFICATIONS.{curr_user}': firestore.ArrayUnion([notif_msg])
+                            })
+                        except Exception: pass
                         
-                        # هيكل المهام الجديد يمنع تكرار الإسناد
-                        emp_short = curr_user.split(' - ')[0]
-                        task_entry = f"🔴 مهمة مفتوحة لـ ({emp_short}): {assigned_task} [تاريخ: {now_str}]"
-                        current_cfg['TASK_REGISTRY'].append(task_entry)
-                        
-                        if 'NOTIFICATIONS' not in current_cfg: current_cfg['NOTIFICATIONS'] = {}
-                        if curr_user not in current_cfg['NOTIFICATIONS']: current_cfg['NOTIFICATIONS'][curr_user] = []
-                        current_cfg['NOTIFICATIONS'][curr_user].append(f"📌 تكليف جديد من المدير: {assigned_task}")
-                        
-                        get_workspace_doc().set({'TASK_REGISTRY': current_cfg['TASK_REGISTRY'], 'NOTIFICATIONS': current_cfg['NOTIFICATIONS']}, merge=True)
-                        st.session_state.app_config['TASK_REGISTRY'] = current_cfg['TASK_REGISTRY']
-                        st.session_state.app_config['NOTIFICATIONS'] = current_cfg['NOTIFICATIONS']
-                    except Exception: pass
+                    st.session_state.app_config.setdefault('GLOBAL_TASKS', {})[task_id] = new_task
+                    st.session_state.app_config.setdefault('NOTIFICATIONS', {}).setdefault(curr_user, []).append(notif_msg)
 
-                # 3. تسجيل التقييم في ملف الموظف
+                # 3. CLOSE_TASK
+                if close_task_match and "المدير العام" not in curr_user:
+                    emp_short = curr_user.split(' - ')[0]
+                    global_tasks = st.session_state.app_config.get('GLOBAL_TASKS', {})
+                    for tid, tinfo in global_tasks.items():
+                        if tinfo.get('status') == 'open' and tinfo.get('emp') == emp_short:
+                            tinfo['status'] = 'closed'
+                            if FIREBASE_CONNECTED and db:
+                                try:
+                                    get_workspace_doc().update({f'GLOBAL_TASKS.{tid}.status': 'closed'})
+                                except Exception: pass
+                            break
+
+                # 4. EVAL
                 if eval_match and "المدير العام" not in curr_user:
                     eval_data = eval_match.group(1).strip()
-                    try:
-                        current_cfg = get_workspace_doc().get().to_dict() or {}
-                        if 'EVALUATIONS' not in current_cfg: current_cfg['EVALUATIONS'] = {}
-                        if 'EVAL_HISTORY' not in current_cfg: current_cfg['EVAL_HISTORY'] = {}
-                        if curr_user not in current_cfg['EVAL_HISTORY']: current_cfg['EVAL_HISTORY'][curr_user] = []
-                        now_str = get_local_now().strftime("%Y-%m-%d %H:%M")
-                        current_cfg['EVALUATIONS'][curr_user] = {'eval': eval_data, 'date': now_str}
-                        current_cfg['EVAL_HISTORY'][curr_user].append({'eval': eval_data, 'date': now_str})
-                        get_workspace_doc().set({'EVALUATIONS': current_cfg['EVALUATIONS'], 'EVAL_HISTORY': current_cfg['EVAL_HISTORY']}, merge=True)
-                        st.session_state.app_config['EVALUATIONS'] = current_cfg['EVALUATIONS']
-                        st.session_state.app_config['EVAL_HISTORY'] = current_cfg['EVAL_HISTORY']
-                    except Exception: pass
+                    now_str = get_local_now().strftime("%Y-%m-%d %H:%M")
+                    eval_obj = {'eval': eval_data, 'date': now_str}
+                    if FIREBASE_CONNECTED and db:
+                        try:
+                            get_workspace_doc().update({
+                                f'EVALUATIONS.{curr_user}': eval_obj,
+                                f'EVAL_HISTORY.{curr_user}': firestore.ArrayUnion([eval_obj])
+                            })
+                        except Exception: pass
+                    st.session_state.app_config.setdefault('EVALUATIONS', {})[curr_user] = eval_obj
+                    st.session_state.app_config.setdefault('EVAL_HISTORY', {}).setdefault(curr_user, []).append(eval_obj)
 
-                # 4. تسجيل الذاكرة المخصصة (MEMO) - لا ينسى المدير أبداً
+                # 5. MEMO
                 if memo_match and "المدير العام" not in curr_user:
                     memo_data = memo_match.group(1).strip()
                     append_employee_memory(curr_user, memo_data)
@@ -2445,9 +2450,9 @@ def render_ai():
     emp_memo = get_employee_memory(curr_user)
 
     # جلب جميع المهام المفتوحة لبقية الشركة (حتى لا يتم التكرار)
-    task_reg = CFG.get('TASK_REGISTRY', [])
-    # استخراج المهام التي حالتها مفتوحة فقط (توفيرا للتوكنز)
-    open_tasks_str = "\n".join([t for t in task_reg[-50:] if "مفتوحة" in t]) if task_reg else "لا يوجد مهام مفتوحة حالياً."
+    global_tasks = CFG.get('GLOBAL_TASKS', {})
+    open_tasks = [f"{t['emp']}: {t['task']}" for t in global_tasks.values() if t.get('status') == 'open'][-30:]
+    open_tasks_str = "\n".join(open_tasks) if open_tasks else "لا يوجد مهام مفتوحة حالياً."
 
     base_prompt = CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT)
     curr_emp_data = next((e for e in CFG.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == curr_user), None)
@@ -2465,9 +2470,6 @@ def render_ai():
 === خريطة المهام المفتوحة في الشركة (لا تكرر إسنادها) ===
 {open_tasks_str}
 """
-    knowledge_base = CFG.get('KNOWLEDGE_BASE', '')
-    if knowledge_base:
-        live_context += f"\n=== لوائح وقوانين الشركة ===\n{knowledge_base[:3000]}\n"
 
     sys_prompt_context = base_prompt + "\n" + live_context
 
