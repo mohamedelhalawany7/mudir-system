@@ -2302,8 +2302,14 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                     err_str = str(e).lower()
                     if "429" in err_str or "quota" in err_str or "rate limit" in err_str or "insufficient" in err_str:
                         ai_data = {"response": "انا فى استراحة ارجوك بلغ الادارة ضروري", "eval": "", "task": "", "action": ""}
+                    elif "json" in err_str or "expecting" in err_str or "decode" in err_str or "unterminated" in err_str:
+                        ai_data = {"response": "عذراً، المدير بيفكر بصوت عالي وخرج عن النص المسموح (JSON Error). اكتب رسالتك تاني.", "eval": "", "task": "", "action": ""}
+                    elif "404" in err_str or "not found" in err_str or "connection" in err_str or "resolve" in err_str or "model" in err_str:
+                        ai_data = {"response": "عذراً، الرابط (URL) أو الموديل (Model) غير صحيح. برجاء مراجعة إعدادات النظام.", "eval": "", "task": "", "action": ""}
+                    elif "401" in err_str or "auth" in err_str or "key" in err_str:
+                        ai_data = {"response": "عذراً، مفتاح الربط (API Key) منتهي أو غير صحيح. برجاء مراجعة الإعدادات.", "eval": "", "task": "", "action": ""}
                     else:
-                        ai_data = {"response": "عذراً، حدث خطأ مؤقت. حاول تاني.", "eval": "", "task": "", "action": ""}
+                        ai_data = {"response": f"عذراً، حدث خطأ مؤقت. حاول تاني.\n\n(السبب التقني: {str(e)})", "eval": "", "task": "", "action": ""}
 
                 actual_response = ai_data.get('response', 'حدث خطأ.')
                 eval_data      = ai_data.get('eval', '')
