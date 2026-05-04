@@ -399,8 +399,18 @@ def call_universal_ai(messages, json_mode=False):
     if not base_url: base_url = None
     model_name = st.session_state.app_config.get('AI_MODEL_NAME', 'gpt-4o')
 
-    client = OpenAI(api_key=api_key, base_url=base_url, timeout=120.0)
+    # تم رفع مهلة الانتظار لـ 180 ثانية ليعطي الموديل وقتاً لكتابة الخطط الطويلة جداً
+    client = OpenAI(api_key=api_key, base_url=base_url, timeout=180.0)
     kwargs = {"model": model_name, "messages": messages, "temperature": 0.7, "max_tokens": 4000}
+    
+    if json_mode:
+        # استثناء جيميناي وكلود من الإجبار الداخلي لمنع رسائل الخطأ 400
+        if not any(x in str(base_url).lower() or x in model_name.lower() for x in ["openrouter", "claude", "gemini"]):
+            kwargs["response_format"] = {"type": "json_object"}
+        
+    response = client.chat.completions.create(**kwargs)
+    # استخدام or "" لمنع أي أخطاء من نوع NoneType إذا رجع الرد فارغاً
+    raw_text = response.choices[0].message.content or ""
     
     if json_mode:
         # استثناء جيميناي وكلود من الإجبار الداخلي لمنع رسائل الخطأ 400
@@ -2282,22 +2292,25 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                         if attempt < max_retries - 1:
                             api_messages.append({"role": "user", "content": "الرد السابق لم يكن بصيغة JSON صحيحة. يرجى الرد بكائن JSON فقط يحتوي على: response, eval, task, action."})
                         else:
+                            # حيلة استرداد النص الخام إذا فشل الهيكل المبرمج
                             ai_data = {
-                                "response": "أنا مشغول جداً دلوقتي في مراجعة أرقام مهمة. من فضلك حاول تكلمني تاني بعد 10 دقايق.",
+                                "response": f"{response_text}<br><br><div style='background:rgba(255,215,0,0.1); border:1px dashed rgba(255,215,0,0.4); padding:8px; border-radius:8px; margin-top:10px; font-size:0.8rem; color:#ffd700;'><strong style='color:#ffd700;'>تنبيه النظام:</strong> تعذر هيكلة الرد برمجياً كـ JSON لتوليد خطة، لكن تم استرداد النص والخطة المكتوبة بالكامل لتستفيد منها.</div>",
                                 "eval": "", "task": "", "action": ""
                             }
                             break
-                    except Exception:
-                        add_system_notification("المدير العام", "🚨 تنبيه عاجل: فشل الاتصال بخادم الذكاء الاصطناعي. يرجى مراجعة الرابط ومفتاح الربط (API Key).")
+                    except Exception as e:
+                        err_str = str(e)
+                        add_system_notification("المدير العام", f"🚨 تنبيه عاجل: فشل الاتصال بخادم الذكاء الاصطناعي. السبب: {err_str}")
+                        # رسالة خطأ أنيقة ومرتبة تشرح السبب التقني بشياكة
                         ai_data = {
-                            "response": "أنا مشغول جداً في اجتماع طارئ لمجلس الإدارة. بلغت الإدارة العليا بالمشكلة، يرجى المحاولة لاحقاً.",
+                            "response": f"عذراً يا بطل، كنت بجهز الرد المطلوب وببني الخطة، لكن حصل انقطاع مفاجئ في الاتصال بالسيرفر أو انتهى وقت الاستجابة!<br><br><div style='background:rgba(255,45,120,0.1); border:1px dashed rgba(255,45,120,0.4); padding:10px; border-radius:8px; margin-top:10px; font-size:0.85rem; line-height:1.6; direction:rtl;'><strong style='color:#ff2d78;'>تفاصيل العطل التقني (للصيانة):</strong><br><code style='color:#ffcae0; font-family:monospace; word-wrap:break-word; display:block; margin-top:5px;'>{err_str}</code></div>",
                             "eval": "", "task": "", "action": ""
                         }
                         break
                             
                 if not isinstance(ai_data, dict) or not ai_data or 'response' not in ai_data:
                     ai_data = {
-                        "response": "أنا مشغول جداً دلوقتي في مراجعة أرقام مهمة. من فضلك حاول تكلمني تاني بعد 10 دقايق.",
+                        "response": "حصل خطأ غير متوقع في معالجة البيانات، يرجى المحاولة مرة أخرى.",
                         "eval": "", "task": "", "action": ""
                     }
 
@@ -2967,13 +2980,21 @@ def render_settings():
                         else:
                             st.warning("تم الاتصال لكن الموديل لم يرجع JSON صالح. تأكد من أن النموذج يدعم JSON أو راجع الرابط.")
                 except Exception as e:
+                    err_str = str(e)
+                    if "429" in err_str or "Quota" in err_str:
+                        user_friendly_cause = "⏳ لقد استنفدت الحد الأقصى للطلبات السريعة (Rate Limit) المسموح بها في الباقة المجانية لمفتاحك. السيرفر يطلب منك الانتظار حوالي دقيقة ثم المحاولة مجدداً."
+                    elif "401" in err_str or "API key not valid" in err_str or "expired" in err_str:
+                        user_friendly_cause = "🔑 مفتاح الربط (API Key) غير صحيح أو منتهي الصلاحية."
+                    else:
+                        user_friendly_cause = "نأسف، لم نتمكن من إنشاء اتصال مستقر ومصادق مع مزود الذكاء الاصطناعي. قد يكون ذلك بسبب خطأ في مسار الرابط (Base URL) أو توقف سيرفرات الذكاء الاصطناعي مؤقتاً."
+
                     error_msg = f"""
                     <div style='padding: 15px; border-radius: 12px; background: linear-gradient(145deg, rgba(255,45,120,0.15), rgba(20,5,15,0.8)); border: 1px solid rgba(255,45,120,0.4); margin-bottom: 10px; box-shadow: 0 4px 15px rgba(255,45,120,0.1);'>
                         <h4 style='color: #ff2d78; margin-top: 0; display: flex; align-items: center; gap: 8px;'>⚠️ فشل المزامنة مع الخادم المركزي</h4>
-                        <p style='color: #cbd5e1; font-size: 0.95rem; line-height: 1.6;'>نأسف، لم نتمكن من إنشاء اتصال مستقر ومصادق مع مزود الذكاء الاصطناعي. يعود ذلك غالباً إلى انتهاء صلاحية مفتاح الربط (API Key)، استنفاذ الرصيد المتاح، أو خطأ في مسار الرابط (Base URL).</p>
+                        <p style='color: #cbd5e1; font-size: 0.95rem; line-height: 1.6;'>{user_friendly_cause}</p>
                         <hr style='border-color: rgba(255,45,120,0.2); margin: 12px 0;'>
                         <div style='font-size: 0.85rem; color: #ff2d78; font-weight: bold; margin-bottom: 6px;'>الرد الفعلي الوارد من الخادم لتشخيص المشكلة:</div>
-                        <code style='color: #ffcae0; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; display: block; font-family: monospace; font-size: 0.85rem; word-wrap: break-word; border: 1px dashed rgba(255,45,120,0.3);'>{str(e)}</code>
+                        <code style='color: #ffcae0; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; display: block; font-family: monospace; font-size: 0.85rem; word-wrap: break-word; border: 1px dashed rgba(255,45,120,0.3);'>{err_str}</code>
                     </div>
                     """
                     st.markdown(error_msg, unsafe_allow_html=True)
