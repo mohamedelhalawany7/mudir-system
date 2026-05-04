@@ -161,7 +161,6 @@ def get_local_now():
     except Exception: pass
     return datetime.now()
 
-# System Prompt الجديد — أقصر لكن يحافظ على فاعلية التفكير
 DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري خبير في المبيعات وإدارة الفرق.
 شخصيتك: مصري أصيل، حازم، جاد، لا تسمح بالتقصير.
 قواعد صارمة:
@@ -543,113 +542,35 @@ def call_universal_ai(messages, json_mode=False):
     if not api_key:
         raise Exception("مفتاح الاتصال بالخادم غير متوفر.")
     
-    base_url = st.session_state.app_config.get('AI_PROVIDER_URL', '').strip()
-    if not base_url: base_url = None
-    model_name = st.session_state.app_config.get('AI_MODEL_NAME', 'gpt-4o')
-
-    client = OpenAI(api_key=api_key, base_url=base_url, timeout=120.0)
-    kwargs = {"model": model_name, "messages": messages, "temperature": 0.7, "max_tokens": 4000}
-    
-    if json_mode:
-        if "openrouter" not in str(base_url).lower() and "claude" not in model_name.lower():
-            kwargs["response_format"] = {"type": "json_object"}
-        
-    response = client.chat.completions.create(**kwargs)
-    raw_text = response.choices[0].message.content
-    
-    if json_mode:
-        clean_text = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL).strip()
-        clean_text = clean_text.replace('```json', '').replace('```', '').strip()
-        match = re.search(r'\{.*\}', clean_text, re.DOTALL)
-        if match:
-            return match.group(0)
-        else:
-            return clean_text
-    return raw_text
-
-def build_compressed_context(curr_user: str, cfg: dict, df_s, df_p, work_start: int, work_end: int) -> str:
-    """يبني سياقاً مضغوطاً للذكاء الاصطناعي لتوفير التوكنز"""
-    now = get_local_now()
-    curr_user_short = curr_user.split(" - ")[0]
-        
-    appr = df_s[df_s['state'].isin(['sale','done'])]['amount_total'].sum() if not df_s.empty and 'state' in df_s.columns else 0
-    draft = df_s[df_s['state'].isin(['draft','sent'])]['amount_total'].sum() if not df_s.empty and 'state' in df_s.columns else 0
-        
-    my_drafts = "لا يوجد"
-    if not df_s.empty and 'user_id' in df_s.columns:
-        df_s['_u'] = df_s['user_id'].apply(clean_odoo_m2o)
-        emp_drafts = df_s[
-            (df_s['state'].isin(['draft','sent'])) & 
-            (df_s['_u'].str.contains(curr_user_short, na=False))
-        ]
-        if not emp_drafts.empty:
-            items = [
-                f"{row.get('name','?')} / {clean_odoo_m2o(row.get('partner_id','?'))} / {row.get('amount_total',0):,.0f}ج"
-                for _, row in emp_drafts.head(3).iterrows()
-            ]
-            my_drafts = " | ".join(items)
-        
-    # الحصول على مهام الموظف الحالي مفصلة، ومهام الآخرين مختصرة
-    my_open_tasks, other_taken_tasks = get_all_open_tasks_compact(curr_user_short)
-        
-    memory = get_employee_memory(curr_user)
-    if len(memory) > 300:
-        memory = memory[:300] + "..."
-        
-    h12 = now.hour % 12 or 12
-    am_pm = "ص" if now.hour < 12 else "م"
-    is_work = work_start <= now.hour < work_end
-    time_status = "داخل وقت العمل" if is_work else "خارج وقت العمل"
-        
-    emp_data = next((e for e in cfg.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == curr_user), None)
-    kpis_short = (emp_data.get('job_desc', '')[:200] if emp_data else "المدير العام")
-        
-    context = f"""=بيانات النظام=
-وقت:{h12}:{now.minute:02d}{am_pm} ({time_status} {work_start}ص-{work_end}م)
-مبيعات معتمدة:{appr:,.0f}ج | مسودة:{draft:,.0f}ج | عملاء:{len(df_p) if df_p is not None else 0}
-=عروض {curr_user_short} المعلقة=
-{my_drafts}
-=مهام {curr_user_short} المفتوحة=
-{my_open_tasks}
-=مهام محجوزة لباقي الفريق (ممنوع تكرار إسنادها لك)=
-{other_taken_tasks}
-=ذاكرة {curr_user_short}=
-{memory if memory else 'لا يوجد'}
-=KPIs=
-{kpis_short}"""
-    return context
-
-def call_universal_ai_optimized(messages, json_mode=False):
-    """نسخة محسنة لزيادة المساحة العقلية للمدير بدون قيود"""
-    api_key = st.session_state.app_config.get('AI_API_KEY', '').strip()
-    if not api_key:
-        raise Exception("مفتاح API غير متوفر.")
-        
     base_url = st.session_state.app_config.get('AI_PROVIDER_URL', '').strip() or None
     model_name = st.session_state.app_config.get('AI_MODEL_NAME', 'gpt-4o')
+
     client = OpenAI(api_key=api_key, base_url=base_url, timeout=90.0)
-        
+    
     kwargs = {
         "model": model_name,
         "messages": messages,
         "temperature": 0.7
         # تم إزالة قيد max_tokens بالكامل ليتمكن المدير من كتابة رده بأي طول يريده
     }
-        
+    
     if json_mode:
         if "openrouter" not in str(base_url or '').lower() and "claude" not in model_name.lower():
             kwargs["response_format"] = {"type": "json_object"}
-            
+        
     response = client.chat.completions.create(**kwargs)
     raw_text = response.choices[0].message.content
-        
+    
     if json_mode:
         clean = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL).strip()
         clean = re.sub(r'^```json\s*', '', clean, flags=re.IGNORECASE|re.MULTILINE)
         clean = re.sub(r'^```\s*', '', clean, flags=re.MULTILINE)
         clean = re.sub(r'```$', '', clean, flags=re.MULTILINE).strip()
-        m = re.search(r'\{.*\}', clean, re.DOTALL)
-        return m.group(0) if m else clean
+        match = re.search(r'\{.*\}', clean, re.DOTALL)
+        if match:
+            return match.group(0)
+        else:
+            return clean
     return raw_text
 
 def get_icon(name: str, size: int = 24, color: str = "currentColor", class_name: str = "") -> str:
@@ -2303,18 +2224,12 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 ai_msg = {"role": "assistant", "content": out_msg}
                 st.session_state.all_chats[curr_user].append(ai_msg)
                 log_message(curr_user, ai_msg)
-                save_chat_for_user_safe(curr_user)
+                save_chat_for_user(curr_user)
                 st.rerun(scope="fragment")
             
             with st.spinner("يكتب الأن..."):
-                compressed_ctx = build_compressed_context(
-                    curr_user, CFG, df_s_master, df_p_master,
-                    int(CFG.get('WORK_START', 8)), int(CFG.get('WORK_END', 17))
-                )
-                full_system = CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT) + "\n" + compressed_ctx
-                
-                api_messages = [{"role": "system", "content": full_system}]
-                api_messages += [m for m in st.session_state.all_chats[curr_user] if m['role'] != 'system'][-8:]
+                api_messages = [{"role": "system", "content": sys_prompt_context}]
+                api_messages.extend(st.session_state.all_chats[curr_user][-8:])
                 
                 max_retries = 3
                 ai_data = {}
@@ -2323,7 +2238,7 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 
                 for attempt in range(max_retries):
                     try:
-                        raw = call_universal_ai_optimized(api_messages, json_mode=True)
+                        raw = call_universal_ai(api_messages, json_mode=True)
                         parsed_data = json.loads(raw, strict=False)
                         if isinstance(parsed_data, dict) and 'response' in parsed_data:
                             ai_data = parsed_data
@@ -2358,7 +2273,7 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                         if not ai_data and len(raw_val) > 15:
                             clean_fallback = re.sub(r'["{}\\]', '', raw_val)
                             clean_fallback = re.sub(r'(internal_thoughts|response|eval|task_key|task_label|action)\s*:', '', clean_fallback, flags=re.IGNORECASE)
-                            # تم إزالة قيد القص [:800] لتصل الرسالة الطويلة كاملة حتى لو أخطأ الموديل في صياغة JSON
+                            # تم إزالة قيد القص لتصل الرسالة الطويلة كاملة حتى لو أخطأ الموديل
                             ai_data = {"response": clean_fallback.strip(), "eval": "", "task": "", "action": ""}
                             
                         if not ai_data:
@@ -2369,7 +2284,10 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 task_key       = ai_data.get('task_key', '').strip().replace(' ', '_')
                 task_label     = ai_data.get('task_label', '').strip()
                 action_data    = ai_data.get('action', '')
+                
+                assigned_task = task_label if task_label else task_key
 
+                # 1. معالجة الـ ACTION إن وجد
                 if action_data and "CREATE_SO" in action_data:
                     client_name = "غير محدد"
                     amt = "0"
@@ -3183,15 +3101,17 @@ def render_settings():
                         clean_text = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL).strip()
                         clean_text = clean_text.replace('```json', '').replace('```', '').strip()
                         
-                        match = re.search(r'\{.*\}', clean_text, re.DOTALL)
-                        if match:
-                            update_system_config({
-                                'AI_PROVIDER_URL': ai_url, 'AI_MODEL_NAME': ai_model, 
-                                'AI_API_KEY': ai_key, 'AI_SYSTEM_PROMPT': ai_system_prompt
-                            })
-                            st.success("تم التحقق من الاتصال واستخراج الـ JSON بنجاح وتم حفظ الإعدادات!")
-                        else:
-                            st.warning("تم الاتصال لكن الموديل لم يرجع JSON صالح. تأكد من أن النموذج يدعم JSON أو راجع الرابط.")
+        ai_key = st.text_input("مفتاح الربط (API Key)", value=CFG.get('AI_API_KEY', ''), type="password", help="انسخ المفتاح وتأكد من عدم وجود مسافات فارغة قبله أو بعده")
+
+        if st.button("فحص اتصال الخادم المركزي", key="test_ai"):
+            if not ai_key.strip():
+                st.warning("الرجاء إدخال مفتاح الربط في الحقل أعلاه قبل إجراء الفحص.")
+            else:
+                try:
+                    with st.spinner("جاري فحص الاتصال بالخادم..."):
+                        test_client = OpenAI(api_key=ai_key.strip(), base_url=ai_url.strip() if ai_url.strip() else None)
+                        resp = test_client.chat.completions.create(model=ai_model, messages=[{"role": "user", "content": "Respond with a valid JSON containing key 'status' and value 'OK'."}], response_format={"type": "json_object"}, max_tokens=15)
+                        if resp.choices[0].message.content: st.success("تم الاتصال بالخادم المركزي ودعم الـ JSON Mode بنجاح!")
                 except Exception as e:
                     err_str = str(e).lower()
                     if "429" in err_str or "quota" in err_str or "rate limit" in err_str or "insufficient" in err_str:
@@ -3202,8 +3122,6 @@ def render_settings():
                         st.error("❌ مفتاح الربط (API Key) غير صحيح أو منتهي.")
                     else:
                         st.error(f"❌ فشل الاتصال بالخادم. تأكد من صحة الرابط (Base URL) ومفتاح الربط (API Key). تفاصيل الخطأ: {e}")
-            else:
-                st.warning("يرجى إدخال مفتاح الربط API Key أولاً.")
 
     st.markdown("<br><hr style='border-color:rgba(255,255,255,0.05)'><br>", unsafe_allow_html=True)
 
