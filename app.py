@@ -184,7 +184,7 @@ def load_config():
         'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
         'MANAGER_PIN': '0000', 'EMPLOYEES': [], 'EVALUATIONS': {},
         'EVAL_HISTORY': {}, 'TASK_REGISTRY': [], 'NOTIFICATIONS': {},
-        'MEMORIES': {}, # سجل الذاكرة التراكمية للموظفين
+        'MEMORIES': {},
         'WORK_START': 8, 'WORK_END': 17, 'KNOWLEDGE_BASE': '', 'TIMEZONE': 'Africa/Cairo'
     }
     if 'workspace_id' in st.session_state:
@@ -238,14 +238,12 @@ def get_employee_memory(curr_user):
         pass
     return st.session_state.app_config.get('MEMORIES', {}).get(curr_user, "")
 
-# دالة مخصصة لإضافة المهام بأمان (تمنع التعارض)
 def add_task_safely(task_string):
     if FIREBASE_CONNECTED and db:
         try:
             get_workspace_doc().update({
                 'TASK_REGISTRY': firestore.ArrayUnion([task_string])
             })
-            # تحديث الذاكرة المحلية
             if 'app_config' in st.session_state:
                 if 'TASK_REGISTRY' not in st.session_state.app_config:
                     st.session_state.app_config['TASK_REGISTRY'] = []
@@ -267,8 +265,7 @@ def add_system_notification(target_user, message):
 
 def save_chat_for_user(user_key):
     if 'workspace_id' in st.session_state:
-        # نحتفظ بآخر 50 رسالة كحد أقصى في الداتابيز لتخفيف الضغط
-        chats = st.session_state.all_chats.get(user_key, [])[-50:]
+        chats = st.session_state.all_chats.get(user_key, [])[-200:]
         try:
             if FIREBASE_CONNECTED and db:
                 get_workspace_doc().collection('Chats').document(user_key).set({'messages': chats}, merge=True)
@@ -298,12 +295,10 @@ def load_user_chats(specific_user=None):
         try:
             if FIREBASE_CONNECTED and db:
                 if specific_user and specific_user != "المدير العام":
-                    # تحميل محادثة المستخدم الحالي فقط لمنع الانهيار
                     doc = get_workspace_doc().collection('Chats').document(specific_user).get()
                     if doc.exists:
                         chats_dict[specific_user] = doc.to_dict().get('messages', [])
                 else:
-                    # تحميل الكل فقط للمدير العام
                     docs = get_workspace_doc().collection('Chats').stream()
                     for doc in docs:
                         chats_dict[doc.id] = doc.to_dict().get('messages', [])
@@ -393,7 +388,6 @@ def init_state():
     if 'all_chats' not in st.session_state and st.session_state.current_user:
         st.session_state.all_chats = load_user_chats(st.session_state.current_user)
 
-# تحديث دالة الذكاء الاصطناعي لتدعم Claude وتحلل JSON بقوة
 def call_universal_ai(messages, json_mode=False):
     api_key = st.session_state.app_config.get('AI_API_KEY', '').strip()
     if not api_key:
@@ -406,7 +400,6 @@ def call_universal_ai(messages, json_mode=False):
     client = OpenAI(api_key=api_key, base_url=base_url, timeout=30.0)
     kwargs = {"model": model_name, "messages": messages, "temperature": 0.7}
     
-    # دعم OpenRouter و Claude يتطلب الحذر من response_format
     if json_mode:
         if "openrouter" not in str(base_url).lower() and "claude" not in model_name.lower():
             kwargs["response_format"] = {"type": "json_object"}
@@ -415,12 +408,11 @@ def call_universal_ai(messages, json_mode=False):
     raw_text = response.choices[0].message.content
     
     if json_mode:
-        # استخراج JSON من النص بشكل ذكي مهما كان الموديل
         match = re.search(r'\{.*\}', raw_text, re.DOTALL)
         if match:
             return match.group(0)
         else:
-            return raw_text # Fallback
+            return raw_text
     return raw_text
 
 def get_icon(name: str, size: int = 24, color: str = "currentColor", class_name: str = "") -> str:
@@ -714,7 +706,6 @@ def render_workspace_login():
                         st.session_state.workspace_key = ws_key.strip()
                         st.session_state.workspace_id = ws_key.strip()
                         st.session_state.app_config = load_config()
-                        # لا نحمل كل المحادثات هنا، سيتم التحميل حسب المستخدم لاحقاً
                         st.session_state.view = 'login'
                         st.query_params["workspace"] = ws_key.strip()
                         st.query_params["view"] = "login"
@@ -746,7 +737,6 @@ def render_login():
                 st.session_state.view = 'dashboard'
                 st.query_params["view"] = "dashboard"
                 
-                # تحميل محادثة المدير فقط
                 st.session_state.all_chats = load_user_chats(selected_user)
                 if selected_user not in st.session_state.all_chats or not st.session_state.all_chats[selected_user]:
                     initial_msg = {"role": "assistant", "content": "أهلاً بك. الأرقام والبيانات جاهزة للعرض والمناقشة."}
@@ -1064,7 +1054,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v52.0</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v52.1</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         if st.session_state.current_user and st.session_state.current_user != "المدير العام":
@@ -1925,7 +1915,6 @@ def get_ai_context_metrics(_df_s_local, _df_p_local, curr_user_short):
 
     return t_sales_appr, t_sales_draft, t_sales_canc, p_len, my_drafts_str
 
-# دالة التلخيص التراكمي للذاكرة (الوعي الاستراتيجي)
 def compress_and_update_memory(curr_user, chat_history):
     current_cfg = st.session_state.get('app_config', {})
     memories = current_cfg.get('MEMORIES', {})
@@ -2140,30 +2129,44 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date, config_data
 def render_chat_fragment(curr_user, sys_prompt_context, CFG):
     chat_area = st.container(height=650, border=False)
     
-    # 1. ضغط الذاكرة التراكمية إذا زادت المحادثة عن الحد
     current_chat = st.session_state.all_chats.get(curr_user, [])
-    if len(current_chat) > 12 and curr_user != "المدير العام":
+    if len(current_chat) > 50 and curr_user != "المدير العام":
         with st.spinner("جاري أرشفة وتحديث الذاكرة التراكمية للموظف..."):
-            new_mem = compress_and_update_memory(curr_user, current_chat[:-4])
+            new_mem = compress_and_update_memory(curr_user, current_chat[:-10])
             if new_mem:
-                # نحتفظ بالذاكرة كرسالة نظام ونحتفظ بآخر 4 رسائل فقط للسياق
-                st.session_state.all_chats[curr_user] = [{"role": "system", "content": f"تم ضغط المحادثات القديمة بنجاح. الذاكرة الحالية للموظف مسجلة في عقل النظام."}] + current_chat[-4:]
+                st.session_state.all_chats[curr_user] = [{"role": "system", "content": f"تم ضغط المحادثات القديمة بنجاح. الذاكرة الحالية للموظف مسجلة في عقل النظام."}] + current_chat[-10:]
                 save_chat_for_user(curr_user)
                 st.rerun(scope="fragment")
 
     with chat_area:
         for idx, msg in enumerate(st.session_state.all_chats.get(curr_user, [])):
-            if msg["role"] == "system": continue # إخفاء رسائل النظام الداخلية عن المستخدم
+            if msg["role"] == "system": continue 
             with st.chat_message(msg["role"]):
                 st.markdown(f"<span class='msg-{msg['role']}' style='display:none;'></span>", unsafe_allow_html=True)
                 st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(msg['content'])}</div>", unsafe_allow_html=True)
                 
-                st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
-                if st.button("🗑️", key=f"dl_{curr_user}_{idx}", help="حذف الرسالة"):
-                    st.session_state.all_chats[curr_user].pop(idx)
-                    save_chat_for_user(curr_user)
-                    st.rerun(scope="fragment")
-                st.markdown('</div>', unsafe_allow_html=True)
+                # أزرار الإجراءات (زر مسح للجميع، وزر حفظ بطاقة التكليف للمدير فقط)
+                action_cols = st.columns([1, 1, 10] if msg["role"] == "assistant" else [1, 11])
+                
+                with action_cols[0]:
+                    if st.button("🗑️", key=f"dl_{curr_user}_{idx}", help="حذف الرسالة"):
+                        st.session_state.all_chats[curr_user].pop(idx)
+                        save_chat_for_user(curr_user)
+                        st.rerun(scope="fragment")
+                
+                if msg["role"] == "assistant":
+                    with action_cols[1]:
+                        task_date = get_local_now().strftime("%Y-%m-%d %H:%M")
+                        task_html = f"<!DOCTYPE html><html dir='rtl' lang='ar'><head><meta charset='utf-8'><style>body{{background:#050a0d;color:#e2e8f0;font-family:sans-serif;padding:30px;line-height:1.8;}} .card{{border:1px solid #00f2ff;border-radius:12px;padding:20px;background:#0b141a;box-shadow:0 0 15px rgba(0,242,255,0.2);}} h3{{color:#00ff82;margin-top:0;}}</style></head><body><div class='card'><h3>❖ تكليف رسمي من الإدارة</h3><p>{msg['content']}</p><hr style='border-color:#333;margin-top:20px;'><small style='color:#64748b;'>تم الإصدار في: {task_date}</small></div></body></html>"
+                        
+                        st.download_button(
+                            label="💾 حفظ",
+                            data=task_html.encode('utf-8-sig'),
+                            file_name=f"Task_{task_date.replace(' ', '_').replace(':','')}.html",
+                            mime="text/html",
+                            key=f"save_tsk_{curr_user}_{idx}",
+                            help="حفظ التكليف كبطاقة رقمية على جهازك للرجوع إليها"
+                        )
                 
     user_input = st.chat_input("اكتب رسالة...")
 
@@ -2407,7 +2410,6 @@ def render_ai():
 - مواعيد العمل الرسمية للشركة: من {start_am_pm} إلى {end_am_pm}.
 """
     
-    # 2. حقن الذاكرة التراكمية الخاصة بالموظف
     if curr_user != "المدير العام":
         user_memory = get_employee_memory(curr_user)
         if not user_memory:
@@ -2433,7 +2435,6 @@ def render_ai():
                 st.markdown(f"<div class='g-card-title' style='color:var(--c-gold);'>{get_icon('eye', 22)} آخر تقييمات الموظفين التلقائية</div>", unsafe_allow_html=True)
             with cl2:
                 if st.button("🔄 مزامنة الرسائل الجديدة", use_container_width=True):
-                    # المدير يستطيع تحميل كل المحادثات
                     st.session_state.all_chats = load_user_chats("المدير العام") 
                     st.rerun()
 
@@ -2881,7 +2882,6 @@ def render_settings():
             if ai_key.strip():
                 try:
                     with st.spinner("جاري اختبار الاتصال واستخراج JSON..."):
-                        # نجرب الاتصال الآن بطريقة مرنة
                         test_client = OpenAI(api_key=ai_key.strip(), base_url=ai_url.strip() if ai_url.strip() else None)
                         
                         kwargs = {"model": ai_model, "messages": [{"role": "user", "content": "Respond with a valid JSON containing key 'status' and value 'OK'."}], "max_tokens": 50}
@@ -2990,7 +2990,7 @@ def delete_workspace_dialog(ws_id, licenses):
 
 def render_super_admin():
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v52.0</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v52.1</div></div>""", unsafe_allow_html=True)
         st.markdown("---")
         if st.button("🔴 تسجيل الخروج وإغلاق", use_container_width=True, type="primary"):
             st.query_params.clear()
