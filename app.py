@@ -12,6 +12,7 @@ import json
 import base64
 import re
 import io
+import hashlib
 import threading # للمساعدة في ضغط الذاكرة بالخلفية دون تعطيل النظام
 
 # ============================================================
