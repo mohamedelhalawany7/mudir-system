@@ -166,10 +166,10 @@ DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري
 شخصيتك: مصري أصيل، حازم، جاد، لا تسمح بالتقصير.
 قواعد صارمة:
 1. راعِ الوقت الحالي ومواعيد العمل المذكورة.
-2. قبل إسناد أي مهمة: تحقق من (قائمة المهام المفتوحة) — لا تكرر ما هو موجود.
-3. تابع العروض المسودة ولا تتركها معلقة.
+2. قبل إسناد أي مهمة: تحقق من (المهام المحجوزة لباقي الفريق) — لا تكرر إسناد نفس المهمة.
+3. تابع مهام الموظف الحالي المفتوحة ولا تتركها معلقة.
 4. ممنوع الإيموجي نهائياً.
-5. استخدم internal_thoughts للتحليل قبل الرد — هذا يحميك من التسرع.
+5. استخدم internal_thoughts للتحليل قبل الرد — هذا يحميك من التسرع ويجعلك ترى الصورة الكاملة.
 
 ردك يجب أن يكون JSON صالح فقط:
 {
@@ -299,9 +299,10 @@ def release_task(task_key: str):
         except Exception:
             pass
 
-def get_all_open_tasks_compact() -> str:
-    """يرجع ملخص مضغوط لكل المهام المفتوحة"""
-    tasks = {}
+def get_all_open_tasks_compact(curr_user_short: str) -> tuple:
+    """يرجع مهام الموظف الحالي مفصلة، ومهام الآخرين بأسماء فقط كعناوين لتوفير التوكنز"""
+    my_tasks = []
+    others_tasks = []
     try:
         if FIREBASE_CONNECTED and db:
             docs = get_workspace_doc().collection('TaskLocks').where('status', '==', 'open').stream()
@@ -309,23 +310,25 @@ def get_all_open_tasks_compact() -> str:
                 d = doc.to_dict()
                 emp = d.get('emp', '?').split(' - ')[0]
                 task = doc.id.replace('_', ' ')
-                tasks[emp] = tasks.get(emp, [])
-                tasks[emp].append(task)
+                if curr_user_short in emp:
+                    my_tasks.append(task)
+                else:
+                    others_tasks.append(task)
         else:
             raw = st.session_state.app_config.get('TASK_LOCKS', {})
             for k, v in raw.items():
-                tasks[v] = tasks.get(v, [])
-                tasks[v].append(k.replace('_', ' '))
+                task = k.replace('_', ' ')
+                emp = v.split(' - ')[0]
+                if curr_user_short in emp:
+                    my_tasks.append(task)
+                else:
+                    others_tasks.append(task)
     except Exception:
         pass
         
-    if not tasks:
-        return "لا توجد مهام مفتوحة."
-        
-    lines = []
-    for emp, task_list in tasks.items():
-        lines.append(f"{emp}: {', '.join(task_list)}")
-    return "\n".join(lines)
+    my_str = "\n- ".join(my_tasks) if my_tasks else "لا يوجد"
+    others_str = ", ".join(others_tasks) if others_tasks else "لا يوجد"
+    return my_str, others_str
 
 def get_employee_memory(curr_user):
     try:
@@ -544,7 +547,6 @@ def call_universal_ai(messages, json_mode=False):
     model_name = st.session_state.app_config.get('AI_MODEL_NAME', 'gpt-4o')
 
     client = OpenAI(api_key=api_key, base_url=base_url, timeout=120.0)
-    # رفع التوكنز لضمان مساحة كافية للتفكير + الرد + عدم القطع
     kwargs = {"model": model_name, "messages": messages, "temperature": 0.7, "max_tokens": 4000}
     
     if json_mode:
@@ -586,7 +588,8 @@ def build_compressed_context(curr_user: str, cfg: dict, df_s, df_p, work_start: 
             ]
             my_drafts = " | ".join(items)
         
-    open_tasks = get_all_open_tasks_compact()
+    # الحصول على مهام الموظف الحالي مفصلة، ومهام الآخرين مختصرة
+    my_open_tasks, other_taken_tasks = get_all_open_tasks_compact(curr_user_short)
         
     memory = get_employee_memory(curr_user)
     if len(memory) > 300:
@@ -605,8 +608,10 @@ def build_compressed_context(curr_user: str, cfg: dict, df_s, df_p, work_start: 
 مبيعات معتمدة:{appr:,.0f}ج | مسودة:{draft:,.0f}ج | عملاء:{len(df_p) if df_p is not None else 0}
 =عروض {curr_user_short} المعلقة=
 {my_drafts}
-=مهام الفريق المفتوحة (لا تكرر ما فيها)=
-{open_tasks}
+=مهام {curr_user_short} المفتوحة=
+{my_open_tasks}
+=مهام محجوزة لباقي الفريق (ممنوع تكرار إسنادها لك)=
+{other_taken_tasks}
 =ذاكرة {curr_user_short}=
 {memory if memory else 'لا يوجد'}
 =KPIs=
@@ -614,7 +619,7 @@ def build_compressed_context(curr_user: str, cfg: dict, df_s, df_p, work_start: 
     return context
 
 def call_universal_ai_optimized(messages, json_mode=False):
-    """نسخة محسنة بـ max_tokens أقل لتوفير الاستهلاك"""
+    """نسخة محسنة بـ max_tokens 2500 لزيادة المساحة العقلية للمدير"""
     api_key = st.session_state.app_config.get('AI_API_KEY', '').strip()
     if not api_key:
         raise Exception("مفتاح API غير متوفر.")
@@ -627,7 +632,7 @@ def call_universal_ai_optimized(messages, json_mode=False):
         "model": model_name,
         "messages": messages,
         "temperature": 0.7,
-        "max_tokens": 1500
+        "max_tokens": 2500 # تم رفعها لـ 2500 حسب طلبك لزيادة حرية التفكير
     }
         
     if json_mode:
@@ -769,7 +774,8 @@ def style_dataframe(df):
     except Exception as e:
         return df_raw
 
-@st.cache_data(ttl=600, show_spinner=False)
+# التعديل هنا: تعديل وقت الاحتفاظ بالذاكرة إلى ساعة كاملة (3600 ثانية) لسحب الاودو مرة كل ساعة
+@st.cache_data(ttl=3600, show_spinner=False)
 def fetch_master_data(url, db, user, pswd):
     try:
         if not all([url, db, user, pswd]): raise ValueError("بيانات تسجيل الدخول غير مكتملة.")
