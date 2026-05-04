@@ -399,27 +399,28 @@ def call_universal_ai(messages, json_mode=False):
     if not base_url: base_url = None
     model_name = st.session_state.app_config.get('AI_MODEL_NAME', 'gpt-4o')
 
-    # إعطاء مساحة أكبر للتفكير (120 ثانية)
     client = OpenAI(api_key=api_key, base_url=base_url, timeout=120.0)
-    # تحديد max_tokens برقم كبير جداً لضمان عدم قطع الإجابات الطويلة
     kwargs = {"model": model_name, "messages": messages, "temperature": 0.7, "max_tokens": 4000}
     
     if json_mode:
-        if "openrouter" not in str(base_url).lower() and "claude" not in model_name.lower():
+        # استثناء جيميناي وكلود من الإجبار الداخلي لمنع رسائل الخطأ 400
+        if not any(x in str(base_url).lower() or x in model_name.lower() for x in ["openrouter", "claude", "gemini"]):
             kwargs["response_format"] = {"type": "json_object"}
         
     response = client.chat.completions.create(**kwargs)
     raw_text = response.choices[0].message.content
     
     if json_mode:
-        # التنظيف الذكي للنص
         clean_text = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL).strip()
-        clean_text = clean_text.replace('```json', '').replace('```', '').strip()
-        match = re.search(r'\{.*\}', clean_text, re.DOTALL)
-        if match:
-            return match.group(0)
+        
+        # استخراج JSON الأقوى: البحث عن أول قوس وآخر قوس
+        start_idx = clean_text.find('{')
+        end_idx = clean_text.rfind('}')
+        
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            return clean_text[start_idx:end_idx+1]
         else:
-            return clean_text
+            return raw_text
     return raw_text
 
 def get_icon(name: str, size: int = 24, color: str = "currentColor", class_name: str = "") -> str:
@@ -963,12 +964,14 @@ html, body, [class*="css"] {
 
 .chat-bubble { 
     padding: 10px 14px !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Cairo", Helvetica, Arial, sans-serif !important; 
-    font-size: 14.2px !important; line-height: 1.6 !important; word-wrap: break-word !important; white-space: pre-wrap !important; 
+    font-size: 14.5px !important; line-height: 1.6 !important; word-wrap: break-word !important; white-space: pre-wrap !important; 
     text-align: right !important; direction: rtl !important; width: fit-content !important; max-width: 75% !important; 
     box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important; margin-bottom: 2px !important; 
 }
 .chat-bubble [data-testid="stMarkdownContainer"] { width: 100% !important; }
-.chat-bubble p { margin: 0 0 6px 0 !important; padding: 0 !important; color: #e9edef !important; font-size: 14.2px !important; line-height: 1.6 !important; display: block !important;}
+.chat-bubble p { margin: 0 0 8px 0 !important; padding: 0 !important; color: #e9edef !important; font-size: 14.5px !important; line-height: 1.6 !important; display: block !important;}
+.chat-bubble p:last-child { margin-bottom: 0 !important; }
+.chat-bubble p:empty { display: none !important; margin: 0 !important; padding: 0 !important; }
 .chat-bubble h1, .chat-bubble h2, .chat-bubble h3, .chat-bubble h4 { margin-top: 5px !important; margin-bottom: 5px !important; color: #fff !important; font-size: 1.1rem !important;}
 
 .chat-bubble ul { list-style-type: disc !important; padding-right: 25px !important; margin: 8px 0 !important; direction: rtl !important;}
@@ -977,7 +980,7 @@ html, body, [class*="css"] {
     display: list-item !important; 
     text-align: right !important; 
     margin-bottom: 5px !important; 
-    font-size: 14.2px !important; 
+    font-size: 14.5px !important; 
     line-height: 1.6 !important; 
     list-style-position: outside !important;
 }
@@ -1061,7 +1064,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v52.1</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v52.2</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         if st.session_state.current_user and st.session_state.current_user != "المدير العام":
@@ -1952,7 +1955,6 @@ def compress_and_update_memory(curr_user, chat_history):
     """
     try:
         res = call_universal_ai([{"role": "user", "content": prompt}], json_mode=True)
-        # استخدام strict=False لتفادي انهيار JSON
         parsed = json.loads(res, strict=False)
         new_memory = parsed.get("new_memory", "")
         
@@ -2151,7 +2153,11 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
             if msg["role"] == "system": continue 
             with st.chat_message(msg["role"]):
                 st.markdown(f"<span class='msg-{msg['role']}' style='display:none;'></span>", unsafe_allow_html=True)
-                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(msg['content'])}</div>", unsafe_allow_html=True)
+                
+                # --- تنظيف النص من الفراغات الكبيرة بطريقة آمنة ---
+                clean_msg_content = str(msg['content']).strip()
+                clean_msg_content = re.sub(r'\n\s*\n+', '\n\n', clean_msg_content)
+                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(clean_msg_content)}</div>", unsafe_allow_html=True)
                 
                 # أزرار الإجراءات (زر مسح للجميع، وزر حفظ بطاقة التكليف للمدير فقط)
                 action_cols = st.columns([1, 1, 10] if msg["role"] == "assistant" else [1, 11])
@@ -2164,8 +2170,37 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 
                 if msg["role"] == "assistant":
                     with action_cols[1]:
+                        # تحويل الماركداون الأساسي إلى HTML بشكل مبسط ليكون التصميم مطابقاً للشات
                         task_date = get_local_now().strftime("%Y-%m-%d %H:%M")
-                        task_html = f"<!DOCTYPE html><html dir='rtl' lang='ar'><head><meta charset='utf-8'><style>body{{background:#050a0d;color:#e2e8f0;font-family:sans-serif;padding:30px;line-height:1.8;}} .card{{border:1px solid #00f2ff;border-radius:12px;padding:20px;background:#0b141a;box-shadow:0 0 15px rgba(0,242,255,0.2);}} h3{{color:#00ff82;margin-top:0;}}</style></head><body><div class='card'><h3>❖ تكليف رسمي من الإدارة</h3><p>{msg['content']}</p><hr style='border-color:#333;margin-top:20px;'><small style='color:#64748b;'>تم الإصدار في: {task_date}</small></div></body></html>"
+                        
+                        html_content = clean_msg_content.replace('\n\n', '</p><p>').replace('\n', '<br>')
+                        html_content = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', html_content)
+                        html_content = re.sub(r'### (.*?)<br>', r'<h3>\1</h3>', html_content)
+                        html_content = re.sub(r'- (.*?)<br>', r'<li>\1</li>', html_content)
+
+                        task_html = f"""
+                        <!DOCTYPE html>
+                        <html dir='rtl' lang='ar'>
+                        <head>
+                            <meta charset='utf-8'>
+                            <style>
+                                @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap');
+                                body {{ background-color: #0b141a; color: #e9edef; font-family: 'Cairo', sans-serif; padding: 40px; display: flex; justify-content: center; }}
+                                .chat-bubble {{ background-color: #202c33; padding: 25px; border-radius: 12px; width: 100%; max-width: 800px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border-top: 4px solid #00f2ff; line-height: 1.7; font-size: 16px; }}
+                                .chat-bubble h1, .chat-bubble h2, .chat-bubble h3 {{ color: #00ff82; margin-top: 0; }}
+                                .chat-bubble strong {{ color: #00ff82; }}
+                                .header-info {{ font-size: 13px; color: #64748b; margin-top: 20px; border-top: 1px dashed #334155; padding-top: 10px; text-align: left; }}
+                            </style>
+                        </head>
+                        <body>
+                            <div class='chat-bubble'>
+                                <h3 style="color:#00f2ff; margin-bottom: 20px;">❖ تكليف رسمي من الإدارة</h3>
+                                <p>{html_content}</p>
+                                <div class='header-info'>تاريخ الإصدار: {task_date}</div>
+                            </div>
+                        </body>
+                        </html>
+                        """
                         
                         st.download_button(
                             label="💾 حفظ",
@@ -2218,7 +2253,9 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
         with chat_area:
             with st.chat_message("user"):
                 st.markdown("<span class='msg-user' style='display:none;'></span>", unsafe_allow_html=True)
-                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(user_input)}</div>", unsafe_allow_html=True)
+                clean_user_input = str(user_input).strip()
+                clean_user_input = re.sub(r'\n\s*\n+', '\n\n', clean_user_input)
+                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(clean_user_input)}</div>", unsafe_allow_html=True)
             
             with st.spinner("يكتب الأن..."):
                 api_messages = [{"role": "system", "content": sys_prompt_context}]
@@ -2233,7 +2270,6 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                         if not response_text:
                             raise ValueError("Empty response")
                             
-                        # استخدام strict=False لحماية النظام من الانهيار عند الردود الطويلة المفصلة
                         parsed_data = json.loads(response_text, strict=False)
                         
                         if isinstance(parsed_data, dict):
@@ -2907,22 +2943,22 @@ def render_settings():
                     with st.spinner("جاري اختبار الاتصال واستخراج JSON..."):
                         test_client = OpenAI(api_key=ai_key.strip(), base_url=ai_url.strip() if ai_url.strip() else None)
                         
-                        # إعطاء أمر صارم جداً للنموذج مع رفع التوكنز إلى 150 لتجنب قطع الرد
                         strict_prompt = "You are a bot. Respond ONLY with a valid JSON object containing exactly one key 'status' with the value 'OK'. Do NOT add any extra text, markdown formatting, or <think> tags."
                         kwargs = {"model": ai_model, "messages": [{"role": "user", "content": strict_prompt}], "max_tokens": 150}
                         
-                        if "openrouter" not in str(ai_url).lower() and "claude" not in ai_model.lower():
+                        # استثناء Gemini وغيرها لعدم التسبب في خطأ برمجي 400
+                        if not any(x in str(ai_url).lower() or x in ai_model.lower() for x in ["openrouter", "claude", "gemini"]):
                             kwargs["response_format"] = {"type": "json_object"}
                             
                         resp = test_client.chat.completions.create(**kwargs)
                         raw_text = resp.choices[0].message.content
                         
-                        # تنظيف النص المستلم في فحص الإعدادات كما نفعل في الشات الأساسي
                         clean_text = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL).strip()
-                        clean_text = clean_text.replace('```json', '').replace('```', '').strip()
                         
-                        match = re.search(r'\{.*\}', clean_text, re.DOTALL)
-                        if match:
+                        start_idx = clean_text.find('{')
+                        end_idx = clean_text.rfind('}')
+                        
+                        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
                             update_system_config({
                                 'AI_PROVIDER_URL': ai_url, 'AI_MODEL_NAME': ai_model, 
                                 'AI_API_KEY': ai_key, 'AI_SYSTEM_PROMPT': ai_system_prompt
@@ -3020,7 +3056,7 @@ def delete_workspace_dialog(ws_id, licenses):
 
 def render_super_admin():
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v52.1</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v52.2</div></div>""", unsafe_allow_html=True)
         st.markdown("---")
         if st.button("🔴 تسجيل الخروج وإغلاق", use_container_width=True, type="primary"):
             st.query_params.clear()
@@ -3151,66 +3187,4 @@ def render_super_admin():
             with st.container():
                 rc1, rc2, rc3, rc4, rc5, rc6 = st.columns([1.5, 1.5, 1.2, 1.5, 1.5, 2.5])
                 rc1.markdown(f"**الشركة:** `{ws_id}`")
-                rc2.markdown(f"**الحالة:** {status_html}", unsafe_allow_html=True)
-                rc3.markdown(f"**مستخدمين:** {max_d}")
-                rc4.markdown(f"**الانتهاء:** {ws_info['expiry_date']}")
-                
-                with rc5:
-                    if st.button("تغيير PIN", key=f"btn_pin_{ws_id}", use_container_width=True):
-                        change_workspace_pin_dialog(ws_id)
-                        
-                with rc6:
-                    c_act1, c_act2 = st.columns([2, 1])
-                    with c_act1:
-                        action_opts = ["اختر إجراء...", "تجديد +شهر", "تجديد +سنة", "تعديل المستخدمين", "إيقاف (تعليق)", "تفعيل", "حذف المساحة"]
-                        action = st.selectbox("الإجراء", action_opts, key=f"act_{ws_id}", label_visibility="collapsed")
-                    with c_act2:
-                        if st.button("تنفيذ", key=f"exec_{ws_id}", use_container_width=True):
-                            if action == "تجديد +شهر":
-                                new_exp = (exp_date + timedelta(days=30)).strftime("%Y-%m-%d")
-                                licenses['workspaces'][ws_id]['expiry_date'] = new_exp
-                                licenses['workspaces'][ws_id]['status'] = 'active'
-                                save_licenses(licenses)
-                                st.rerun()
-                            elif action == "تجديد +سنة":
-                                new_exp = (exp_date + timedelta(days=365)).strftime("%Y-%m-%d")
-                                licenses['workspaces'][ws_id]['expiry_date'] = new_exp
-                                licenses['workspaces'][ws_id]['status'] = 'active'
-                                save_licenses(licenses)
-                                st.rerun()
-                            elif action == "تعديل المستخدمين":
-                                edit_workspace_devices_dialog(ws_id, licenses)
-                            elif action == "إيقاف (تعليق)":
-                                licenses['workspaces'][ws_id]['status'] = 'suspended'
-                                save_licenses(licenses)
-                                st.rerun()
-                            elif action == "تفعيل":
-                                licenses['workspaces'][ws_id]['status'] = 'active'
-                                save_licenses(licenses)
-                                st.rerun()
-                            elif action == "حذف المساحة":
-                                delete_workspace_dialog(ws_id, licenses)
-                st.markdown("<hr style='border-color:rgba(255,255,255,0.05); margin:10px 0;'>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# ============================================================
-# [MODULE 8: APP ROUTER] 
-# ============================================================
-view = st.session_state.get('view', 'login')
-curr_user = st.session_state.get('current_user')
-
-if view == "workspace_login": 
-    render_workspace_login()
-elif view == "super_admin": 
-    render_super_admin()
-elif not curr_user or view == "login": 
-    render_login()
-else:
-    if view == "dashboard": render_dashboard()
-    elif view == "departments": render_departments()
-    elif view == "forecast": render_forecast()
-    elif view == "ai": render_ai()
-    elif view == "fusion": render_fusion()
-    elif view == "territories": render_territories()
-    elif view == "settings": render_settings()
-    else: render_dashboard()
+                rc2.markdown(f"**الحالة:** {status_html}", unsafe_allow
