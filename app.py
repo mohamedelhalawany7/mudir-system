@@ -2212,7 +2212,7 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 st.markdown("<span class='msg-user' style='display:none;'></span>", unsafe_allow_html=True)
                 st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(user_input)}</div>", unsafe_allow_html=True)
             
-            with st.spinner("يكتب الأن..."):
+            with st.spinner("المدير بيفكر ويراجع سجلات الموظف..."):
                 api_messages = [{"role": "system", "content": sys_prompt_context}]
                 api_messages.extend([m for m in st.session_state.all_chats[curr_user] if m['role'] != 'system'][-15:])
                 
@@ -2858,20 +2858,10 @@ def render_settings():
         st.markdown("### شخصية وتوجيهات المدير (System Prompt)")
         ai_system_prompt = st.text_area("تعليمات الإدارة", value=CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT), height=200)
 
-        st.info("""💡 **تنبيهات إعداد مزودي الذكاء الاصطناعي:**
-        - **ChatGPT (OpenAI):** استخدم الرابط الافتراضي (`https://api.openai.com/v1`).
-        - **Claude & النماذج المتعددة:** لتفادي أخطاء الـ JSON، نوصي بشدة باستخدام رابط OpenRouter (`https://openrouter.ai/api/v1`).
-        - **Gemini (Google):** استخدم رابط التوافق مع OpenAI المخصص (`https://generativelanguage.googleapis.com/v1beta/openai/`).
-        - **Grok (X.ai):** استخدم الرابط الرسمي (`https://api.x.ai/v1`) أو قم بربطه عبر OpenRouter.
-        """)
+        st.info("💡 ملاحظة: لاستخدام نماذج Claude بنجاح وتفادي أخطاء البروتوكولات، نوصي بشدة باستخدام رابط OpenRouter (https://openrouter.ai/api/v1) حيث يقوم بتوحيد صيغة الـ JSON تلقائياً.")
 
         saved_url = CFG.get('AI_PROVIDER_URL', '')
-        url_presets = [
-            "https://api.openai.com/v1", 
-            "https://openrouter.ai/api/v1", 
-            "https://generativelanguage.googleapis.com/v1beta/openai/", 
-            "https://api.x.ai/v1"
-        ]
+        url_presets = ["https://openrouter.ai/api/v1", "https://api.openai.com/v1", "https://api.x.ai/v1", "https://generativelanguage.googleapis.com/v1beta/openai/", ""]
         if saved_url not in url_presets: url_presets.insert(0, saved_url)
         url_options = list(dict.fromkeys(url_presets)) + ["مخصص (كتابة يدوية)..."]
         
@@ -2879,12 +2869,7 @@ def render_settings():
         ai_url = st.text_input("أدخل الرابط المخصص:", value=saved_url) if sel_url == "مخصص (كتابة يدوية)..." else sel_url
 
         saved_model = CFG.get('AI_MODEL_NAME', 'gpt-4o')
-        model_presets = [
-            "gpt-4o", "gpt-4o-mini", 
-            "anthropic/claude-3.5-sonnet", "anthropic/claude-3-opus",
-            "gemini-2.5-flash", "gemini-2.5-pro", "google/gemini-2.5-flash",
-            "grok-beta", "grok-2-1212", "x-ai/grok-beta"
-        ]
+        model_presets = ["gpt-4o", "gpt-4o-mini", "openai/gpt-4o-mini", "google/gemini-2.5-flash", "gemini-2.5-flash", "anthropic/claude-3-5-sonnet", "grok-beta"]
         if saved_model not in model_presets: model_presets.insert(0, saved_model)
         model_options = list(dict.fromkeys(model_presets)) + ["مخصص (كتابة يدوية)..."]
         
