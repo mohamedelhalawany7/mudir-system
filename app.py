@@ -571,7 +571,7 @@ def fetch_master_data(url, db, user, pswd):
                     target_fields.append(f)
 
         s_raw = models.execute_kw(db, uid, pswd, 'sale.order', 'search_read', [[]], {'fields': target_fields, 'limit': 500})
-        p_raw = models.execute_kw(db, uid, pswd, 'res.partner', 'search_read', [[]], {'fields': ['name','city','industry_id','total_invoiced','email','phone'], 'limit': 200})
+        p_raw = models.execute_kw(db, uid, pswd, 'res.partner', 'search_read', [[]], {'fields': ['name','city','industry_id','total_invoiced','email','phone'], 'limit': 500})
         i_raw = models.execute_kw(db, uid, pswd, 'product.product', 'search_read', [[('sale_ok','=',True)]], {'fields': ['name','lst_price','qty_available','default_code'], 'limit': 200})
         po_raw = models.execute_kw(db, uid, pswd, 'purchase.order', 'search_read', [[]], {'fields': ['name','partner_id','amount_total','date_order','state'], 'limit': 500})
         pol_raw = models.execute_kw(db, uid, pswd, 'purchase.order.line', 'search_read', [[]], {'fields': ['product_id','product_qty','price_subtotal'], 'limit': 500})
