@@ -228,6 +228,16 @@ def update_system_config(updates_dict):
         st.session_state.app_config.update(updates_dict)
     save_config(st.session_state.get('app_config', {}))
 
+def get_employee_memory(curr_user):
+    try:
+        if FIREBASE_CONNECTED and db:
+            doc = get_workspace_doc().get()
+            if doc.exists:
+                return doc.to_dict().get('MEMORIES', {}).get(curr_user, "")
+    except:
+        pass
+    return st.session_state.app_config.get('MEMORIES', {}).get(curr_user, "")
+
 # دالة مخصصة لإضافة المهام بأمان (تمنع التعارض)
 def add_task_safely(task_string):
     if FIREBASE_CONNECTED and db:
@@ -1899,8 +1909,7 @@ def render_forecast():
                 st.error("الخادم غير متاح حالياً لاستخراج الرؤية المستقبلية.")
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def get_ai_context_metrics(data_ts, _df_s_local, _df_p_local, curr_user_short):
+def get_ai_context_metrics(_df_s_local, _df_p_local, curr_user_short):
     
     t_sales_appr = _df_s_local[_df_s_local['state'].isin(['sale','done'])]['amount_total'].sum() if not _df_s_local.empty and 'state' in _df_s_local.columns else 0
     t_sales_draft = _df_s_local[_df_s_local['state'].isin(['draft','sent'])]['amount_total'].sum() if not _df_s_local.empty and 'state' in _df_s_local.columns else 0
@@ -1920,7 +1929,9 @@ def get_ai_context_metrics(data_ts, _df_s_local, _df_p_local, curr_user_short):
 def compress_and_update_memory(curr_user, chat_history):
     current_cfg = st.session_state.get('app_config', {})
     memories = current_cfg.get('MEMORIES', {})
-    existing_memory = memories.get(curr_user, "لا توجد ذاكرة سابقة.")
+    existing_memory = get_employee_memory(curr_user)
+    if not existing_memory:
+        existing_memory = "لا توجد ذاكرة سابقة."
     
     chat_str = "\n".join([f"[{m['role']}]: {m['content']}" for m in chat_history])
     
@@ -1931,7 +1942,7 @@ def compress_and_update_memory(curr_user, chat_history):
     
     شروط التلخيص:
     1. اذكر المهام التي تم إنجازها (لتقييم الموظف لاحقاً).
-    2. اذكر المهام المعلقة بالتفصيل (مثل: عرض سعر لشركة كذا يحتاج متابعة).
+    2. اذكر المهام المعلقة بالتفصيل الدقيق، مع إبراز تواريخ وأيام المتابعة المستقبلية (مثال: وعدت شركة كذا بالرد يوم الثلاثاء، يجب المتابعة).
     3. يجب أن يكون التلخيص دقيقاً، مختصراً جداً، وفي نقاط.
     
     الذاكرة القديمة:
@@ -2324,6 +2335,10 @@ def render_ai():
     start_am_pm = f"{work_start if work_start <= 12 else work_start - 12} {'ص' if work_start < 12 else 'م'}"
     end_am_pm = f"{work_end if work_end <= 12 else work_end - 12} {'ص' if work_end < 12 else 'م'}"
     
+    days_ar = ["الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد"]
+    current_day_ar = days_ar[now.weekday()]
+    current_date_full = f"{current_day_ar}، {now.strftime('%Y-%m-%d')}"
+    
     h12 = now.hour % 12 or 12
     am_pm_ar = "صباحاً" if now.hour < 12 else "مساءً"
     current_time_str = f"{h12:02d}:{now.minute:02d} {am_pm_ar}"
@@ -2332,7 +2347,7 @@ def render_ai():
     <div style="background:rgba(0,242,255,0.05); padding:10px 20px; border-radius:12px; border:1px solid rgba(0,242,255,0.2); display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
         <div style="display:flex; align-items:center; gap:10px;">
             {get_icon('clock', 20, '#00f2ff')}
-            <strong style="color:#00f2ff; font-family:'Orbitron', sans-serif; font-size:1.1rem;">{current_time_str}</strong>
+            <strong style="color:#00f2ff; font-family:'Orbitron', sans-serif; font-size:1.1rem;">{current_date_full} - {current_time_str}</strong>
         </div>
         <div style="color:{time_status_color}; font-weight:bold; font-size:0.9rem;">
             ● {time_status_text} ({start_am_pm} - {end_am_pm})
@@ -2369,7 +2384,7 @@ def render_ai():
         )
 
     t_sales_appr, t_sales_draft, t_sales_canc, p_len, my_drafts_str = get_ai_context_metrics(
-        st.session_state.get('data_loaded_timestamp', 0), df_s_master, df_p_master, curr_user_short
+        df_s_master, df_p_master, curr_user_short
     )
 
     base_prompt = CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT)
@@ -2387,13 +2402,16 @@ def render_ai():
 (توجيه للمدير: يجب أن تسأل الموظف عن هذه العروض وتتابع معه سبب عدم إغلاقها حتى الآن).
 
 === نظام الوقت الاستراتيجي ===
+- اليوم والتاريخ: {current_date_full}
 - الساعة الآن: {current_time_str}
 - مواعيد العمل الرسمية للشركة: من {start_am_pm} إلى {end_am_pm}.
 """
     
     # 2. حقن الذاكرة التراكمية الخاصة بالموظف
     if curr_user != "المدير العام":
-        user_memory = CFG.get('MEMORIES', {}).get(curr_user, "لا توجد مهام قديمة مسجلة في الذاكرة التراكمية.")
+        user_memory = get_employee_memory(curr_user)
+        if not user_memory:
+            user_memory = "لا توجد مهام قديمة مسجلة في الذاكرة التراكمية."
         live_context += f"\n=== الذاكرة التراكمية والأوامر السابقة للموظف ({curr_user}) ===\n{user_memory}\n(توجيه للمدير: راجع هذه الذاكرة ولا تنسى أن تتابعه في المهام المكتوبة فيها وتتأكد من إنجازها).\n"
 
         live_context += f"\n=== ملف الموظف الحالي ===\n"
@@ -2838,6 +2856,8 @@ def render_settings():
     with st.form("ai_settings_form"):
         st.markdown("### شخصية وتوجيهات المدير (System Prompt)")
         ai_system_prompt = st.text_area("تعليمات الإدارة", value=CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT), height=200)
+
+        st.info("💡 ملاحظة: لاستخدام نماذج Claude بنجاح وتفادي أخطاء البروتوكولات، نوصي بشدة باستخدام رابط OpenRouter (https://openrouter.ai/api/v1) حيث يقوم بتوحيد صيغة الـ JSON تلقائياً.")
 
         saved_url = CFG.get('AI_PROVIDER_URL', '')
         url_presets = ["https://openrouter.ai/api/v1", "https://api.openai.com/v1", "https://api.x.ai/v1", "https://generativelanguage.googleapis.com/v1beta/openai/", ""]
