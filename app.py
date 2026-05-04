@@ -2239,6 +2239,12 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
     user_input = st.chat_input("اكتب رسالة للمدير...")
 
     if user_input:
+        current_time = time.time()
+        if current_time - st.session_state.get('last_msg_time', 0) < 3:
+            st.warning("رجاءً انتظر 3 ثوانٍ قبل إرسال رسالة جديدة لتجنب الضغط على النظام.")
+            st.stop()
+        st.session_state.last_msg_time = current_time
+
         if curr_user not in st.session_state.all_chats:
             st.session_state.all_chats[curr_user] = []
             
@@ -2259,9 +2265,21 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 recent_history = st.session_state.all_chats[curr_user][-6:]
                 api_messages = [{"role": "system", "content": sys_prompt_context}]
                 
-                # إدراج قاعدة المعرفة بذكاء (لتوفير التوكنز)
+                fs_updates = {} # إضافة ثانية: تجميع التحديثات في عملية واحدة (Batch Writes)
+                
+                # إضافة أولى: إغلاق المهام التلقائي
+                auto_close_words = ['خلصت', 'أنهيت', 'تم', 'اتعمل']
+                if any(word in user_input for word in auto_close_words) and "المدير العام" not in curr_user:
+                    emp_short = curr_user.split(' - ')[0]
+                    global_tasks = st.session_state.app_config.get('GLOBAL_TASKS', {})
+                    for tid, tinfo in global_tasks.items():
+                        if tinfo.get('status') == 'open' and tinfo.get('emp') == emp_short:
+                            tinfo['status'] = 'closed'
+                            fs_updates[f'GLOBAL_TASKS.{tid}.status'] = 'closed'
+                
+                # إضافة ثالثة: الإرسال الشرطي لقاعدة المعرفة
                 knowledge_base = CFG.get('KNOWLEDGE_BASE', '')
-                tech_keywords = ['صيانة', 'عطل', 'مشكلة', 'لوائح', 'دليل', 'كيف', 'طريقة', 'خطوات', 'قانون', 'إجراء', 'كتالوج']
+                tech_keywords = ['صيانة', 'مواصفات', 'إجراء', 'خطوات', 'تعليمات']
                 if knowledge_base and any(kw in user_input for kw in tech_keywords):
                     api_messages[0]['content'] += f"\n=== لوائح وقوانين الشركة ===\n{knowledge_base[:3000]}\n"
                     
@@ -2292,10 +2310,7 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                         if "القيمة:" in p: amt = p.replace("القيمة:", "").strip()
                     
                     notif_msg = f"✅ تم تنفيذ أمر تلقائي من المدير: إنشاء عرض سعر لـ ({client_name}) بقيمة ({amt})."
-                    if FIREBASE_CONNECTED and db:
-                        try:
-                            get_workspace_doc().update({f'NOTIFICATIONS.{curr_user}': firestore.ArrayUnion([notif_msg])})
-                        except Exception: pass
+                    fs_updates[f'NOTIFICATIONS.{curr_user}'] = firestore.ArrayUnion([notif_msg])
                     st.session_state.app_config.setdefault('NOTIFICATIONS', {}).setdefault(curr_user, []).append(notif_msg)
 
                 # 2. TASK
@@ -2307,28 +2322,20 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                     new_task = {'emp': emp_short, 'task': assigned_task, 'status': 'open', 'date': now_str}
                     notif_msg = f"📌 تكليف جديد من المدير: {assigned_task}"
                     
-                    if FIREBASE_CONNECTED and db:
-                        try:
-                            get_workspace_doc().update({
-                                f'GLOBAL_TASKS.{task_id}': new_task,
-                                f'NOTIFICATIONS.{curr_user}': firestore.ArrayUnion([notif_msg])
-                            })
-                        except Exception: pass
-                        
+                    fs_updates[f'GLOBAL_TASKS.{task_id}'] = new_task
+                    fs_updates[f'NOTIFICATIONS.{curr_user}'] = firestore.ArrayUnion([notif_msg])
+                    
                     st.session_state.app_config.setdefault('GLOBAL_TASKS', {})[task_id] = new_task
                     st.session_state.app_config.setdefault('NOTIFICATIONS', {}).setdefault(curr_user, []).append(notif_msg)
 
-                # 3. CLOSE_TASK
+                # 3. CLOSE_TASK (من المدير صراحةً)
                 if close_task_match and "المدير العام" not in curr_user:
                     emp_short = curr_user.split(' - ')[0]
                     global_tasks = st.session_state.app_config.get('GLOBAL_TASKS', {})
                     for tid, tinfo in global_tasks.items():
                         if tinfo.get('status') == 'open' and tinfo.get('emp') == emp_short:
                             tinfo['status'] = 'closed'
-                            if FIREBASE_CONNECTED and db:
-                                try:
-                                    get_workspace_doc().update({f'GLOBAL_TASKS.{tid}.status': 'closed'})
-                                except Exception: pass
+                            fs_updates[f'GLOBAL_TASKS.{tid}.status'] = 'closed'
                             break
 
                 # 4. EVAL
@@ -2336,20 +2343,28 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                     eval_data = eval_match.group(1).strip()
                     now_str = get_local_now().strftime("%Y-%m-%d %H:%M")
                     eval_obj = {'eval': eval_data, 'date': now_str}
-                    if FIREBASE_CONNECTED and db:
-                        try:
-                            get_workspace_doc().update({
-                                f'EVALUATIONS.{curr_user}': eval_obj,
-                                f'EVAL_HISTORY.{curr_user}': firestore.ArrayUnion([eval_obj])
-                            })
-                        except Exception: pass
+                    
+                    fs_updates[f'EVALUATIONS.{curr_user}'] = eval_obj
+                    fs_updates[f'EVAL_HISTORY.{curr_user}'] = firestore.ArrayUnion([eval_obj])
+                    
                     st.session_state.app_config.setdefault('EVALUATIONS', {})[curr_user] = eval_obj
                     st.session_state.app_config.setdefault('EVAL_HISTORY', {}).setdefault(curr_user, []).append(eval_obj)
 
                 # 5. MEMO
                 if memo_match and "المدير العام" not in curr_user:
                     memo_data = memo_match.group(1).strip()
-                    append_employee_memory(curr_user, memo_data)
+                    current_memo = get_employee_memory(curr_user)
+                    updated_memo = f"{current_memo} | {memo_data}" if current_memo else memo_data
+                    if len(updated_memo) > 500:
+                        updated_memo = "..." + updated_memo[-490:]
+                    st.session_state.app_config.setdefault('MEMORIES', {})[curr_user] = updated_memo
+                    fs_updates[f'MEMORIES.{curr_user}'] = updated_memo
+
+                # إضافة ثانية: تنفيذ جميع التحديثات دفعة واحدة (Batch Write)
+                if FIREBASE_CONNECTED and db and fs_updates:
+                    try:
+                        get_workspace_doc().update(fs_updates)
+                    except Exception: pass
 
                 # عرض وإضافة الرد النهائي للشات
                 ai_final_msg = {"role": "assistant", "content": clean_response}
@@ -2449,9 +2464,16 @@ def render_ai():
     # جلب الذاكرة المركزية الخاصة بالموظف
     emp_memo = get_employee_memory(curr_user)
 
-    # جلب جميع المهام المفتوحة لبقية الشركة (حتى لا يتم التكرار)
+    # جلب جميع المهام المفتوحة لبقية الشركة (حتى لا يتم التكرار) وتوفير التوكنز
     global_tasks = CFG.get('GLOBAL_TASKS', {})
-    open_tasks = [f"{t['emp']}: {t['task']}" for t in global_tasks.values() if t.get('status') == 'open'][-30:]
+    emp_short = curr_user.split(" - ")[0]
+    open_tasks = []
+    for t in list(global_tasks.values())[-30:]:
+        if t.get('status') == 'open':
+            if t['emp'] == emp_short or curr_user == "المدير العام":
+                open_tasks.append(f"مهمة لـ {t['emp']}: {t['task']}")
+            else:
+                open_tasks.append(f"مهمة لـ {t['emp']} (محجوزة)")
     open_tasks_str = "\n".join(open_tasks) if open_tasks else "لا يوجد مهام مفتوحة حالياً."
 
     base_prompt = CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT)
@@ -2533,7 +2555,7 @@ def render_ai():
                     with c_arc1:
                         if st.button(f"🗑️ مسح واجهة الشات لـ {sel_emp.split(' - ')[0]}", use_container_width=True):
                             st.session_state.all_chats[sel_emp] = [{"role": "assistant", "content": "تم مسح الأرشيف بواسطة الإدارة العليا. مستعد لتلقي التكليفات الجديدة."}]
-                            save_chat_for_user(sel_emp)
+                            overwrite_chat_for_user(sel_emp, st.session_state.all_chats[sel_emp])
                             st.rerun()
                     with c_arc2:
                         if st.button(f"🔄 استعادة المحادثة بالكامل من السجل السري", use_container_width=True, type="primary"):
@@ -2546,7 +2568,7 @@ def render_ai():
                             
                             if audit_history:
                                 st.session_state.all_chats[sel_emp] = [{"role": m.get("role", "user"), "content": m.get("content", "")} for m in audit_history]
-                                save_chat_for_user(sel_emp)
+                                overwrite_chat_for_user(sel_emp, st.session_state.all_chats[sel_emp])
                                 st.success("تم استعادة المحادثة بالكامل من السجل السري بنجاح!")
                                 time.sleep(1)
                                 st.rerun()
@@ -2565,7 +2587,7 @@ def render_ai():
                                 st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
                                 if st.button("🗑️", key=f"gm_dl_{sel_emp}_{idx}", help="حذف الرسالة"):
                                     st.session_state.all_chats[sel_emp].pop(idx)
-                                    save_chat_for_user(sel_emp)
+                                    overwrite_chat_for_user(sel_emp, st.session_state.all_chats[sel_emp])
                                     st.rerun()
                                 st.markdown('</div>', unsafe_allow_html=True)
             else:
@@ -2576,6 +2598,150 @@ def render_ai():
             
     else:
         render_chat_fragment(curr_user, sys_prompt_context, CFG)
+
+@st.fragment
+def render_chat_fragment(curr_user, sys_prompt_context, CFG):
+    chat_area = st.container(height=650, border=False)
+    with chat_area:
+        for idx, msg in enumerate(st.session_state.all_chats.get(curr_user, [])):
+            with st.chat_message(msg["role"]):
+                st.markdown(f"<span class='msg-{msg['role']}' style='display:none;'></span>", unsafe_allow_html=True)
+                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(msg['content'])}</div>", unsafe_allow_html=True)
+                
+                st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
+                if st.button("🗑️", key=f"dl_{curr_user}_{idx}", help="حذف الرسالة"):
+                    st.session_state.all_chats[curr_user].pop(idx)
+                    overwrite_chat_for_user(curr_user, st.session_state.all_chats[curr_user])
+                    st.rerun(scope="fragment")
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+    user_input = st.chat_input("اكتب رسالة للمدير...")
+
+    if user_input:
+        current_time = time.time()
+        if current_time - st.session_state.get('last_msg_time', 0) < 3:
+            st.warning("رجاءً انتظر 3 ثوانٍ قبل إرسال رسالة جديدة لتجنب الضغط على النظام.")
+            st.stop()
+        st.session_state.last_msg_time = current_time
+
+        if curr_user not in st.session_state.all_chats:
+            st.session_state.all_chats[curr_user] = []
+            
+        user_msg = {"role": "user", "content": user_input}
+        st.session_state.all_chats[curr_user].append(user_msg)
+        
+        user_msg_log = user_msg.copy()
+        user_msg_log['user'] = curr_user
+        log_message(curr_user, user_msg_log)
+        append_chat_message(curr_user, user_msg)
+        
+        with chat_area:
+            with st.chat_message("user"):
+                st.markdown("<span class='msg-user' style='display:none;'></span>", unsafe_allow_html=True)
+                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(user_input)}</div>", unsafe_allow_html=True)
+            
+            with st.spinner("المدير يفكر بحزم..."):
+                recent_history = st.session_state.all_chats[curr_user][-6:]
+                api_messages = [{"role": "system", "content": sys_prompt_context}]
+                
+                fs_updates = {} 
+                fs_array_updates = {} 
+                
+                knowledge_base = CFG.get('KNOWLEDGE_BASE', '')
+                tech_keywords = ['صيانة', 'مواصفات', 'إجراء', 'خطوات', 'تعليمات']
+                if knowledge_base and any(kw in user_input for kw in tech_keywords):
+                    api_messages[0]['content'] += f"\n=== لوائح وقوانين الشركة ===\n{knowledge_base[:3000]}\n"
+                    
+                api_messages.extend(recent_history)
+                
+                try:
+                    raw_ai_text = call_universal_ai(api_messages, json_mode=False)
+                    
+                    task_match = re.search(r'\[TASK:(.*?)\]', raw_ai_text, re.IGNORECASE | re.DOTALL)
+                    close_task_match = re.search(r'\[CLOSE_TASK:(.*?)\]', raw_ai_text, re.IGNORECASE | re.DOTALL)
+                    eval_match = re.search(r'\[EVAL:(.*?)\]', raw_ai_text, re.IGNORECASE | re.DOTALL)
+                    memo_match = re.search(r'\[MEMO:(.*?)\]', raw_ai_text, re.IGNORECASE | re.DOTALL)
+                    action_match = re.search(r'\[ACTION:(.*?)\]', raw_ai_text, re.IGNORECASE | re.DOTALL)
+                    
+                    clean_response = re.sub(r'\[(TASK|CLOSE_TASK|EVAL|MEMO|ACTION):.*?\]', '', raw_ai_text, flags=re.IGNORECASE | re.DOTALL).strip()
+                    if not clean_response: clean_response = "تمام، جاري المتابعة والتنفيذ."
+
+                except Exception as e:
+                    clean_response = "السيستم عليه ضغط كبير دلوقتي. راجعني كمان 5 دقايق."
+                    task_match, close_task_match, eval_match, memo_match, action_match = None, None, None, None, None
+
+                if action_match and "CREATE_SO" in action_match.group(1):
+                    action_data = action_match.group(1).strip()
+                    client_name, amt = "غير محدد", "0"
+                    for p in action_data.split("|"):
+                        if "العميل:" in p: client_name = p.replace("العميل:", "").strip()
+                        if "القيمة:" in p: amt = p.replace("القيمة:", "").strip()
+                    
+                    notif_msg = f"✅ تم تنفيذ أمر تلقائي من المدير: إنشاء عرض سعر لـ ({client_name}) بقيمة ({amt})."
+                    fs_array_updates.setdefault(f'NOTIFICATIONS.{curr_user}', []).append(notif_msg)
+                    st.session_state.app_config.setdefault('NOTIFICATIONS', {}).setdefault(curr_user, []).append(notif_msg)
+
+                if task_match and "المدير العام" not in curr_user:
+                    assigned_task = task_match.group(1).strip()
+                    emp_short = curr_user.split(' - ')[0]
+                    task_id = str(int(time.time() * 1000))
+                    now_str = get_local_now().strftime("%Y-%m-%d")
+                    new_task = {'emp': emp_short, 'task': assigned_task, 'status': 'open', 'date': now_str}
+                    notif_msg = f"📌 تكليف جديد من المدير: {assigned_task}"
+                    
+                    fs_updates[f'GLOBAL_TASKS.{task_id}'] = new_task
+                    fs_array_updates.setdefault(f'NOTIFICATIONS.{curr_user}', []).append(notif_msg)
+                    
+                    st.session_state.app_config.setdefault('GLOBAL_TASKS', {})[task_id] = new_task
+                    st.session_state.app_config.setdefault('NOTIFICATIONS', {}).setdefault(curr_user, []).append(notif_msg)
+
+                if close_task_match and "المدير العام" not in curr_user:
+                    task_to_close = close_task_match.group(1).strip()
+                    emp_short = curr_user.split(' - ')[0]
+                    global_tasks = st.session_state.app_config.get('GLOBAL_TASKS', {})
+                    for tid, tinfo in global_tasks.items():
+                        if tinfo.get('status') == 'open' and tinfo.get('emp') == emp_short and task_to_close in tinfo.get('task', ''):
+                            tinfo['status'] = 'closed'
+                            fs_updates[f'GLOBAL_TASKS.{tid}.status'] = 'closed'
+                            break
+
+                if eval_match and "المدير العام" not in curr_user:
+                    eval_data = eval_match.group(1).strip()
+                    now_str = get_local_now().strftime("%Y-%m-%d %H:%M")
+                    eval_obj = {'eval': eval_data, 'date': now_str}
+                    
+                    fs_updates[f'EVALUATIONS.{curr_user}'] = eval_obj
+                    fs_array_updates.setdefault(f'EVAL_HISTORY.{curr_user}', []).append(eval_obj)
+                    
+                    st.session_state.app_config.setdefault('EVALUATIONS', {})[curr_user] = eval_obj
+                    st.session_state.app_config.setdefault('EVAL_HISTORY', {}).setdefault(curr_user, []).append(eval_obj)
+
+                if memo_match and "المدير العام" not in curr_user:
+                    memo_data = memo_match.group(1).strip()
+                    current_memo = get_employee_memory(curr_user)
+                    updated_memo = f"{current_memo} | {memo_data}" if current_memo else memo_data
+                    if len(updated_memo) > 500:
+                        updated_memo = "..." + updated_memo[-490:]
+                    st.session_state.app_config.setdefault('MEMORIES', {})[curr_user] = updated_memo
+                    fs_updates[f'MEMORIES.{curr_user}'] = updated_memo
+
+                if FIREBASE_CONNECTED and db and (fs_updates or fs_array_updates):
+                    try:
+                        update_payload = fs_updates.copy()
+                        for k, v_list in fs_array_updates.items():
+                            update_payload[k] = firestore.ArrayUnion(v_list)
+                        get_workspace_doc().update(update_payload)
+                    except Exception: pass
+
+                ai_final_msg = {"role": "assistant", "content": clean_response}
+                st.session_state.all_chats[curr_user].append(ai_final_msg)
+                
+                ai_final_msg_log = ai_final_msg.copy()
+                ai_final_msg_log['user'] = curr_user
+                log_message(curr_user, ai_final_msg_log)
+                
+                append_chat_message(curr_user, ai_final_msg)
+                st.rerun(scope="fragment")
 
 @st.dialog("تعديل بيانات الموظف")
 def edit_employee_dialog(emp_index, current_emps, view_options):
