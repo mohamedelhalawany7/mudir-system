@@ -168,8 +168,10 @@ DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري
 2. لو الموظف بيطلب خطة، اديله تكليف محدد واسأله (هتخلص ده في قد إيه؟).
 3. تابعه على المهام القديمة المعلقة ولازم يقفل البيعة أو المهمة. لو اتأخر وبخه بشياكة كمدير.
 4. تجنب استخدام الرموز التعبيرية تماماً.
+5. إذا سألك الموظف عن خطط أو توقعات مستقبلية، أجب بتفصيل واشرح رؤيتك الاستراتيجية بوضوح.
 
-هام جداً: يجب أن يكون ردك دائماً كائن JSON فقط (بدون أي نصوص إضافية أو علامات Markdown) يحتوي حصرياً على:
+هام جداً: يجب أن يكون ردك دائماً كائن JSON صالح (Valid JSON) فقط.
+(تحذير: لا تستخدم أسطر جديدة حقيقية Line Breaks داخل النصوص، استخدم الرمز \\n للنزول لسطر جديد. وتجنب استخدام علامات التنصيص المزدوجة " داخل القيم واستخدم العلامة الفردية ' بدلاً منها).
 {
   "response": "نص الرد الذي ستقوله للموظف بلهجتك المصرية كمدير.",
   "eval": "التقييم من 10 مع تعليق سري. اتركه فارغاً إذا لم تقيم.",
@@ -397,8 +399,10 @@ def call_universal_ai(messages, json_mode=False):
     if not base_url: base_url = None
     model_name = st.session_state.app_config.get('AI_MODEL_NAME', 'gpt-4o')
 
-    client = OpenAI(api_key=api_key, base_url=base_url, timeout=30.0)
-    kwargs = {"model": model_name, "messages": messages, "temperature": 0.7}
+    # إعطاء مساحة أكبر للتفكير (120 ثانية)
+    client = OpenAI(api_key=api_key, base_url=base_url, timeout=120.0)
+    # تحديد max_tokens برقم كبير جداً لضمان عدم قطع الإجابات الطويلة
+    kwargs = {"model": model_name, "messages": messages, "temperature": 0.7, "max_tokens": 4000}
     
     if json_mode:
         if "openrouter" not in str(base_url).lower() and "claude" not in model_name.lower():
@@ -408,11 +412,14 @@ def call_universal_ai(messages, json_mode=False):
     raw_text = response.choices[0].message.content
     
     if json_mode:
-        match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+        # التنظيف الذكي للنص
+        clean_text = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL).strip()
+        clean_text = clean_text.replace('```json', '').replace('```', '').strip()
+        match = re.search(r'\{.*\}', clean_text, re.DOTALL)
         if match:
             return match.group(0)
         else:
-            return raw_text
+            return clean_text
     return raw_text
 
 def get_icon(name: str, size: int = 24, color: str = "currentColor", class_name: str = "") -> str:
@@ -1945,7 +1952,8 @@ def compress_and_update_memory(curr_user, chat_history):
     """
     try:
         res = call_universal_ai([{"role": "user", "content": prompt}], json_mode=True)
-        parsed = json.loads(res)
+        # استخدام strict=False لتفادي انهيار JSON
+        parsed = json.loads(res, strict=False)
         new_memory = parsed.get("new_memory", "")
         
         if new_memory:
@@ -2225,7 +2233,8 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                         if not response_text:
                             raise ValueError("Empty response")
                             
-                        parsed_data = json.loads(response_text)
+                        # استخدام strict=False لحماية النظام من الانهيار عند الردود الطويلة المفصلة
+                        parsed_data = json.loads(response_text, strict=False)
                         
                         if isinstance(parsed_data, dict):
                             ai_data = parsed_data
