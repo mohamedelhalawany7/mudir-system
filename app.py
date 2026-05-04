@@ -2398,6 +2398,228 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 append_chat_message(curr_user, ai_final_msg)
                 st.rerun(scope="fragment")
 
+def render_ai():
+    
+    CFG = st.session_state.app_config
+    curr_user = st.session_state.current_user
+    
+    now = get_local_now()
+    try:
+        work_start = int(CFG.get('WORK_START', 8))
+        work_end = int(CFG.get('WORK_END', 17))
+    except:
+        work_start, work_end = 8, 17
+        
+    is_working_hours = work_start <= now.hour < work_end
+    
+    time_status_color = "#00ff82" if is_working_hours else "#ff2d78"
+    time_status_text = "داخل أوقات العمل" if is_working_hours else "خارج أوقات العمل"
+    
+    start_am_pm = f"{work_start if work_start <= 12 else work_start - 12} {'ص' if work_start < 12 else 'م'}"
+    end_am_pm = f"{work_end if work_end <= 12 else work_end - 12} {'ص' if work_end < 12 else 'م'}"
+    
+    h12 = now.hour % 12 or 12
+    am_pm_ar = "صباحاً" if now.hour < 12 else "مساءً"
+    current_time_str = f"{h12:02d}:{now.minute:02d} {am_pm_ar}"
+    
+    st.markdown(f"""
+    <div style="background:rgba(0,242,255,0.05); padding:10px 20px; border-radius:12px; border:1px solid rgba(0,242,255,0.2); display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+            {get_icon('clock', 20, '#00f2ff')}
+            <strong style="color:#00f2ff; font-family:'Orbitron', sans-serif; font-size:1.1rem;">{current_time_str}</strong>
+        </div>
+        <div style="color:{time_status_color}; font-weight:bold; font-size:0.9rem;">
+            ● {time_status_text} ({start_am_pm} - {end_am_pm})
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+        
+    c_header1, c_header2 = st.columns([3, 1])
+    with c_header1:
+        st.markdown(f"""
+        <div style="background-color: #1f2c34; padding: 12px 20px; border-radius: 12px; display: flex; align-items: center; gap: 15px; margin-bottom: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+            <div style="width: 45px; height: 45px; border-radius: 50%; background-color: rgba(0, 242, 255, 0.1); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: bold; color: var(--c-primary); border: 1px solid rgba(0, 242, 255, 0.3);">
+                {get_icon("command", 24, "var(--c-primary)")}
+            </div>
+            <div>
+                <div style="font-weight: 700; font-size: 1.1rem; color: #fff; margin-bottom: -3px;">المدير العام</div>
+                <div style="font-size: 0.85rem; color: #00ff82;">متصل الآن</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c_header2:
+        curr_user_for_export = st.session_state.current_user
+        chat_content = ""
+        for msg in st.session_state.all_chats.get(curr_user_for_export, []):
+            role_name = "الموظف" if msg['role'] == 'user' else "المدير"
+            chat_content += f"[{role_name}]: {msg['content']}\n{'-'*40}\n"
+        
+        st.download_button(
+            label="📥 حفظ المحادثة",
+            data=chat_content.encode('utf-8-sig'),
+            file_name=f"Chat_{curr_user_for_export}.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
+
+    # -------------------------------------------------------------
+    # بناء السياق المعرفي المضغوط (Odoo Context Compression)
+    # -------------------------------------------------------------
+    df_s = df_s_master
+    df_p = df_p_master
+
+    t_sales_appr = df_s[df_s['state'].isin(['sale','done'])]['amount_total'].sum() if df_s is not None and not df_s.empty and 'state' in df_s.columns else 0
+    t_sales_draft = df_s[df_s['state'].isin(['draft','sent'])]['amount_total'].sum() if df_s is not None and not df_s.empty and 'state' in df_s.columns else 0
+    p_len = len(df_p) if df_p is not None else 0
+    
+    # فلترة العروض المفتوحة التي تخص الموظف الحالي فقط لتوفير التوكنز
+    my_quotes = "لا يوجد مسودات تخصك حالياً."
+    if df_s is not None and not df_s.empty and 'state' in df_s.columns and 'user_id' in df_s.columns:
+        emp_short = curr_user.split(" - ")[0]
+        # البحث عن اسم الموظف داخل خانة المبيعات
+        mask = df_s['user_id'].astype(str).str.contains(emp_short, na=False, case=False)
+        my_drafts = df_s[(df_s['state'].isin(['draft', 'sent'])) & mask].head(3)
+        if not my_drafts.empty:
+            my_quotes = " | ".join([f"عرض ({row.get('name', 'N/A')}) للعميل ({clean_odoo_m2o(row.get('partner_id', ''))}) بقيمة {row.get('amount_total', 0)} ج" for _, row in my_drafts.iterrows()])
+
+    # جلب الذاكرة المركزية الخاصة بالموظف
+    emp_memo = get_employee_memory(curr_user)
+
+    # جلب جميع المهام المفتوحة لبقية الشركة (حتى لا يتم التكرار) وتوفير التوكنز
+    global_tasks = CFG.get('GLOBAL_TASKS', {})
+    emp_short = curr_user.split(" - ")[0]
+    open_tasks = []
+    for t in list(global_tasks.values())[-30:]:
+        if t.get('status') == 'open':
+            if t['emp'] == emp_short or curr_user == "المدير العام":
+                open_tasks.append(f"مهمة لـ {t['emp']}: {t['task']}")
+            else:
+                open_tasks.append(f"مهمة لـ {t['emp']} (محجوزة)")
+    open_tasks_str = "\n".join(open_tasks) if open_tasks else "لا يوجد مهام مفتوحة حالياً."
+
+    base_prompt = CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT)
+    curr_emp_data = next((e for e in CFG.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == curr_user), None)
+    job_desc = curr_emp_data.get('job_desc', 'لا يوجد وصف.') if curr_emp_data else 'أنت تتحدث مع المدير العام.'
+    
+    live_context = f"""
+=== حقائق Odoo (أرقام سريعة) ===
+إجمالي المبيعات المعتمدة بالشركة: {t_sales_appr:,.0f} ج | المسودات العامة: {t_sales_draft:,.0f} ج | إجمالي العملاء: {p_len}
+
+=== بيانات الموظف اللي بيكلمك ({curr_user.split(' - ')[0]}) ===
+وصف وظيفته: {job_desc}
+عروض الأسعار المفتوحة الخاصة به حالياً: {my_quotes}
+ذاكرتك الشخصية عن الموظف ده (لا تنساها): {emp_memo if emp_memo else 'لا توجد ملاحظات سابقة.'}
+
+=== خريطة المهام المفتوحة في الشركة (لا تكرر إسنادها) ===
+{open_tasks_str}
+"""
+
+    sys_prompt_context = base_prompt + "\n" + live_context
+
+    if "المدير العام" in curr_user:
+        gm_tabs = st.tabs(["مراقبة وتقييم الموظفين (سري)", "مكتبي الخاص (توجيهات الإدارة)"])
+        
+        with gm_tabs[0]:
+            cl1, cl2 = st.columns([3, 1])
+            with cl1:
+                st.markdown(f"<div class='g-card-title' style='color:var(--c-gold);'>{get_icon('eye', 22)} آخر تقييمات الموظفين التلقائية</div>", unsafe_allow_html=True)
+            with cl2:
+                if st.button("🔄 مزامنة الرسائل الجديدة", use_container_width=True):
+                    st.session_state.all_chats = load_user_chats()
+                    st.rerun()
+
+            evals = CFG.get('EVALUATIONS', {})
+            if not evals:
+                st.info("لا توجد تقييمات مسجلة بعد. سيقوم النظام بتسجيلها تلقائياً عند حديث الموظفين معه.")
+            else:
+                for emp_name, emp_data in evals.items():
+                    st.markdown(f"""<div style="background:rgba(255,255,255,0.02); padding:15px; border-radius:8px; border:1px solid rgba(255,255,255,0.05); margin-bottom:10px;">
+                        <div style="color:var(--c-primary); font-weight:bold; font-size:1.1rem; margin-bottom:5px;">{emp_name}</div>
+                        <div style="font-size:0.85rem; color:var(--c-dim); margin-bottom:10px;">تاريخ آخر تقييم: {emp_data.get('date', '')}</div>
+                        <div style="color:#e2e8f0; font-size:0.95rem; direction:rtl; text-align:right;">{emp_data.get('eval', '')}</div>
+                    </div>""", unsafe_allow_html=True)
+            
+            st.markdown("<hr style='border-color:rgba(255,255,255,0.1); margin: 30px 0;'>", unsafe_allow_html=True)
+            
+            # قسم عرض المهام والذكريات الشاملة للمدير
+            st.markdown(f"<div class='g-card-title' style='color:#00ff82;'>{get_icon('layers', 22)} لوحة تحكم المهام وذاكرة الموظفين</div>", unsafe_allow_html=True)
+            
+            memories = CFG.get('MEMORIES', {})
+            if memories:
+                st.markdown("**ملاحظاتك المسجلة عن الموظفين:**")
+                for m_emp, m_text in memories.items():
+                    st.markdown(f"- **{m_emp}:** {m_text}")
+                    
+            st.markdown("<hr style='border-color:rgba(255,255,255,0.1); margin: 30px 0;'>", unsafe_allow_html=True)
+            st.markdown(f"<div class='g-card-title' style='color:#00f2ff;'>{get_icon('folder', 22)} تقرير أداء وتقييم الموظف الذكي (للطباعة)</div>", unsafe_allow_html=True)
+            
+            emp_list = [u for u in st.session_state.all_chats.keys() if "المدير العام" not in u]
+            if emp_list:
+                c_r1, c_r2, c_r3, c_r4 = st.columns([2, 1.5, 1.5, 1.5])
+                with c_r1:
+                    sel_rep_emp = st.selectbox("اختر الموظف للتقرير:", emp_list, key="sel_rep_emp", label_visibility="collapsed")
+                with c_r2:
+                    start_d = st.date_input("من تاريخ:", value=get_local_now().date() - timedelta(days=30), key="start_d")
+                with c_r3:
+                    end_d = st.date_input("إلى تاريخ:", value=get_local_now().date(), key="end_d")
+                with c_r4:
+                    if st.button("📄 استخراج التقرير", type="primary", use_container_width=True):
+                        show_employee_report_dialog(sel_rep_emp, start_d, end_d)
+            
+            st.markdown("<hr style='border-color:rgba(255,255,255,0.1); margin: 30px 0;'>", unsafe_allow_html=True)
+            st.markdown(f"<div class='g-card-title' style='color:var(--c-accent);'>{get_icon('search', 22)} أرشيف محادثات الموظفين (إدارة كاملة)</div>", unsafe_allow_html=True)
+            
+            if emp_list:
+                sel_emp = st.selectbox("اختر الموظف لمراجعة محادثته الحية:", emp_list, label_visibility="collapsed")
+                if sel_emp:
+                    c_arc1, c_arc2 = st.columns(2)
+                    with c_arc1:
+                        if st.button(f"🗑️ مسح واجهة الشات لـ {sel_emp.split(' - ')[0]}", use_container_width=True):
+                            st.session_state.all_chats[sel_emp] = [{"role": "assistant", "content": "تم مسح الأرشيف بواسطة الإدارة العليا. مستعد لتلقي التكليفات الجديدة."}]
+                            overwrite_chat_for_user(sel_emp, st.session_state.all_chats[sel_emp])
+                            st.rerun()
+                    with c_arc2:
+                        if st.button(f"🔄 استعادة المحادثة بالكامل من السجل السري", use_container_width=True, type="primary"):
+                            audit_history = []
+                            try:
+                                docs = get_workspace_doc().collection('Logs').where('user', '==', sel_emp).stream()
+                                for doc in docs:
+                                    audit_history.append(doc.to_dict())
+                            except: pass
+                            
+                            if audit_history:
+                                st.session_state.all_chats[sel_emp] = [{"role": m.get("role", "user"), "content": m.get("content", "")} for m in audit_history]
+                                overwrite_chat_for_user(sel_emp, st.session_state.all_chats[sel_emp])
+                                st.success("تم استعادة المحادثة بالكامل من السجل السري بنجاح!")
+                                time.sleep(1)
+                                st.rerun()
+                            else:
+                                st.warning("لا يوجد سجل سري مسجل لهذا الموظف بعد.")
+                    
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    show_emp_chat = st.toggle(f"👁️ إظهار رسائل ومحادثة ({sel_emp.split(' - ')[0]})", value=False, help="اضغط هنا لعرض تفاصيل المحادثة كاملة إذا لزم الأمر")
+                    if show_emp_chat:
+                        chat_to_view = st.session_state.all_chats.get(sel_emp, [])
+                        for idx, m in enumerate(chat_to_view):
+                            with st.chat_message(m.get("role", "user")):
+                                st.markdown(f"<span class='msg-{m.get('role', 'user')}' style='display:none;'></span>", unsafe_allow_html=True)
+                                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(m.get('content', ''))}</div>", unsafe_allow_html=True)
+                                
+                                st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
+                                if st.button("🗑️", key=f"gm_dl_{sel_emp}_{idx}", help="حذف الرسالة"):
+                                    st.session_state.all_chats[sel_emp].pop(idx)
+                                    overwrite_chat_for_user(sel_emp, st.session_state.all_chats[sel_emp])
+                                    st.rerun()
+                                st.markdown('</div>', unsafe_allow_html=True)
+            else:
+                st.info("لا توجد محادثات نشطة للموظفين حتى الآن.")
+            
+        with gm_tabs[1]:
+            render_chat_fragment(curr_user, sys_prompt_context, CFG)
+            
+    else:
+        render_chat_fragment(curr_user, sys_prompt_context, CFG)
+
 @st.dialog("تعديل بيانات الموظف")
 def edit_employee_dialog(emp_index, current_emps, view_options):
     emp = current_emps[emp_index]
