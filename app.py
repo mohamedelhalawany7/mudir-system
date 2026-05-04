@@ -644,7 +644,9 @@ def call_universal_ai_optimized(messages, json_mode=False):
         
     if json_mode:
         clean = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL).strip()
-        clean = clean.replace('```json', '').replace('```', '').strip()
+        clean = re.sub(r'^```json\s*', '', clean, flags=re.IGNORECASE|re.MULTILINE)
+        clean = re.sub(r'^```\s*', '', clean, flags=re.MULTILINE)
+        clean = re.sub(r'```$', '', clean, flags=re.MULTILINE).strip()
         m = re.search(r'\{.*\}', clean, re.DOTALL)
         return m.group(0) if m else clean
     return raw_text
@@ -2293,9 +2295,10 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 api_messages = [{"role": "system", "content": full_system}]
                 api_messages += [m for m in st.session_state.all_chats[curr_user] if m['role'] != 'system'][-8:]
                 
-                max_retries = 2
+                max_retries = 3
                 ai_data = {}
                 last_error = None
+                raw = ""
                 
                 for attempt in range(max_retries):
                     try:
@@ -2309,20 +2312,35 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                     except Exception as e:
                         last_error = e
                         if attempt < max_retries - 1:
-                            api_messages.append({"role": "user", "content": "تنبيه نظام: الرد السابق كان يحتوي على خطأ في صياغة JSON (ربما استخدمت أسطر جديدة حقيقية أو نسيت علامات التنصيص). يرجى إعادة الإجابة بكائن JSON صالح فقط."})
+                            api_messages.append({"role": "user", "content": "تنبيه نظام: حدث خطأ في الـ JSON (تجنب الـ Line breaks الحقيقية واستخدم \\n). أرسل الرد كـ JSON صالح 100%."})
                 
                 if not ai_data:
                     err_str = str(last_error).lower() if last_error else ""
                     if "429" in err_str or "quota" in err_str or "rate limit" in err_str or "insufficient" in err_str:
                         ai_data = {"response": "انا فى استراحة ارجوك بلغ الادارة ضروري", "eval": "", "task": "", "action": ""}
-                    elif "json" in err_str or "expecting" in err_str or "decode" in err_str or "unterminated" in err_str or "invalid" in err_str:
-                        ai_data = {"response": "عذراً، المدير بيفكر بصوت عالي وخرج عن النص المسموح (JSON Error). اكتب رسالتك تاني.", "eval": "", "task": "", "action": ""}
                     elif "404" in err_str or "not found" in err_str or "connection" in err_str or "resolve" in err_str or "model" in err_str:
                         ai_data = {"response": "عذراً، الرابط (URL) أو الموديل (Model) غير صحيح. برجاء مراجعة إعدادات النظام.", "eval": "", "task": "", "action": ""}
                     elif "401" in err_str or "auth" in err_str or "key" in err_str:
                         ai_data = {"response": "انا فى استراحة ارجوك بلغ الادارة ضروري", "eval": "", "task": "", "action": ""}
                     else:
-                        ai_data = {"response": f"عذراً، حدث خطأ مؤقت. حاول تاني.\n\n(السبب التقني: {str(last_error)})", "eval": "", "task": "", "action": ""}
+                        # الهروب الذكي من خطأ JSON لعدم إحباط المستخدم
+                        raw_val = str(raw)
+                        if '"response"' in raw_val or "'response'" in raw_val:
+                            try:
+                                resp_match = re.search(r'["\']response["\']\s*:\s*["\'](.*?)["\']\s*(?:,|})', raw_val, re.DOTALL)
+                                if resp_match:
+                                    extracted = resp_match.group(1).replace('\\n', '\n').replace('\\"', '"')
+                                    ai_data = {"response": extracted, "eval": "", "task_key": "", "task_label": "", "action": ""}
+                            except:
+                                pass
+                                
+                        if not ai_data and len(raw_val) > 15:
+                            clean_fallback = re.sub(r'["{}\\]', '', raw_val)
+                            clean_fallback = re.sub(r'(internal_thoughts|response|eval|task_key|task_label|action)\s*:', '', clean_fallback, flags=re.IGNORECASE)
+                            ai_data = {"response": clean_fallback.strip()[:800], "eval": "", "task": "", "action": ""}
+                            
+                        if not ai_data:
+                            ai_data = {"response": "أواجه ضغطاً في العمل وأحتاج دقيقة لترتيب أفكاري، جرب تراسلني مرة أخرى.", "eval": "", "task": "", "action": ""}
 
                 actual_response = ai_data.get('response', 'حدث خطأ.')
                 eval_data      = ai_data.get('eval', '')
