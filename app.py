@@ -168,10 +168,8 @@ DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري
 2. لو الموظف بيطلب خطة، اديله تكليف محدد واسأله (هتخلص ده في قد إيه؟).
 3. تابعه على المهام القديمة المعلقة ولازم يقفل البيعة أو المهمة. لو اتأخر وبخه بشياكة كمدير.
 4. تجنب استخدام الرموز التعبيرية تماماً.
-5. إذا سألك الموظف عن خطط أو توقعات مستقبلية، أجب بتفصيل واشرح رؤيتك الاستراتيجية بوضوح.
 
-هام جداً: يجب أن يكون ردك دائماً كائن JSON صالح (Valid JSON) فقط.
-(تحذير: لا تستخدم أسطر جديدة حقيقية Line Breaks داخل النصوص، استخدم الرمز \\n للنزول لسطر جديد. وتجنب استخدام علامات التنصيص المزدوجة " داخل القيم واستخدم العلامة الفردية ' بدلاً منها).
+هام جداً: يجب أن يكون ردك دائماً كائن JSON فقط (بدون أي نصوص إضافية أو علامات Markdown) يحتوي حصرياً على:
 {
   "response": "نص الرد الذي ستقوله للموظف بلهجتك المصرية كمدير.",
   "eval": "التقييم من 10 مع تعليق سري. اتركه فارغاً إذا لم تقيم.",
@@ -399,26 +397,20 @@ def call_universal_ai(messages, json_mode=False):
     if not base_url: base_url = None
     model_name = st.session_state.app_config.get('AI_MODEL_NAME', 'gpt-4o')
 
-    client = OpenAI(api_key=api_key, base_url=base_url, timeout=120.0)
-    kwargs = {"model": model_name, "messages": messages, "temperature": 0.7, "max_tokens": 4000}
+    client = OpenAI(api_key=api_key, base_url=base_url, timeout=30.0)
+    kwargs = {"model": model_name, "messages": messages, "temperature": 0.7}
     
     if json_mode:
-        # استثناء جيميناي وكلود من الإجبار الداخلي لمنع رسائل الخطأ 400
-        if not any(x in str(base_url).lower() or x in model_name.lower() for x in ["openrouter", "claude", "gemini"]):
+        if "openrouter" not in str(base_url).lower() and "claude" not in model_name.lower():
             kwargs["response_format"] = {"type": "json_object"}
         
     response = client.chat.completions.create(**kwargs)
     raw_text = response.choices[0].message.content
     
     if json_mode:
-        clean_text = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL).strip()
-        
-        # استخراج JSON الأقوى: البحث عن أول قوس وآخر قوس
-        start_idx = clean_text.find('{')
-        end_idx = clean_text.rfind('}')
-        
-        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-            return clean_text[start_idx:end_idx+1]
+        match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+        if match:
+            return match.group(0)
         else:
             return raw_text
     return raw_text
@@ -964,14 +956,12 @@ html, body, [class*="css"] {
 
 .chat-bubble { 
     padding: 10px 14px !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Cairo", Helvetica, Arial, sans-serif !important; 
-    font-size: 14.5px !important; line-height: 1.6 !important; word-wrap: break-word !important; white-space: pre-wrap !important; 
+    font-size: 14.2px !important; line-height: 1.6 !important; word-wrap: break-word !important; white-space: pre-wrap !important; 
     text-align: right !important; direction: rtl !important; width: fit-content !important; max-width: 75% !important; 
     box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important; margin-bottom: 2px !important; 
 }
 .chat-bubble [data-testid="stMarkdownContainer"] { width: 100% !important; }
-.chat-bubble p { margin: 0 0 8px 0 !important; padding: 0 !important; color: #e9edef !important; font-size: 14.5px !important; line-height: 1.6 !important; display: block !important;}
-.chat-bubble p:last-child { margin-bottom: 0 !important; }
-.chat-bubble p:empty { display: none !important; margin: 0 !important; padding: 0 !important; }
+.chat-bubble p { margin: 0 0 6px 0 !important; padding: 0 !important; color: #e9edef !important; font-size: 14.2px !important; line-height: 1.6 !important; display: block !important;}
 .chat-bubble h1, .chat-bubble h2, .chat-bubble h3, .chat-bubble h4 { margin-top: 5px !important; margin-bottom: 5px !important; color: #fff !important; font-size: 1.1rem !important;}
 
 .chat-bubble ul { list-style-type: disc !important; padding-right: 25px !important; margin: 8px 0 !important; direction: rtl !important;}
@@ -980,7 +970,7 @@ html, body, [class*="css"] {
     display: list-item !important; 
     text-align: right !important; 
     margin-bottom: 5px !important; 
-    font-size: 14.5px !important; 
+    font-size: 14.2px !important; 
     line-height: 1.6 !important; 
     list-style-position: outside !important;
 }
@@ -1064,7 +1054,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v52.2</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v52.1</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         if st.session_state.current_user and st.session_state.current_user != "المدير العام":
@@ -1955,7 +1945,7 @@ def compress_and_update_memory(curr_user, chat_history):
     """
     try:
         res = call_universal_ai([{"role": "user", "content": prompt}], json_mode=True)
-        parsed = json.loads(res, strict=False)
+        parsed = json.loads(res)
         new_memory = parsed.get("new_memory", "")
         
         if new_memory:
@@ -2153,11 +2143,7 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
             if msg["role"] == "system": continue 
             with st.chat_message(msg["role"]):
                 st.markdown(f"<span class='msg-{msg['role']}' style='display:none;'></span>", unsafe_allow_html=True)
-                
-                # --- تنظيف النص من الفراغات الكبيرة بطريقة آمنة ---
-                clean_msg_content = str(msg['content']).strip()
-                clean_msg_content = re.sub(r'\n\s*\n+', '\n\n', clean_msg_content)
-                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(clean_msg_content)}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(msg['content'])}</div>", unsafe_allow_html=True)
                 
                 # أزرار الإجراءات (زر مسح للجميع، وزر حفظ بطاقة التكليف للمدير فقط)
                 action_cols = st.columns([1, 1, 10] if msg["role"] == "assistant" else [1, 11])
@@ -2170,37 +2156,8 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 
                 if msg["role"] == "assistant":
                     with action_cols[1]:
-                        # تحويل الماركداون الأساسي إلى HTML بشكل مبسط ليكون التصميم مطابقاً للشات
                         task_date = get_local_now().strftime("%Y-%m-%d %H:%M")
-                        
-                        html_content = clean_msg_content.replace('\n\n', '</p><p>').replace('\n', '<br>')
-                        html_content = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', html_content)
-                        html_content = re.sub(r'### (.*?)<br>', r'<h3>\1</h3>', html_content)
-                        html_content = re.sub(r'- (.*?)<br>', r'<li>\1</li>', html_content)
-
-                        task_html = f"""
-                        <!DOCTYPE html>
-                        <html dir='rtl' lang='ar'>
-                        <head>
-                            <meta charset='utf-8'>
-                            <style>
-                                @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap');
-                                body {{ background-color: #0b141a; color: #e9edef; font-family: 'Cairo', sans-serif; padding: 40px; display: flex; justify-content: center; }}
-                                .chat-bubble {{ background-color: #202c33; padding: 25px; border-radius: 12px; width: 100%; max-width: 800px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border-top: 4px solid #00f2ff; line-height: 1.7; font-size: 16px; }}
-                                .chat-bubble h1, .chat-bubble h2, .chat-bubble h3 {{ color: #00ff82; margin-top: 0; }}
-                                .chat-bubble strong {{ color: #00ff82; }}
-                                .header-info {{ font-size: 13px; color: #64748b; margin-top: 20px; border-top: 1px dashed #334155; padding-top: 10px; text-align: left; }}
-                            </style>
-                        </head>
-                        <body>
-                            <div class='chat-bubble'>
-                                <h3 style="color:#00f2ff; margin-bottom: 20px;">❖ تكليف رسمي من الإدارة</h3>
-                                <p>{html_content}</p>
-                                <div class='header-info'>تاريخ الإصدار: {task_date}</div>
-                            </div>
-                        </body>
-                        </html>
-                        """
+                        task_html = f"<!DOCTYPE html><html dir='rtl' lang='ar'><head><meta charset='utf-8'><style>body{{background:#050a0d;color:#e2e8f0;font-family:sans-serif;padding:30px;line-height:1.8;}} .card{{border:1px solid #00f2ff;border-radius:12px;padding:20px;background:#0b141a;box-shadow:0 0 15px rgba(0,242,255,0.2);}} h3{{color:#00ff82;margin-top:0;}}</style></head><body><div class='card'><h3>❖ تكليف رسمي من الإدارة</h3><p>{msg['content']}</p><hr style='border-color:#333;margin-top:20px;'><small style='color:#64748b;'>تم الإصدار في: {task_date}</small></div></body></html>"
                         
                         st.download_button(
                             label="💾 حفظ",
@@ -2253,11 +2210,9 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
         with chat_area:
             with st.chat_message("user"):
                 st.markdown("<span class='msg-user' style='display:none;'></span>", unsafe_allow_html=True)
-                clean_user_input = str(user_input).strip()
-                clean_user_input = re.sub(r'\n\s*\n+', '\n\n', clean_user_input)
-                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(clean_user_input)}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(user_input)}</div>", unsafe_allow_html=True)
             
-            with st.spinner("يكتب الأن..."):
+            with st.spinner("المدير بيفكر ويراجع سجلات الموظف..."):
                 api_messages = [{"role": "system", "content": sys_prompt_context}]
                 api_messages.extend([m for m in st.session_state.all_chats[curr_user] if m['role'] != 'system'][-15:])
                 
@@ -2270,7 +2225,7 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                         if not response_text:
                             raise ValueError("Empty response")
                             
-                        parsed_data = json.loads(response_text, strict=False)
+                        parsed_data = json.loads(response_text)
                         
                         if isinstance(parsed_data, dict):
                             ai_data = parsed_data
@@ -2278,7 +2233,16 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                         else:
                             raise ValueError("Not a dictionary")
                             
-                    except ValueError:
+                    except Exception as e:
+                        err_msg = str(e).lower()
+                        if "api_key" in err_msg or "quota" in err_msg or "401" in err_msg or "429" in err_msg or "timeout" in err_msg:
+                            add_system_notification("المدير العام", f"🚨 تنبيه عاجل: فشل اتصال بخادم الذكاء الاصطناعي بسبب ({err_msg}). يرجى المراجعة.")
+                            ai_data = {
+                                "response": "أنا مشغول جداً في اجتماع طارئ لمجلس الإدارة. بلغت الإدارة العليا بالمشكلة، يرجى المحاولة لاحقاً.",
+                                "eval": "", "task": "", "action": ""
+                            }
+                            break
+                            
                         if attempt < max_retries - 1:
                             api_messages.append({"role": "user", "content": "الرد السابق لم يكن بصيغة JSON صحيحة. يرجى الرد بكائن JSON فقط يحتوي على: response, eval, task, action."})
                         else:
@@ -2287,13 +2251,6 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                                 "eval": "", "task": "", "action": ""
                             }
                             break
-                    except Exception:
-                        add_system_notification("المدير العام", "🚨 تنبيه عاجل: فشل الاتصال بخادم الذكاء الاصطناعي. يرجى مراجعة الرابط ومفتاح الربط (API Key).")
-                        ai_data = {
-                            "response": "أنا مشغول جداً في اجتماع طارئ لمجلس الإدارة. بلغت الإدارة العليا بالمشكلة، يرجى المحاولة لاحقاً.",
-                            "eval": "", "task": "", "action": ""
-                        }
-                        break
                             
                 if not isinstance(ai_data, dict) or not ai_data or 'response' not in ai_data:
                     ai_data = {
@@ -2901,21 +2858,10 @@ def render_settings():
         st.markdown("### شخصية وتوجيهات المدير (System Prompt)")
         ai_system_prompt = st.text_area("تعليمات الإدارة", value=CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT), height=200)
 
-        st.selectbox("💡 إرشادات الروابط (Base URL) الأفضل لكل نموذج:", [
-            "📌 اختر مزود الخدمة من هنا لمعرفة الرابط الأفضل...",
-            "🟢 ChatGPT (OpenAI) ➔ https://api.openai.com/v1",
-            "🟣 Claude (عبر OpenRouter لتفادي الأخطاء) ➔ https://openrouter.ai/api/v1",
-            "🔵 Gemini (Google) ➔ https://generativelanguage.googleapis.com/v1beta/openai/",
-            "⚫ Grok (X.ai) ➔ https://api.x.ai/v1"
-        ])
+        st.info("💡 ملاحظة: لاستخدام نماذج Claude بنجاح وتفادي أخطاء البروتوكولات، نوصي بشدة باستخدام رابط OpenRouter (https://openrouter.ai/api/v1) حيث يقوم بتوحيد صيغة الـ JSON تلقائياً.")
 
         saved_url = CFG.get('AI_PROVIDER_URL', '')
-        url_presets = [
-            "https://api.openai.com/v1", 
-            "https://openrouter.ai/api/v1", 
-            "https://generativelanguage.googleapis.com/v1beta/openai/", 
-            "https://api.x.ai/v1"
-        ]
+        url_presets = ["https://openrouter.ai/api/v1", "https://api.openai.com/v1", "https://api.x.ai/v1", "https://generativelanguage.googleapis.com/v1beta/openai/", ""]
         if saved_url not in url_presets: url_presets.insert(0, saved_url)
         url_options = list(dict.fromkeys(url_presets)) + ["مخصص (كتابة يدوية)..."]
         
@@ -2923,12 +2869,7 @@ def render_settings():
         ai_url = st.text_input("أدخل الرابط المخصص:", value=saved_url) if sel_url == "مخصص (كتابة يدوية)..." else sel_url
 
         saved_model = CFG.get('AI_MODEL_NAME', 'gpt-4o')
-        model_presets = [
-            "gpt-4o", "gpt-4o-mini", 
-            "anthropic/claude-3.5-sonnet", "anthropic/claude-3-opus",
-            "gemini-2.5-flash", "gemini-2.5-pro", "google/gemini-2.5-flash",
-            "grok-beta", "grok-2-1212", "x-ai/grok-beta"
-        ]
+        model_presets = ["gpt-4o", "gpt-4o-mini", "openai/gpt-4o-mini", "google/gemini-2.5-flash", "gemini-2.5-flash", "anthropic/claude-3-5-sonnet", "grok-beta"]
         if saved_model not in model_presets: model_presets.insert(0, saved_model)
         model_options = list(dict.fromkeys(model_presets)) + ["مخصص (كتابة يدوية)..."]
         
@@ -2943,31 +2884,24 @@ def render_settings():
                     with st.spinner("جاري اختبار الاتصال واستخراج JSON..."):
                         test_client = OpenAI(api_key=ai_key.strip(), base_url=ai_url.strip() if ai_url.strip() else None)
                         
-                        strict_prompt = "You are a bot. Respond ONLY with a valid JSON object containing exactly one key 'status' with the value 'OK'. Do NOT add any extra text, markdown formatting, or <think> tags."
-                        kwargs = {"model": ai_model, "messages": [{"role": "user", "content": strict_prompt}], "max_tokens": 150}
-                        
-                        # استثناء Gemini وغيرها لعدم التسبب في خطأ برمجي 400
-                        if not any(x in str(ai_url).lower() or x in ai_model.lower() for x in ["openrouter", "claude", "gemini"]):
+                        kwargs = {"model": ai_model, "messages": [{"role": "user", "content": "Respond with a valid JSON containing key 'status' and value 'OK'."}], "max_tokens": 50}
+                        if "openrouter" not in str(ai_url).lower() and "claude" not in ai_model.lower():
                             kwargs["response_format"] = {"type": "json_object"}
                             
                         resp = test_client.chat.completions.create(**kwargs)
                         raw_text = resp.choices[0].message.content
                         
-                        clean_text = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL).strip()
-                        
-                        start_idx = clean_text.find('{')
-                        end_idx = clean_text.rfind('}')
-                        
-                        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                        match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+                        if match:
                             update_system_config({
                                 'AI_PROVIDER_URL': ai_url, 'AI_MODEL_NAME': ai_model, 
                                 'AI_API_KEY': ai_key, 'AI_SYSTEM_PROMPT': ai_system_prompt
                             })
                             st.success("تم التحقق من الاتصال واستخراج الـ JSON بنجاح وتم حفظ الإعدادات!")
                         else:
-                            st.warning("تم الاتصال لكن الموديل لم يرجع JSON صالح. تأكد من أن النموذج يدعم JSON أو راجع الرابط.")
-                except Exception:
-                    st.error("❌ فشل الاتصال بالخادم. تأكد من صحة الرابط (Base URL) ومفتاح الربط (API Key) وأن الرصيد كافٍ.")
+                            st.warning(f"تم الاتصال لكن الموديل لم يرجع JSON صالح. الرد كان: {raw_text}")
+                except Exception as e:
+                    st.error(f"❌ فشل الاتصال بالخادم. لن يتم الحفظ. تفاصيل الخطأ: {str(e).lower()}")
             else:
                 st.warning("يرجى إدخال مفتاح الربط API Key أولاً.")
 
@@ -3056,7 +2990,7 @@ def delete_workspace_dialog(ws_id, licenses):
 
 def render_super_admin():
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v52.2</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v52.1</div></div>""", unsafe_allow_html=True)
         st.markdown("---")
         if st.button("🔴 تسجيل الخروج وإغلاق", use_container_width=True, type="primary"):
             st.query_params.clear()
