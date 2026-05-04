@@ -3114,7 +3114,14 @@ def render_settings():
                     if resp.choices[0].message.content: st.success("تم الاتصال بالخادم المركزي ودعم الـ JSON Mode بنجاح!")
             except Exception as e: 
                 err_msg = str(e).lower()
-                st.error(f"فشل الاتصال: {err_msg}")
+                if "429" in err_msg or "quota" in err_msg or "rate limit" in err_msg or "insufficient" in err_msg:
+                    st.error("❌ انتهت عدد التوكينز يرجى التجديد")
+                elif "404" in err_msg or "not found" in err_msg or "connection" in err_msg or "resolve" in err_msg or "model" in err_msg:
+                    st.error("❌ ال url base , model غير صحيحين")
+                elif "401" in err_msg or "auth" in err_msg or "key" in err_msg:
+                    st.error("❌ مفتاح الربط (API Key) غير صحيح أو منتهي.")
+                else:
+                    st.error(f"❌ فشل الاتصال بالخادم. تأكد من صحة الرابط (Base URL) ومفتاح الربط (API Key). تفاصيل الخطأ: {e}")
 
     st.markdown("<br><hr style='border-color:rgba(255,255,255,0.05)'><br>", unsafe_allow_html=True)
 
