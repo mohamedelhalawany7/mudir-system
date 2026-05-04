@@ -2318,7 +2318,8 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                     memo_match = re.search(r'\[MEMO:(.*?)\]', raw_ai_text, re.IGNORECASE | re.DOTALL)
                     action_match = re.search(r'\[ACTION:(.*?)\]', raw_ai_text, re.IGNORECASE | re.DOTALL)
                     
-                    clean_response = re.sub(r'\[(TASK|CLOSE_TASK|EVAL|MEMO|ACTION):.*?\]', '', raw_ai_text, flags=re.IGNORECASE | re.DOTALL).strip()
+                    clean_response = re.sub(r'\[(TASK|CLOSE_TASK|EVAL|MEMO|ACTION):.*?\]', '', raw_ai_text, flags=re.IGNORECASE | re.DOTALL)
+                    clean_response = re.sub(r'\n\s*\n', '\n\n', clean_response).strip()
                     if not clean_response: clean_response = "تمام، جاري المتابعة والتنفيذ."
 
                 except Exception as e:
