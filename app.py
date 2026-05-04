@@ -2967,7 +2967,16 @@ def render_settings():
                         else:
                             st.warning("تم الاتصال لكن الموديل لم يرجع JSON صالح. تأكد من أن النموذج يدعم JSON أو راجع الرابط.")
                 except Exception as e:
-                    st.error(f"❌ فشل الاتصال بالخادم. (تفاصيل الخطأ التقني: {e})")
+                    error_msg = f"""
+                    <div style='padding: 15px; border-radius: 12px; background: linear-gradient(145deg, rgba(255,45,120,0.15), rgba(20,5,15,0.8)); border: 1px solid rgba(255,45,120,0.4); margin-bottom: 10px; box-shadow: 0 4px 15px rgba(255,45,120,0.1);'>
+                        <h4 style='color: #ff2d78; margin-top: 0; display: flex; align-items: center; gap: 8px;'>⚠️ فشل المزامنة مع الخادم المركزي</h4>
+                        <p style='color: #cbd5e1; font-size: 0.95rem; line-height: 1.6;'>نأسف، لم نتمكن من إنشاء اتصال مستقر ومصادق مع مزود الذكاء الاصطناعي. يعود ذلك غالباً إلى انتهاء صلاحية مفتاح الربط (API Key)، استنفاذ الرصيد المتاح، أو خطأ في مسار الرابط (Base URL).</p>
+                        <hr style='border-color: rgba(255,45,120,0.2); margin: 12px 0;'>
+                        <div style='font-size: 0.85rem; color: #ff2d78; font-weight: bold; margin-bottom: 6px;'>الرد الفعلي الوارد من الخادم لتشخيص المشكلة:</div>
+                        <code style='color: #ffcae0; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; display: block; font-family: monospace; font-size: 0.85rem; word-wrap: break-word; border: 1px dashed rgba(255,45,120,0.3);'>{str(e)}</code>
+                    </div>
+                    """
+                    st.markdown(error_msg, unsafe_allow_html=True)
             else:
                 st.warning("يرجى إدخال مفتاح الربط API Key أولاً.")
 
