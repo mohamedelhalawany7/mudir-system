@@ -1931,7 +1931,7 @@ def compress_and_update_memory(curr_user, chat_history):
     
     شروط التلخيص:
     1. اذكر المهام التي تم إنجازها (لتقييم الموظف لاحقاً).
-    2. اذكر المهام المعلقة بالتفصيل الدقيق، مع إبراز تواريخ وأيام المتابعة المستقبلية (مثال: وعدت شركة كذا بالرد يوم الثلاثاء، يجب المتابعة).
+    2. اذكر المهام المعلقة بالتفصيل (مثل: عرض سعر لشركة كذا يحتاج متابعة).
     3. يجب أن يكون التلخيص دقيقاً، مختصراً جداً، وفي نقاط.
     
     الذاكرة القديمة:
@@ -2324,10 +2324,6 @@ def render_ai():
     start_am_pm = f"{work_start if work_start <= 12 else work_start - 12} {'ص' if work_start < 12 else 'م'}"
     end_am_pm = f"{work_end if work_end <= 12 else work_end - 12} {'ص' if work_end < 12 else 'م'}"
     
-    days_ar = ["الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد"]
-    current_day_ar = days_ar[now.weekday()]
-    current_date_full = f"{current_day_ar}، {now.strftime('%Y-%m-%d')}"
-    
     h12 = now.hour % 12 or 12
     am_pm_ar = "صباحاً" if now.hour < 12 else "مساءً"
     current_time_str = f"{h12:02d}:{now.minute:02d} {am_pm_ar}"
@@ -2336,7 +2332,7 @@ def render_ai():
     <div style="background:rgba(0,242,255,0.05); padding:10px 20px; border-radius:12px; border:1px solid rgba(0,242,255,0.2); display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
         <div style="display:flex; align-items:center; gap:10px;">
             {get_icon('clock', 20, '#00f2ff')}
-            <strong style="color:#00f2ff; font-family:'Orbitron', sans-serif; font-size:1.1rem;">{current_date_full} - {current_time_str}</strong>
+            <strong style="color:#00f2ff; font-family:'Orbitron', sans-serif; font-size:1.1rem;">{current_time_str}</strong>
         </div>
         <div style="color:{time_status_color}; font-weight:bold; font-size:0.9rem;">
             ● {time_status_text} ({start_am_pm} - {end_am_pm})
@@ -2391,7 +2387,6 @@ def render_ai():
 (توجيه للمدير: يجب أن تسأل الموظف عن هذه العروض وتتابع معه سبب عدم إغلاقها حتى الآن).
 
 === نظام الوقت الاستراتيجي ===
-- اليوم والتاريخ: {current_date_full}
 - الساعة الآن: {current_time_str}
 - مواعيد العمل الرسمية للشركة: من {start_am_pm} إلى {end_am_pm}.
 """
