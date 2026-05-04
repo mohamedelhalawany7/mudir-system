@@ -1185,10 +1185,10 @@ html, body, [class*="css"] {
 .chat-bubble th { background-color: rgba(0, 242, 255, 0.1) !important; color: #00f2ff !important; font-weight: 900 !important; }
 .chat-bubble td { background-color: rgba(0, 0, 0, 0.25) !important; color: #e9edef !important; }
 
-/* تأثير النيون المُعزز للأرقام */
+/* تأثير الأرقام (بدون شادو) */
 .neon-number {
-    color: #00ffff !important;
-    text-shadow: 0 0 5px #00ffff, 0 0 10px #00ffff, 0 0 20px #00ffff, 0 0 40px #00f2ff !important;
+    color: #00f2ff !important;
+    text-shadow: none !important;
     font-family: 'Orbitron', sans-serif !important;
     font-weight: 900 !important;
     padding: 0 4px;
