@@ -171,7 +171,7 @@ DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري
 4. ممنوع الإيموجي نهائياً.
 5. استخدم internal_thoughts للتحليل قبل الرد — هذا يحميك من التسرع ويجعلك ترى الصورة الكاملة.
 
-ردك يجب أن يكون JSON صالح فقط:
+ردك يجب أن يكون JSON صالح فقط (تجنب الأسطر الجديدة الحقيقية داخل القيم، استخدم \\n للنزول لسطر):
 {
   "internal_thoughts": "تحليل سري: من يعمل على ماذا؟ هل المهمة مكررة؟",
   "response": "الرد بالعامية المصرية.",
@@ -2293,23 +2293,36 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 api_messages = [{"role": "system", "content": full_system}]
                 api_messages += [m for m in st.session_state.all_chats[curr_user] if m['role'] != 'system'][-8:]
                 
-                try:
-                    raw = call_universal_ai_optimized(api_messages, json_mode=True)
-                    ai_data = json.loads(raw, strict=False)
-                    if not isinstance(ai_data, dict):
-                        ai_data = {}
-                except Exception as e:
-                    err_str = str(e).lower()
+                max_retries = 2
+                ai_data = {}
+                last_error = None
+                
+                for attempt in range(max_retries):
+                    try:
+                        raw = call_universal_ai_optimized(api_messages, json_mode=True)
+                        parsed_data = json.loads(raw, strict=False)
+                        if isinstance(parsed_data, dict) and 'response' in parsed_data:
+                            ai_data = parsed_data
+                            break
+                        else:
+                            raise ValueError("Invalid JSON format")
+                    except Exception as e:
+                        last_error = e
+                        if attempt < max_retries - 1:
+                            api_messages.append({"role": "user", "content": "تنبيه نظام: الرد السابق كان يحتوي على خطأ في صياغة JSON (ربما استخدمت أسطر جديدة حقيقية أو نسيت علامات التنصيص). يرجى إعادة الإجابة بكائن JSON صالح فقط."})
+                
+                if not ai_data:
+                    err_str = str(last_error).lower() if last_error else ""
                     if "429" in err_str or "quota" in err_str or "rate limit" in err_str or "insufficient" in err_str:
                         ai_data = {"response": "انا فى استراحة ارجوك بلغ الادارة ضروري", "eval": "", "task": "", "action": ""}
-                    elif "json" in err_str or "expecting" in err_str or "decode" in err_str or "unterminated" in err_str:
+                    elif "json" in err_str or "expecting" in err_str or "decode" in err_str or "unterminated" in err_str or "invalid" in err_str:
                         ai_data = {"response": "عذراً، المدير بيفكر بصوت عالي وخرج عن النص المسموح (JSON Error). اكتب رسالتك تاني.", "eval": "", "task": "", "action": ""}
                     elif "404" in err_str or "not found" in err_str or "connection" in err_str or "resolve" in err_str or "model" in err_str:
                         ai_data = {"response": "عذراً، الرابط (URL) أو الموديل (Model) غير صحيح. برجاء مراجعة إعدادات النظام.", "eval": "", "task": "", "action": ""}
                     elif "401" in err_str or "auth" in err_str or "key" in err_str:
                         ai_data = {"response": "انا فى استراحة ارجوك بلغ الادارة ضروري", "eval": "", "task": "", "action": ""}
                     else:
-                        ai_data = {"response": f"عذراً، حدث خطأ مؤقت. حاول تاني.\n\n(السبب التقني: {str(e)})", "eval": "", "task": "", "action": ""}
+                        ai_data = {"response": f"عذراً، حدث خطأ مؤقت. حاول تاني.\n\n(السبب التقني: {str(last_error)})", "eval": "", "task": "", "action": ""}
 
                 actual_response = ai_data.get('response', 'حدث خطأ.')
                 eval_data      = ai_data.get('eval', '')
