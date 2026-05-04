@@ -413,7 +413,7 @@ def log_message(user, msg_dict):
                 if 'Logs' not in st.session_state.offline_db: st.session_state.offline_db['Logs'] = []
                 st.session_state.offline_db['Logs'].append((f"{user}_{log_id}", entry))
         except Exception:
-        pass 
+            pass 
 
 def record_eval_safe(emp_name: str, eval_text: str):
     """تسجيل تقييم موظف بشكل آمن"""
