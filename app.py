@@ -2212,7 +2212,7 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 st.markdown("<span class='msg-user' style='display:none;'></span>", unsafe_allow_html=True)
                 st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(user_input)}</div>", unsafe_allow_html=True)
             
-            with st.spinner("المدير بيفكر ويراجع سجلات الموظف..."):
+            with st.spinner("يكتب الأن..."):
                 api_messages = [{"role": "system", "content": sys_prompt_context}]
                 api_messages.extend([m for m in st.session_state.all_chats[curr_user] if m['role'] != 'system'][-15:])
                 
@@ -2233,16 +2233,7 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                         else:
                             raise ValueError("Not a dictionary")
                             
-                    except Exception as e:
-                        err_msg = str(e).lower()
-                        if "api_key" in err_msg or "quota" in err_msg or "401" in err_msg or "429" in err_msg or "timeout" in err_msg:
-                            add_system_notification("المدير العام", f"🚨 تنبيه عاجل: فشل اتصال بخادم الذكاء الاصطناعي بسبب ({err_msg}). يرجى المراجعة.")
-                            ai_data = {
-                                "response": "أنا مشغول جداً في اجتماع طارئ لمجلس الإدارة. بلغت الإدارة العليا بالمشكلة، يرجى المحاولة لاحقاً.",
-                                "eval": "", "task": "", "action": ""
-                            }
-                            break
-                            
+                    except ValueError:
                         if attempt < max_retries - 1:
                             api_messages.append({"role": "user", "content": "الرد السابق لم يكن بصيغة JSON صحيحة. يرجى الرد بكائن JSON فقط يحتوي على: response, eval, task, action."})
                         else:
@@ -2251,6 +2242,13 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                                 "eval": "", "task": "", "action": ""
                             }
                             break
+                    except Exception:
+                        add_system_notification("المدير العام", "🚨 تنبيه عاجل: فشل الاتصال بخادم الذكاء الاصطناعي. يرجى مراجعة الرابط ومفتاح الربط (API Key).")
+                        ai_data = {
+                            "response": "أنا مشغول جداً في اجتماع طارئ لمجلس الإدارة. بلغت الإدارة العليا بالمشكلة، يرجى المحاولة لاحقاً.",
+                            "eval": "", "task": "", "action": ""
+                        }
+                        break
                             
                 if not isinstance(ai_data, dict) or not ai_data or 'response' not in ai_data:
                     ai_data = {
@@ -2858,10 +2856,21 @@ def render_settings():
         st.markdown("### شخصية وتوجيهات المدير (System Prompt)")
         ai_system_prompt = st.text_area("تعليمات الإدارة", value=CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT), height=200)
 
-        st.info("💡 ملاحظة: لاستخدام نماذج Claude بنجاح وتفادي أخطاء البروتوكولات، نوصي بشدة باستخدام رابط OpenRouter (https://openrouter.ai/api/v1) حيث يقوم بتوحيد صيغة الـ JSON تلقائياً.")
+        st.selectbox("💡 إرشادات الروابط (Base URL) الأفضل لكل نموذج:", [
+            "📌 اختر مزود الخدمة من هنا لمعرفة الرابط الأفضل...",
+            "🟢 ChatGPT (OpenAI) ➔ https://api.openai.com/v1",
+            "🟣 Claude (عبر OpenRouter لتفادي الأخطاء) ➔ https://openrouter.ai/api/v1",
+            "🔵 Gemini (Google) ➔ https://generativelanguage.googleapis.com/v1beta/openai/",
+            "⚫ Grok (X.ai) ➔ https://api.x.ai/v1"
+        ])
 
         saved_url = CFG.get('AI_PROVIDER_URL', '')
-        url_presets = ["https://openrouter.ai/api/v1", "https://api.openai.com/v1", "https://api.x.ai/v1", "https://generativelanguage.googleapis.com/v1beta/openai/", ""]
+        url_presets = [
+            "https://api.openai.com/v1", 
+            "https://openrouter.ai/api/v1", 
+            "https://generativelanguage.googleapis.com/v1beta/openai/", 
+            "https://api.x.ai/v1"
+        ]
         if saved_url not in url_presets: url_presets.insert(0, saved_url)
         url_options = list(dict.fromkeys(url_presets)) + ["مخصص (كتابة يدوية)..."]
         
@@ -2869,7 +2878,12 @@ def render_settings():
         ai_url = st.text_input("أدخل الرابط المخصص:", value=saved_url) if sel_url == "مخصص (كتابة يدوية)..." else sel_url
 
         saved_model = CFG.get('AI_MODEL_NAME', 'gpt-4o')
-        model_presets = ["gpt-4o", "gpt-4o-mini", "openai/gpt-4o-mini", "google/gemini-2.5-flash", "gemini-2.5-flash", "anthropic/claude-3-5-sonnet", "grok-beta"]
+        model_presets = [
+            "gpt-4o", "gpt-4o-mini", 
+            "anthropic/claude-3.5-sonnet", "anthropic/claude-3-opus",
+            "gemini-2.5-flash", "gemini-2.5-pro", "google/gemini-2.5-flash",
+            "grok-beta", "grok-2-1212", "x-ai/grok-beta"
+        ]
         if saved_model not in model_presets: model_presets.insert(0, saved_model)
         model_options = list(dict.fromkeys(model_presets)) + ["مخصص (كتابة يدوية)..."]
         
@@ -2884,14 +2898,21 @@ def render_settings():
                     with st.spinner("جاري اختبار الاتصال واستخراج JSON..."):
                         test_client = OpenAI(api_key=ai_key.strip(), base_url=ai_url.strip() if ai_url.strip() else None)
                         
-                        kwargs = {"model": ai_model, "messages": [{"role": "user", "content": "Respond with a valid JSON containing key 'status' and value 'OK'."}], "max_tokens": 50}
+                        # إعطاء أمر صارم جداً للنموذج مع رفع التوكنز إلى 150 لتجنب قطع الرد
+                        strict_prompt = "You are a bot. Respond ONLY with a valid JSON object containing exactly one key 'status' with the value 'OK'. Do NOT add any extra text, markdown formatting, or <think> tags."
+                        kwargs = {"model": ai_model, "messages": [{"role": "user", "content": strict_prompt}], "max_tokens": 150}
+                        
                         if "openrouter" not in str(ai_url).lower() and "claude" not in ai_model.lower():
                             kwargs["response_format"] = {"type": "json_object"}
                             
                         resp = test_client.chat.completions.create(**kwargs)
                         raw_text = resp.choices[0].message.content
                         
-                        match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+                        # تنظيف النص المستلم في فحص الإعدادات كما نفعل في الشات الأساسي
+                        clean_text = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL).strip()
+                        clean_text = clean_text.replace('```json', '').replace('```', '').strip()
+                        
+                        match = re.search(r'\{.*\}', clean_text, re.DOTALL)
                         if match:
                             update_system_config({
                                 'AI_PROVIDER_URL': ai_url, 'AI_MODEL_NAME': ai_model, 
@@ -2899,9 +2920,9 @@ def render_settings():
                             })
                             st.success("تم التحقق من الاتصال واستخراج الـ JSON بنجاح وتم حفظ الإعدادات!")
                         else:
-                            st.warning(f"تم الاتصال لكن الموديل لم يرجع JSON صالح. الرد كان: {raw_text}")
-                except Exception as e:
-                    st.error(f"❌ فشل الاتصال بالخادم. لن يتم الحفظ. تفاصيل الخطأ: {str(e).lower()}")
+                            st.warning("تم الاتصال لكن الموديل لم يرجع JSON صالح. تأكد من أن النموذج يدعم JSON أو راجع الرابط.")
+                except Exception:
+                    st.error("❌ فشل الاتصال بالخادم. تأكد من صحة الرابط (Base URL) ومفتاح الربط (API Key) وأن الرصيد كافٍ.")
             else:
                 st.warning("يرجى إدخال مفتاح الربط API Key أولاً.")
 
