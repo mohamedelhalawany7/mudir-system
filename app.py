@@ -2299,7 +2299,11 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                     if not isinstance(ai_data, dict):
                         ai_data = {}
                 except Exception as e:
-                    ai_data = {"response": "عذراً، حدث خطأ مؤقت. حاول تاني."}
+                    err_str = str(e).lower()
+                    if "429" in err_str or "quota" in err_str or "rate limit" in err_str or "insufficient" in err_str:
+                        ai_data = {"response": "انا فى استراحة ارجوك بلغ الادارة ضروري", "eval": "", "task": "", "action": ""}
+                    else:
+                        ai_data = {"response": "عذراً، حدث خطأ مؤقت. حاول تاني.", "eval": "", "task": "", "action": ""}
 
                 actual_response = ai_data.get('response', 'حدث خطأ.')
                 eval_data      = ai_data.get('eval', '')
@@ -3129,8 +3133,16 @@ def render_settings():
                             st.success("تم التحقق من الاتصال واستخراج الـ JSON بنجاح وتم حفظ الإعدادات!")
                         else:
                             st.warning("تم الاتصال لكن الموديل لم يرجع JSON صالح. تأكد من أن النموذج يدعم JSON أو راجع الرابط.")
-                except Exception:
-                    st.error("❌ فشل الاتصال بالخادم. تأكد من صحة الرابط (Base URL) ومفتاح الربط (API Key) وأن الرصيد كافٍ.")
+                except Exception as e:
+                    err_str = str(e).lower()
+                    if "429" in err_str or "quota" in err_str or "rate limit" in err_str or "insufficient" in err_str:
+                        st.error("❌ انتهت عدد التوكينز يرجى التجديد")
+                    elif "404" in err_str or "not found" in err_str or "connection" in err_str or "resolve" in err_str or "model" in err_str:
+                        st.error("❌ ال url base , model غير صحيحين")
+                    elif "401" in err_str or "auth" in err_str or "key" in err_str:
+                        st.error("❌ مفتاح الربط (API Key) غير صحيح أو منتهي.")
+                    else:
+                        st.error(f"❌ فشل الاتصال بالخادم. تأكد من صحة الرابط (Base URL) ومفتاح الربط (API Key). تفاصيل الخطأ: {e}")
             else:
                 st.warning("يرجى إدخال مفتاح الربط API Key أولاً.")
 
