@@ -2409,6 +2409,16 @@ def render_ai():
     CFG = st.session_state.app_config
     curr_user = st.session_state.current_user
     
+    # --- استرجاع الشات في حال مسحه بسبب التنقل بين الصفحات ---
+    if 'all_chats' not in st.session_state:
+        st.session_state.all_chats = {}
+    if curr_user not in st.session_state.all_chats or not st.session_state.all_chats[curr_user]:
+        reloaded_chats = load_user_chats(curr_user)
+        if curr_user in reloaded_chats and reloaded_chats[curr_user]:
+            st.session_state.all_chats[curr_user] = reloaded_chats[curr_user]
+            st.session_state.all_chats = st.session_state.all_chats
+    # --------------------------------------------------------
+
     now = get_local_now()
     try:
         work_start = int(CFG.get('WORK_START', 8))
