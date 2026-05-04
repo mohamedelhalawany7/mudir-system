@@ -13,6 +13,7 @@ import base64
 import re
 import io
 import hashlib
+import threading # للمساعدة في ضغط الذاكرة بالخلفية دون تعطيل النظام
 
 # ============================================================
 # [MODULE 1: SECURITY & INITIALIZATION] 
@@ -160,23 +161,24 @@ def get_local_now():
     except Exception: pass
     return datetime.now()
 
-DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري شاطر جداً، خبرة سنين في المبيعات والتسويق وإدارة الشركات.
-شخصيتك: مصري أصيل، بتتكلم بلهجة مصرية طبيعية جداً جداً، حازم، جاد، معلم، ومبتسمحش في التقصير أو الأعذار.
+# System Prompt الجديد — أقصر لكن يحافظ على فاعلية التفكير
+DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري خبير في المبيعات وإدارة الفرق.
+شخصيتك: مصري أصيل، حازم، جاد، لا تسمح بالتقصير.
+قواعد صارمة:
+1. راعِ الوقت الحالي ومواعيد العمل المذكورة.
+2. قبل إسناد أي مهمة: تحقق من (قائمة المهام المفتوحة) — لا تكرر ما هو موجود.
+3. تابع العروض المسودة ولا تتركها معلقة.
+4. ممنوع الإيموجي نهائياً.
+5. استخدم internal_thoughts للتحليل قبل الرد — هذا يحميك من التسرع.
 
-قواعد التعامل:
-1. راعي جداً 'الوقت الحالي' ومواعيد العمل.
-2. لو الموظف بيطلب خطة، اديله تكليف محدد واسأله (هتخلص ده في قد إيه؟).
-3. تابعه على المهام القديمة المعلقة ولازم يقفل البيعة أو المهمة. لو اتأخر وبخه بشياكة كمدير.
-4. تجنب استخدام الرموز التعبيرية تماماً.
-5. إذا سألك الموظف عن خطط أو توقعات مستقبلية، أجب بتفصيل واشرح رؤيتك الاستراتيجية بوضوح.
-
-هام جداً: يجب أن يكون ردك دائماً كائن JSON صالح (Valid JSON) فقط.
-(تحذير: لا تستخدم أسطر جديدة حقيقية Line Breaks داخل النصوص، استخدم الرمز \\n للنزول لسطر جديد. وتجنب استخدام علامات التنصيص المزدوجة " داخل القيم واستخدم العلامة الفردية ' بدلاً منها).
+ردك يجب أن يكون JSON صالح فقط:
 {
-  "response": "نص الرد الذي ستقوله للموظف بلهجتك المصرية كمدير.",
-  "eval": "التقييم من 10 مع تعليق سري. اتركه فارغاً إذا لم تقيم.",
-  "task": "اسم المهمة المحددة التي كلفت الموظف بها الآن. اتركها فارغة إذا لم تكلفه.",
-  "action": "استخدمه لإصدار أمر للنظام (CREATE_SO | العميل: كذا | القيمة: كذا). اتركه فارغاً إن لم يوجد."
+  "internal_thoughts": "تحليل سري: من يعمل على ماذا؟ هل المهمة مكررة؟",
+  "response": "الرد بالعامية المصرية.",
+  "eval": "تقييم/10 مع تعليق — اتركه فارغاً إن لم يلزم.",
+  "task_key": "مفتاح_المهمة_بدون_مسافات — فارغ إن لم تكلفه.",
+  "task_label": "وصف المهمة للعرض — فارغ إن لم تكلفه.",
+  "action": "CREATE_SO|العميل:X|القيمة:Y — فارغ إن لم يلزم."
 }"""
 
 def load_config():
@@ -185,7 +187,7 @@ def load_config():
         'AI_PROVIDER_URL': 'https://api.openai.com/v1', 'AI_API_KEY': '',
         'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
         'MANAGER_PIN': '0000', 'EMPLOYEES': [], 'EVALUATIONS': {},
-        'EVAL_HISTORY': {}, 'TASK_REGISTRY': [], 'NOTIFICATIONS': {},
+        'EVAL_HISTORY': {}, 'TASK_REGISTRY': [], 'GLOBAL_TASKS': {}, 'NOTIFICATIONS': {},
         'MEMORIES': {},
         'WORK_START': 8, 'WORK_END': 17, 'KNOWLEDGE_BASE': '', 'TIMEZONE': 'Africa/Cairo'
     }
@@ -228,7 +230,102 @@ def save_config(cfg_dict):
 def update_system_config(updates_dict):
     if 'app_config' in st.session_state:
         st.session_state.app_config.update(updates_dict)
-    save_config(st.session_state.get('app_config', {}))
+    
+    # تحسين التزامن: تحديث الحقول بشكل مفرد بدلاً من استبدال الملف كامل (يمنع مسح بيانات الموظفين لبعضهم)
+    if FIREBASE_CONNECTED and db and 'workspace_id' in st.session_state:
+        try:
+            get_workspace_doc().update(updates_dict)
+        except Exception:
+            # Fallback if document doesn't exist
+            save_config(st.session_state.get('app_config', {}))
+    else:
+        save_config(st.session_state.get('app_config', {}))
+
+def update_employee_fields_only(updates: dict):
+    """
+    تحديث حقول محددة فقط بدون قراءة الملف كامل
+    يمنع race condition بين الموظفين
+    """
+    if 'app_config' in st.session_state:
+        st.session_state.app_config.update(updates)
+    
+    if FIREBASE_CONNECTED and db and 'workspace_id' in st.session_state:
+        try:
+            get_workspace_doc().update(updates)
+        except Exception as e:
+            if 'NOT_FOUND' in str(e) or 'no document' in str(e).lower():
+                get_workspace_doc().set(updates, merge=True)
+
+def claim_task_atomic(task_key: str, emp_name: str) -> bool:
+    """محاولة حجز مهمة atomically"""
+    if not FIREBASE_CONNECTED or not db:
+        existing = st.session_state.app_config.get('TASK_LOCKS', {})
+        if task_key in existing and existing[task_key] != emp_name:
+            return False
+        existing[task_key] = emp_name
+        st.session_state.app_config['TASK_LOCKS'] = existing
+        return True
+        
+    lock_ref = get_workspace_doc().collection('TaskLocks').document(task_key)
+    
+    @firestore.transactional
+    def try_claim(transaction, lock_ref, emp_name):
+        snap = lock_ref.get(transaction=transaction)
+        if snap.exists:
+            current = snap.to_dict()
+            if current.get('emp') != emp_name and current.get('status') == 'open':
+                return False
+        transaction.set(lock_ref, {
+            'emp': emp_name,
+            'status': 'open',
+            'created_at': firestore.SERVER_TIMESTAMP
+        })
+        return True
+        
+    try:
+        transaction = db.transaction()
+        return try_claim(transaction, lock_ref, emp_name)
+    except Exception:
+        return False
+
+def release_task(task_key: str):
+    """إغلاق المهمة عند الإنجاز"""
+    if FIREBASE_CONNECTED and db:
+        try:
+            get_workspace_doc().collection('TaskLocks').document(task_key).update({
+                'status': 'done',
+                'closed_at': firestore.SERVER_TIMESTAMP
+            })
+        except Exception:
+            pass
+
+def get_all_open_tasks_compact() -> str:
+    """يرجع ملخص مضغوط لكل المهام المفتوحة"""
+    tasks = {}
+    try:
+        if FIREBASE_CONNECTED and db:
+            docs = get_workspace_doc().collection('TaskLocks').where('status', '==', 'open').stream()
+            for doc in docs:
+                d = doc.to_dict()
+                emp = d.get('emp', '?').split(' - ')[0]
+                task = doc.id.replace('_', ' ')
+                tasks[emp] = tasks.get(emp, [])
+                tasks[emp].append(task)
+        else:
+            raw = st.session_state.app_config.get('TASK_LOCKS', {})
+            for k, v in raw.items():
+                tasks[v] = tasks.get(v, [])
+                tasks[v].append(k.replace('_', ' '))
+    except Exception:
+        pass
+        
+    if not tasks:
+        return "لا توجد مهام مفتوحة."
+        
+    lines = []
+    for emp, task_list in tasks.items():
+        lines.append(f"{emp}: {', '.join(task_list)}")
+    return "\n".join(lines)
 
 def get_employee_memory(curr_user):
     try:
@@ -240,34 +337,61 @@ def get_employee_memory(curr_user):
         pass
     return st.session_state.app_config.get('MEMORIES', {}).get(curr_user, "")
 
-def add_task_safely(task_string):
+def add_task_safely(curr_user, task_string):
+    task_id = str(int(time.time() * 1000))
     if FIREBASE_CONNECTED and db:
         try:
             get_workspace_doc().update({
-                'TASK_REGISTRY': firestore.ArrayUnion([task_string])
+                'TASK_REGISTRY': firestore.ArrayUnion([f"{curr_user}: {task_string}"]),
+                f'GLOBAL_TASKS.{task_id}': {'emp': curr_user, 'task': task_string, 'status': 'pending'}
             })
-            if 'app_config' in st.session_state:
-                if 'TASK_REGISTRY' not in st.session_state.app_config:
-                    st.session_state.app_config['TASK_REGISTRY'] = []
-                st.session_state.app_config['TASK_REGISTRY'].append(task_string)
         except Exception:
             pass
-    else:
-        current_cfg = st.session_state.get('app_config', {})
-        reg = current_cfg.get('TASK_REGISTRY', [])
-        reg.append(task_string)
-        update_system_config({'TASK_REGISTRY': reg})
+            
+    current_cfg = st.session_state.get('app_config', {})
+    if 'GLOBAL_TASKS' not in current_cfg: current_cfg['GLOBAL_TASKS'] = {}
+    current_cfg['GLOBAL_TASKS'][task_id] = {'emp': curr_user, 'task': task_string, 'status': 'pending'}
+    
+    if 'TASK_REGISTRY' not in current_cfg: current_cfg['TASK_REGISTRY'] = []
+    current_cfg['TASK_REGISTRY'].append(f"{curr_user}: {task_string}")
 
 def add_system_notification(target_user, message):
+    if FIREBASE_CONNECTED and db:
+        try:
+            get_workspace_doc().update({
+                f'NOTIFICATIONS.{target_user}': firestore.ArrayUnion([message])
+            })
+        except Exception:
+            pass
+    
     current_cfg = st.session_state.get('app_config', {})
     notifs = current_cfg.get('NOTIFICATIONS', {})
     if target_user not in notifs: notifs[target_user] = []
     notifs[target_user].append(message)
-    update_system_config({'NOTIFICATIONS': notifs})
+
+def save_chat_for_user_safe(user_key: str):
+    """حفظ آمن للشات يكتب فقط في مسار المستخدم لمنع التداخل"""
+    if 'workspace_id' not in st.session_state:
+        return
+        
+    chats = st.session_state.all_chats.get(user_key, [])[-300:]
+    try:
+        if FIREBASE_CONNECTED and db:
+            (get_workspace_doc()
+             .collection('Chats')
+             .document(user_key)
+             .set({'messages': chats, 'updated_at': firestore.SERVER_TIMESTAMP},
+                  merge=True))
+        else:
+            offline = st.session_state.offline_db.setdefault('Chats', {})
+            offline[user_key] = {'messages': chats}
+    except Exception as e:
+        print(f"[WARN] chat save failed for {user_key}: {e}")
 
 def save_chat_for_user(user_key):
     if 'workspace_id' in st.session_state:
-        chats = st.session_state.all_chats.get(user_key, [])[-200:]
+        # نحفظ آخر 500 رسالة فقط في الداتابيز حتى لا يثقل التحميل
+        chats = st.session_state.all_chats.get(user_key, [])[-500:]
         try:
             if FIREBASE_CONNECTED and db:
                 get_workspace_doc().collection('Chats').document(user_key).set({'messages': chats}, merge=True)
@@ -289,7 +413,27 @@ def log_message(user, msg_dict):
                 if 'Logs' not in st.session_state.offline_db: st.session_state.offline_db['Logs'] = []
                 st.session_state.offline_db['Logs'].append((f"{user}_{log_id}", entry))
         except Exception:
-            pass 
+        pass 
+
+def record_eval_safe(emp_name: str, eval_text: str):
+    """تسجيل تقييم موظف بشكل آمن"""
+    now_str = get_local_now().strftime("%Y-%m-%d %H:%M")
+    eval_entry = {'eval': eval_text, 'date': now_str}
+        
+    if FIREBASE_CONNECTED and db:
+        try:
+            get_workspace_doc().update({
+                f'EVALUATIONS.{emp_name}': eval_entry,
+                f'EVAL_HISTORY.{emp_name}': firestore.ArrayUnion([eval_entry])
+            })
+        except Exception:
+            cfg = st.session_state.get('app_config', {})
+            cfg.setdefault('EVALUATIONS', {})[emp_name] = eval_entry
+            cfg.setdefault('EVAL_HISTORY', {}).setdefault(emp_name, []).append(eval_entry)
+    else:
+        cfg = st.session_state.get('app_config', {})
+        cfg.setdefault('EVALUATIONS', {})[emp_name] = eval_entry
+        cfg.setdefault('EVAL_HISTORY', {}).setdefault(emp_name, []).append(eval_entry)
 
 def load_user_chats(specific_user=None):
     chats_dict = {}
@@ -399,9 +543,8 @@ def call_universal_ai(messages, json_mode=False):
     if not base_url: base_url = None
     model_name = st.session_state.app_config.get('AI_MODEL_NAME', 'gpt-4o')
 
-    # إعطاء مساحة أكبر للتفكير (120 ثانية)
     client = OpenAI(api_key=api_key, base_url=base_url, timeout=120.0)
-    # تحديد max_tokens برقم كبير جداً لضمان عدم قطع الإجابات الطويلة
+    # رفع التوكنز لضمان مساحة كافية للتفكير + الرد + عدم القطع
     kwargs = {"model": model_name, "messages": messages, "temperature": 0.7, "max_tokens": 4000}
     
     if json_mode:
@@ -412,7 +555,6 @@ def call_universal_ai(messages, json_mode=False):
     raw_text = response.choices[0].message.content
     
     if json_mode:
-        # التنظيف الذكي للنص
         clean_text = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL).strip()
         clean_text = clean_text.replace('```json', '').replace('```', '').strip()
         match = re.search(r'\{.*\}', clean_text, re.DOTALL)
@@ -420,6 +562,86 @@ def call_universal_ai(messages, json_mode=False):
             return match.group(0)
         else:
             return clean_text
+    return raw_text
+
+def build_compressed_context(curr_user: str, cfg: dict, df_s, df_p, work_start: int, work_end: int) -> str:
+    """يبني سياقاً مضغوطاً للذكاء الاصطناعي لتوفير التوكنز"""
+    now = get_local_now()
+    curr_user_short = curr_user.split(" - ")[0]
+        
+    appr = df_s[df_s['state'].isin(['sale','done'])]['amount_total'].sum() if not df_s.empty and 'state' in df_s.columns else 0
+    draft = df_s[df_s['state'].isin(['draft','sent'])]['amount_total'].sum() if not df_s.empty and 'state' in df_s.columns else 0
+        
+    my_drafts = "لا يوجد"
+    if not df_s.empty and 'user_id' in df_s.columns:
+        df_s['_u'] = df_s['user_id'].apply(clean_odoo_m2o)
+        emp_drafts = df_s[
+            (df_s['state'].isin(['draft','sent'])) & 
+            (df_s['_u'].str.contains(curr_user_short, na=False))
+        ]
+        if not emp_drafts.empty:
+            items = [
+                f"{row.get('name','?')} / {clean_odoo_m2o(row.get('partner_id','?'))} / {row.get('amount_total',0):,.0f}ج"
+                for _, row in emp_drafts.head(3).iterrows()
+            ]
+            my_drafts = " | ".join(items)
+        
+    open_tasks = get_all_open_tasks_compact()
+        
+    memory = get_employee_memory(curr_user)
+    if len(memory) > 300:
+        memory = memory[:300] + "..."
+        
+    h12 = now.hour % 12 or 12
+    am_pm = "ص" if now.hour < 12 else "م"
+    is_work = work_start <= now.hour < work_end
+    time_status = "داخل وقت العمل" if is_work else "خارج وقت العمل"
+        
+    emp_data = next((e for e in cfg.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == curr_user), None)
+    kpis_short = (emp_data.get('job_desc', '')[:200] if emp_data else "المدير العام")
+        
+    context = f"""=بيانات النظام=
+وقت:{h12}:{now.minute:02d}{am_pm} ({time_status} {work_start}ص-{work_end}م)
+مبيعات معتمدة:{appr:,.0f}ج | مسودة:{draft:,.0f}ج | عملاء:{len(df_p) if df_p is not None else 0}
+=عروض {curr_user_short} المعلقة=
+{my_drafts}
+=مهام الفريق المفتوحة (لا تكرر ما فيها)=
+{open_tasks}
+=ذاكرة {curr_user_short}=
+{memory if memory else 'لا يوجد'}
+=KPIs=
+{kpis_short}"""
+    return context
+
+def call_universal_ai_optimized(messages, json_mode=False):
+    """نسخة محسنة بـ max_tokens أقل لتوفير الاستهلاك"""
+    api_key = st.session_state.app_config.get('AI_API_KEY', '').strip()
+    if not api_key:
+        raise Exception("مفتاح API غير متوفر.")
+        
+    base_url = st.session_state.app_config.get('AI_PROVIDER_URL', '').strip() or None
+    model_name = st.session_state.app_config.get('AI_MODEL_NAME', 'gpt-4o')
+    client = OpenAI(api_key=api_key, base_url=base_url, timeout=90.0)
+        
+    kwargs = {
+        "model": model_name,
+        "messages": messages,
+        "temperature": 0.7,
+        "max_tokens": 1500
+    }
+        
+    if json_mode:
+        if "openrouter" not in str(base_url or '').lower() and "claude" not in model_name.lower():
+            kwargs["response_format"] = {"type": "json_object"}
+            
+    response = client.chat.completions.create(**kwargs)
+    raw_text = response.choices[0].message.content
+        
+    if json_mode:
+        clean = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL).strip()
+        clean = clean.replace('```json', '').replace('```', '').strip()
+        m = re.search(r'\{.*\}', clean, re.DOTALL)
+        return m.group(0) if m else clean
     return raw_text
 
 def get_icon(name: str, size: int = 24, color: str = "currentColor", class_name: str = "") -> str:
@@ -1905,9 +2127,7 @@ def render_forecast():
             except Exception:
                 st.error("الخادم غير متاح حالياً لاستخراج الرؤية المستقبلية.")
 
-
 def get_ai_context_metrics(_df_s_local, _df_p_local, curr_user_short):
-    
     t_sales_appr = _df_s_local[_df_s_local['state'].isin(['sale','done'])]['amount_total'].sum() if not _df_s_local.empty and 'state' in _df_s_local.columns else 0
     t_sales_draft = _df_s_local[_df_s_local['state'].isin(['draft','sent'])]['amount_total'].sum() if not _df_s_local.empty and 'state' in _df_s_local.columns else 0
     t_sales_canc = _df_s_local[_df_s_local['state'] == 'cancel']['amount_total'].sum() if not _df_s_local.empty and 'state' in _df_s_local.columns else 0
@@ -1922,232 +2142,86 @@ def get_ai_context_metrics(_df_s_local, _df_p_local, curr_user_short):
 
     return t_sales_appr, t_sales_draft, t_sales_canc, p_len, my_drafts_str
 
-def compress_and_update_memory(curr_user, chat_history):
-    current_cfg = st.session_state.get('app_config', {})
+# ============================================================
+# [MODULE: BACKGROUND MEMORY COMPRESSION] 
+# ============================================================
+def compress_memory_safe(curr_user: str, messages_to_compress: list):
+    """
+    يضغط الذاكرة فقط في Firebase
+    لا يمسح المحادثة من session_state أبداً
+    لا يعمل في thread منفصل — استدعاء مباشر لكنه غير blocking للبيانات الأخرى
+    """
+    lock_key = f'_compressing_{curr_user}'
+    if st.session_state.get(lock_key, False):
+        return
+    st.session_state[lock_key] = True
+        
+    try:
+        existing_memory = get_employee_memory(curr_user)
+                
+        sample = messages_to_compress[-20:]  # آخر 20 فقط للضغط
+        chat_str = "\n".join([
+            f"{'موظف' if m['role']=='user' else 'مدير'}: {m['content'][:150]}"
+            for m in sample
+            if m.get('role') != 'system'
+        ])
+                
+        prompt = f"""ملخص سريع جداً (لا يتجاوز 200 كلمة):
+الذاكرة القديمة: {existing_memory[:300] if existing_memory else 'لا يوجد'}
+آخر تفاعلات: {chat_str}
+اكتب فقط ملخصاً تراكمياً نصياً بسيطاً يتضمن: آخر مهام مكلف بها، أي إنجازات أو إخفاقات، ونقاط للمتابعة."""
+                
+        result = call_universal_ai_optimized(
+            [{"role": "user", "content": prompt}],
+            json_mode=False
+        )
+                
+        if result and len(result) > 20:
+            update_employee_fields_only({f'MEMORIES.{curr_user}': result})
+                
+    except Exception as e:
+        print(f"[WARN] memory compress failed: {e}")
+    finally:
+        st.session_state[lock_key] = False
+
+def background_compress_memory(curr_user, chat_history_to_compress, current_cfg):
+    """تعمل في الخلفية لضغط المحادثات دون حذفها من الشاشة"""
     memories = current_cfg.get('MEMORIES', {})
-    existing_memory = get_employee_memory(curr_user)
-    if not existing_memory:
-        existing_memory = "لا توجد ذاكرة سابقة."
+    existing_memory = memories.get(curr_user, "لا توجد ذاكرة سابقة.")
     
-    chat_str = "\n".join([f"[{m['role']}]: {m['content']}" for m in chat_history])
+    chat_str = "\n".join([f"[{m['role']}]: {m['content']}" for m in chat_history_to_compress])
     
     prompt = f"""
-    أنت عقل المدير التحليلي. لديك سجل بمحادثة طويلة مع الموظف '{curr_user}'.
-    لدينا أيضاً الذاكرة القديمة للموظف.
-    المطلوب: ادمج الذاكرة القديمة مع المحادثة الجديدة لإنشاء "ذاكرة تراكمية ذكية" جديدة للموظف.
+    أنت عقل المدير التحليلي. مهمتك استخراج المعلومات المهمة لحفظها في الذاكرة التراكمية.
+    الذاكرة القديمة: {existing_memory}
+    محادثة جديدة: {chat_str}
     
-    شروط التلخيص:
-    1. اذكر المهام التي تم إنجازها (لتقييم الموظف لاحقاً).
-    2. اذكر المهام المعلقة بالتفصيل الدقيق، مع إبراز تواريخ وأيام المتابعة المستقبلية (مثال: وعدت شركة كذا بالرد يوم الثلاثاء، يجب المتابعة).
-    3. يجب أن يكون التلخيص دقيقاً، مختصراً جداً، وفي نقاط.
-    
-    الذاكرة القديمة:
-    {existing_memory}
-    
-    المحادثة الحالية المراد دمجها:
-    {chat_str}
-    
-    أخرج النتيجة بصيغة JSON فقط:
-    {{"new_memory": "نص الذاكرة المحدث هنا"}}
+    أخرج النتيجة بصيغة JSON:
+    {{"new_memory": "دمج الذاكرة القديمة مع إنجازات وإخفاقات المحادثة الجديدة باختصار شديد."}}
     """
     try:
         res = call_universal_ai([{"role": "user", "content": prompt}], json_mode=True)
-        # استخدام strict=False لتفادي انهيار JSON
         parsed = json.loads(res, strict=False)
         new_memory = parsed.get("new_memory", "")
-        
         if new_memory:
-            memories[curr_user] = new_memory
-            update_system_config({'MEMORIES': memories})
-            return new_memory
+            if FIREBASE_CONNECTED and db:
+                get_workspace_doc().update({f'MEMORIES.{curr_user}': new_memory})
+            else:
+                current_cfg['MEMORIES'][curr_user] = new_memory
     except Exception:
         pass
-    return None
 
-@st.dialog("تقرير تقييم الأداء التفصيلي", width="large")
-def show_employee_report_dialog(emp_full_name, start_date, end_date, config_data):
-    emp_short = emp_full_name.split(" - ")[0].strip()
-    emp_role = emp_full_name.split(" - ")[1].strip() if " - " in emp_full_name else ""
-    
-    emp_data = next((e for e in config_data.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == emp_full_name), None)
-    kpis = emp_data.get('job_desc', 'لا يوجد مهام مسجلة') if emp_data else 'لا يوجد'
-            
-    eval_history = config_data.get('EVAL_HISTORY', {}).get(emp_full_name, [])
-    filtered_evals = []
-    for ev in eval_history:
-        try:
-            ev_date = datetime.strptime(ev['date'], "%Y-%m-%d %H:%M").date()
-            if start_date <= ev_date <= end_date:
-                filtered_evals.append(ev)
-        except: pass
-        
-    activities = []
-    if 'workspace_id' in st.session_state:
-        try:
-            if FIREBASE_CONNECTED and db:
-                docs = get_workspace_doc().collection('Logs').where('user', '==', emp_full_name).stream()
-                for doc in docs:
-                    al = doc.to_dict()
-                    al_date = datetime.strptime(al['timestamp'], "%Y-%m-%d %H:%M:%S").date()
-                    if start_date <= al_date <= end_date:
-                        activities.append(al)
-            else:
-                for k, al in st.session_state.offline_db.get('Logs', []):
-                    if al.get('user') == emp_full_name:
-                        al_date = datetime.strptime(al['timestamp'], "%Y-%m-%d %H:%M:%S").date()
-                        if start_date <= al_date <= end_date:
-                            activities.append(al)
-        except: pass
-
-    with st.spinner("جاري تحليل البيانات وتوليد التقرير الذكي بواسطة الذكاء الاصطناعي..."):
-        evals_str = "\n".join([f"[{e['date']}] {e['eval']}" for e in filtered_evals])
-        chats_str = "\n".join([f"[{c['timestamp']}] {'الموظف' if c.get('role')=='user' else 'المدير'}: {c.get('content','')}" for c in activities])
-        
-        if len(evals_str) > 2000: evals_str = "..." + evals_str[-2000:]
-        if len(chats_str) > 3000: chats_str = "..." + chats_str[-3000:]
-
-        report_prompt = f"""
-        أنت خبير تقييم أداء (HR Executive). قم بكتابة تقرير أداء ذكي وملخص لموظف بناءً على البيانات التالية حصرياً:
-        - اسم الموظف: {emp_short}
-        - الوظيفة: {emp_role}
-        - الأهداف المطلوبة (KPIs): {kpis}
-
-        سجل التقييمات السابقة:
-        {evals_str if evals_str else 'لا يوجد'}
-
-        مقتطفات من تفاعلات الموظف وتقاريره (الشات):
-        {chats_str if chats_str else 'لا يوجد سجل محادثات'}
-
-        المطلوب:
-        اكتب تقرير إداري "موجز جداً ومكثف وفي نقاط سريعة" (لا يتعدى نصف صفحة، بحد أقصى 100 كلمة).
-        أخرج كود HTML فقط للمحتوى الداخلي (استخدم العناوين h4 والفقرات p والقوائم ul, li فقط).
-        تحذير صارم: لا تكتب <!DOCTYPE html> أو <html> أو <body> أو <head> نهائياً. أريد المحتوى الصافي فقط ليتم وضعه داخل حاوية موجودة مسبقاً.
-        ممنوع استخدام أي رموز تعبيرية (Emojis).
-        
-        ركز على: الخلاصة، الإنجاز، التزام الموظف، والتقييم النهائي من 10.
-        """
-        try:
-            smart_report_html = call_universal_ai([{"role": "user", "content": report_prompt}])
-            smart_report_html = smart_report_html.replace('```html', '').replace('```', '')
-            smart_report_html = re.sub(r'<!DOCTYPE[^>]*>', '', smart_report_html, flags=re.IGNORECASE)
-            smart_report_html = re.sub(r'</?html[^>]*>', '', smart_report_html, flags=re.IGNORECASE)
-            smart_report_html = re.sub(r'<head.*?</head>', '', smart_report_html, flags=re.DOTALL|re.IGNORECASE)
-            smart_report_html = re.sub(r'</?body[^>]*>', '', smart_report_html, flags=re.IGNORECASE)
-            smart_report_html = smart_report_html.strip()
-
-        except Exception as e:
-            smart_report_html = f"""
-            <div style='text-align: center; padding: 40px; background-color: #ffeef2; border-radius: 12px; border: 1px solid #ff2d78;'>
-                <h3 style='color: #ff2d78; margin-top: 0;'>تعذر الاتصال بالخادم الذكي</h3>
-                <p style='color: #64748b; font-size: 16px;'>عذراً، لم نتمكن من توليد التقرير الذكي في الوقت الحالي.</p>
-            </div>
-            """
-
-    html_export = f"""
-    <!DOCTYPE html>
-    <html dir="rtl" lang="ar">
-    <head>
-        <meta charset="utf-8">
-        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
-        <style>
-            body {{ font-family: 'Cairo', sans-serif; background-color: #f8fafc; padding: 40px; color: #1e293b; direction: rtl; text-align: right; line-height: 1.8; }}
-            .report-container {{ max-width: 800px; margin: auto; background: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border-top: 8px solid #005c4b; }}
-            .header {{ text-align: center; padding-bottom: 20px; border-bottom: 2px solid #e2e8f0; margin-bottom: 30px; }}
-            .header h1 {{ color: #005c4b; font-size: 32px; font-weight: 800; margin: 0 0 10px 0; }}
-            .report-content {{ background: #f8fafc; padding: 30px; border-radius: 12px; border-right: 4px solid #005c4b; color: #334155; }}
-            .report-content h2, .report-content h3, .report-content h4 {{ color: #0f172a; margin-top: 0; font-size: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }}
-            .report-content p {{ font-size: 15px; margin-bottom: 10px; }}
-            .report-content ul {{ padding-right: 20px; margin-bottom: 15px; }}
-            .report-content li {{ margin-bottom: 5px; font-size: 15px; }}
-            .footer {{ text-align: center; margin-top: 40px; color: #94a3b8; font-size: 13px; border-top: 1px solid #e2e8f0; padding-top: 20px; }}
-        </style>
-    </head>
-    <body>
-        <div class="report-container">
-            <div class="header">
-                <h1>تقرير الأداء والتقييم الشامل</h1>
-                <div style="color: #64748b; font-size: 15px;">نظام MUDIR OS الاستراتيجي</div>
-            </div>
-            
-            <table width="100%" style="margin-bottom: 20px; background: #f1f5f9; border-radius: 12px; border: 1px solid #cbd5e1; padding: 15px;">
-                <tr>
-                    <td style="text-align: right; font-size: 16px; color: #334155; width: 33%;"><strong>الموظف:</strong> {emp_short}</td>
-                    <td style="text-align: center; font-size: 16px; color: #334155; width: 33%;"><strong>الوظيفة:</strong> {emp_role}</td>
-                    <td style="text-align: left; font-size: 16px; color: #334155; width: 33%; direction: rtl;"><strong>الفترة:</strong> {start_date} / {end_date}</td>
-                </tr>
-            </table>
-
-            <div class="report-content">
-                {smart_report_html}
-            </div>
-
-            <div class="footer">
-                تم استخراج هذا التقرير آلياً بواسطة محرك الذكاء الاصطناعي - MUDIR OS<br>
-                تاريخ الاستخراج: {get_local_now().strftime('%Y-%m-%d %H:%M')}
-            </div>
-        </div>
-    </body></html>
-    """
-
-    st.markdown("### معاينة التقرير المباشرة:")
-    
-    neon_preview_html = f"""
-    <!DOCTYPE html>
-    <html dir="rtl" lang="ar">
-    <head>
-        <meta charset="utf-8">
-        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Orbitron:wght@700&display=swap" rel="stylesheet">
-        <style>
-            body {{ margin: 0; padding: 10px; background-color: #0b141a; color: #e2e8f0; font-family: 'Cairo', sans-serif; direction: rtl; text-align: right; }}
-            .neon-report-wrapper {{ background: linear-gradient(180deg, #04080a 0%, #0b141a 100%); border-radius: 16px; padding: 30px; border: 1px solid rgba(0, 242, 255, 0.3); box-shadow: 0 0 20px rgba(0, 242, 255, 0.1); }}
-            .neon-report-header {{ text-align: center; border-bottom: 1px solid rgba(0, 242, 255, 0.2); padding-bottom: 20px; margin-bottom: 30px; }}
-            .neon-report-header h2 {{ color: #00f2ff; text-shadow: 0 0 10px rgba(0, 242, 255, 0.6); font-weight: 900; font-size: 2.2rem; margin: 0 0 10px 0; }}
-            .neon-report-body {{ background: rgba(0, 0, 0, 0.3); padding: 30px; border-radius: 12px; border-right: 4px solid #00ff82; font-size: 1.1rem; line-height: 1.8; box-shadow: inset 0 0 15px rgba(0,0,0,0.5); }}
-            .neon-report-body h1, .neon-report-body h2, .neon-report-body h3, .neon-report-body h4 {{ color: #00ff82; font-weight: 800; border-bottom: 1px dashed rgba(0, 255, 130, 0.3); padding-bottom: 8px; margin-top: 1.5rem; margin-bottom: 1rem; }}
-            .neon-report-body ul, .neon-report-body ol {{ padding-right: 25px; }}
-            .neon-report-body li {{ margin-bottom: 10px; }}
-            .neon-report-body strong, .neon-report-body b {{ color: #00f2ff; background: rgba(0, 242, 255, 0.1); padding: 2px 6px; border-radius: 4px; }}
-        </style>
-    </head>
-    <body>
-        <div class="neon-report-wrapper">
-            <div class="neon-report-header">
-                <h2>التقرير الاستراتيجي للأداء</h2>
-                <div style="color: #00ff82; font-size: 1.3rem; font-weight: bold; margin-bottom: 5px;">{emp_short} <span style="color:#64748b; font-weight: normal;">| {emp_role}</span></div>
-                <div style="color: #64748b; font-size: 0.95rem; font-family: 'Orbitron', sans-serif;">DATA RANGE: {start_date} // {end_date}</div>
-            </div>
-            <div class="neon-report-body">
-                {smart_report_html}
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    
-    st.components.v1.html(neon_preview_html, height=650, scrolling=True)
-
-    c1, c2 = st.columns(2)
-    with c1:
-        st.download_button("📥 حفظ التقرير (Word)", data=html_export.encode('utf-8-sig'), file_name=f"Performance_Report_{emp_short}.doc", mime="application/msword", use_container_width=True)
-    with c2:
-        st.download_button("🖨️ استخراج للطباعة (PDF)", data=(html_export + "<script>window.print();</script>").encode('utf-8-sig'), file_name=f"Performance_Report_{emp_short}.html", mime="text/html", use_container_width=True)
-
-
+# ============================================================
+# [MODULE: RENDER CHAT / AI MANAGER]
+# ============================================================
 @st.fragment
 def render_chat_fragment(curr_user, sys_prompt_context, CFG):
     chat_area = st.container(height=650, border=False)
     
     current_chat = st.session_state.all_chats.get(curr_user, [])
-    if len(current_chat) > 50 and curr_user != "المدير العام":
-        with st.spinner("جاري أرشفة وتحديث الذاكرة التراكمية للموظف..."):
-            new_mem = compress_and_update_memory(curr_user, current_chat[:-10])
-            if new_mem:
-                st.session_state.all_chats[curr_user] = [{"role": "system", "content": f"تم ضغط المحادثات القديمة بنجاح. الذاكرة الحالية للموظف مسجلة في عقل النظام."}] + current_chat[-10:]
-                save_chat_for_user(curr_user)
-                st.rerun(scope="fragment")
 
     with chat_area:
-        for idx, msg in enumerate(st.session_state.all_chats.get(curr_user, [])):
+        for idx, msg in enumerate(current_chat):
             if msg["role"] == "system": continue 
             with st.chat_message(msg["role"]):
                 st.markdown(f"<span class='msg-{msg['role']}' style='display:none;'></span>", unsafe_allow_html=True)
@@ -2159,7 +2233,7 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 with action_cols[0]:
                     if st.button("🗑️", key=f"dl_{curr_user}_{idx}", help="حذف الرسالة"):
                         st.session_state.all_chats[curr_user].pop(idx)
-                        save_chat_for_user(curr_user)
+                        save_chat_for_user_safe(curr_user)
                         st.rerun(scope="fragment")
                 
                 if msg["role"] == "assistant":
@@ -2175,100 +2249,55 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                             key=f"save_tsk_{curr_user}_{idx}",
                             help="حفظ التكليف كبطاقة رقمية على جهازك للرجوع إليها"
                         )
-                
+
     user_input = st.chat_input("اكتب رسالة...")
 
     if user_input:
         current_time = time.time()
         
-        last_time = 0
-        user_chat_ref = None
-        if FIREBASE_CONNECTED and db:
-            user_chat_ref = get_workspace_doc().collection('Chats').document(curr_user)
-            try:
-                doc_snap = user_chat_ref.get()
-                if doc_snap.exists:
-                    last_time = doc_snap.to_dict().get('last_msg_timestamp', 0)
-            except:
-                pass
-        else:
-            last_time = st.session_state.get('last_msg_time', 0)
-
+        last_time = st.session_state.get(f'_last_msg_{curr_user}', 0)
         if current_time - last_time < 3.0:
-            st.toast("⚠️ أرجوك انتظر 3 ثواني بين الرسائل لمنع الإغراق.", icon="⏳")
+            st.toast("انتظر 3 ثواني بين الرسائل.", icon="⏳")
             st.stop()
             
-        st.session_state.last_msg_time = current_time
-        if FIREBASE_CONNECTED and db and user_chat_ref:
-            try:
-                user_chat_ref.set({'last_msg_timestamp': current_time}, merge=True)
-            except: pass
+        st.session_state[f'_last_msg_{curr_user}'] = current_time
 
         if curr_user not in st.session_state.all_chats:
             st.session_state.all_chats[curr_user] = []
             
         user_msg = {"role": "user", "content": user_input}
         st.session_state.all_chats[curr_user].append(user_msg)
-        
-        user_msg_log = user_msg.copy()
-        user_msg_log['user'] = curr_user
-        log_message(curr_user, user_msg_log)
-        save_chat_for_user(curr_user)
+        log_message(curr_user, user_msg)
+        save_chat_for_user_safe(curr_user)
         
         with chat_area:
             with st.chat_message("user"):
-                st.markdown("<span class='msg-user' style='display:none;'></span>", unsafe_allow_html=True)
+                st.markdown(f"<span class='msg-user' style='display:none;'></span>", unsafe_allow_html=True)
                 st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(user_input)}</div>", unsafe_allow_html=True)
             
             with st.spinner("يكتب الأن..."):
-                api_messages = [{"role": "system", "content": sys_prompt_context}]
-                api_messages.extend([m for m in st.session_state.all_chats[curr_user] if m['role'] != 'system'][-15:])
+                compressed_ctx = build_compressed_context(
+                    curr_user, CFG, df_s_master, df_p_master,
+                    int(CFG.get('WORK_START', 8)), int(CFG.get('WORK_END', 17))
+                )
+                full_system = CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT) + "\n" + compressed_ctx
                 
-                max_retries = 2
-                ai_data = {}
+                api_messages = [{"role": "system", "content": full_system}]
+                api_messages += [m for m in st.session_state.all_chats[curr_user] if m['role'] != 'system'][-8:]
                 
-                for attempt in range(max_retries):
-                    try:
-                        response_text = call_universal_ai(api_messages, json_mode=True)
-                        if not response_text:
-                            raise ValueError("Empty response")
-                            
-                        # استخدام strict=False لحماية النظام من الانهيار عند الردود الطويلة المفصلة
-                        parsed_data = json.loads(response_text, strict=False)
-                        
-                        if isinstance(parsed_data, dict):
-                            ai_data = parsed_data
-                            break 
-                        else:
-                            raise ValueError("Not a dictionary")
-                            
-                    except ValueError:
-                        if attempt < max_retries - 1:
-                            api_messages.append({"role": "user", "content": "الرد السابق لم يكن بصيغة JSON صحيحة. يرجى الرد بكائن JSON فقط يحتوي على: response, eval, task, action."})
-                        else:
-                            ai_data = {
-                                "response": "أنا مشغول جداً دلوقتي في مراجعة أرقام مهمة. من فضلك حاول تكلمني تاني بعد 10 دقايق.",
-                                "eval": "", "task": "", "action": ""
-                            }
-                            break
-                    except Exception:
-                        add_system_notification("المدير العام", "🚨 تنبيه عاجل: فشل الاتصال بخادم الذكاء الاصطناعي. يرجى مراجعة الرابط ومفتاح الربط (API Key).")
-                        ai_data = {
-                            "response": "أنا مشغول جداً في اجتماع طارئ لمجلس الإدارة. بلغت الإدارة العليا بالمشكلة، يرجى المحاولة لاحقاً.",
-                            "eval": "", "task": "", "action": ""
-                        }
-                        break
-                            
-                if not isinstance(ai_data, dict) or not ai_data or 'response' not in ai_data:
-                    ai_data = {
-                        "response": "أنا مشغول جداً دلوقتي في مراجعة أرقام مهمة. من فضلك حاول تكلمني تاني بعد 10 دقايق.",
-                        "eval": "", "task": "", "action": ""
-                    }
+                try:
+                    raw = call_universal_ai_optimized(api_messages, json_mode=True)
+                    ai_data = json.loads(raw, strict=False)
+                    if not isinstance(ai_data, dict):
+                        ai_data = {}
+                except Exception as e:
+                    ai_data = {"response": "عذراً، حدث خطأ مؤقت. حاول تاني."}
 
-                actual_response = ai_data.get('response', '')
-                eval_data = ai_data.get('eval', '')
-                assigned_task = ai_data.get('task', '')
-                action_data = ai_data.get('action', '')
+                actual_response = ai_data.get('response', 'حدث خطأ.')
+                eval_data      = ai_data.get('eval', '')
+                task_key       = ai_data.get('task_key', '').strip().replace(' ', '_')
+                task_label     = ai_data.get('task_label', '').strip()
+                action_data    = ai_data.get('action', '')
 
                 if action_data and "CREATE_SO" in action_data:
                     client_name = "غير محدد"
@@ -2279,53 +2308,37 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                             if "العميل:" in p: client_name = p.replace("العميل:", "").strip()
                             if "القيمة:" in p: amt = p.replace("القيمة:", "").strip()
                             
-                    ai_msg1 = {"role": "assistant", "content": actual_response}
-                    st.session_state.all_chats[curr_user].append(ai_msg1)
-                    
-                    ai_msg1_log = ai_msg1.copy()
-                    ai_msg1_log['user'] = curr_user
-                    log_message(curr_user, ai_msg1_log)
-                    
                     ai_msg2 = {"role": "system", "content": f"إشعار من النظام: تم إنشاء مسودة عرض سعر بنجاح للعميل ({client_name}) بقيمة ({amt})."}
                     st.session_state.all_chats[curr_user].append(ai_msg2)
-                    
                     add_system_notification(curr_user, f"✅ تم تنفيذ أمر تلقائي: إنشاء عرض سعر لـ ({client_name}) بقيمة ({amt}).")
-                    save_chat_for_user(curr_user)
-                    st.rerun(scope="fragment")
 
-                if assigned_task and "المدير العام" not in curr_user:
-                    now_str = get_local_now().strftime("%Y-%m-%d")
-                    task_str = f"- {assigned_task} (تم حجزها لـ {curr_user.split(' - ')[0]} في {now_str})"
-                    add_task_safely(task_str)
-                    add_system_notification(curr_user, f"📌 تكليف جديد من المدير: {assigned_task}")
+                if task_key and task_label and "المدير العام" not in curr_user:
+                    claimed = claim_task_atomic(task_key, curr_user)
+                    if claimed:
+                        add_system_notification(curr_user, f"تكليف جديد: {task_label}")
+                        now_str = get_local_now().strftime("%Y-%m-%d")
+                        add_task_safely(curr_user, f"- {task_label} ({now_str})")
+                    else:
+                        actual_response += f"\n\n[ملاحظة نظام: المهمة '{task_label}' محجوزة لموظف آخر]"
 
                 if eval_data and "المدير العام" not in curr_user:
-                    try:
-                        current_cfg = get_workspace_doc().get().to_dict() or {}
-                        evals = current_cfg.get('EVALUATIONS', {})
-                        history = current_cfg.get('EVAL_HISTORY', {})
-                        if curr_user not in history: history[curr_user] = []
-                        now_str = get_local_now().strftime("%Y-%m-%d %H:%M")
-                        
-                        evals[curr_user] = {'eval': eval_data, 'date': now_str}
-                        history[curr_user].append({'eval': eval_data, 'date': now_str})
-                        
-                        update_system_config({'EVALUATIONS': evals, 'EVAL_HISTORY': history})
-                    except Exception: pass
-                
+                    record_eval_safe(curr_user, eval_data)
+
                 if actual_response:
-                    ai_final_msg = {"role": "assistant", "content": actual_response}
-                    st.session_state.all_chats[curr_user].append(ai_final_msg)
+                    ai_msg = {"role": "assistant", "content": actual_response}
+                    st.session_state.all_chats[curr_user].append(ai_msg)
+                    log_message(curr_user, ai_msg)
+                    save_chat_for_user_safe(curr_user)
                     
-                    ai_final_msg_log = ai_final_msg.copy()
-                    ai_final_msg_log['user'] = curr_user
-                    log_message(curr_user, ai_final_msg_log)
-                    
-                    save_chat_for_user(curr_user)
+                    chat_len = len(st.session_state.all_chats[curr_user])
+                    last_compress = st.session_state.get(f'_last_compress_{curr_user}', 0)
+                    if chat_len - last_compress >= 25 and "المدير العام" not in curr_user:
+                        compress_memory_safe(curr_user, st.session_state.all_chats[curr_user])
+                        st.session_state[f'_last_compress_{curr_user}'] = chat_len
+                        
                     st.rerun(scope="fragment")
 
 def render_ai():
-    
     CFG = st.session_state.app_config
     curr_user = st.session_state.current_user
     curr_user_short = curr_user.split(" - ")[0]
@@ -2401,6 +2414,13 @@ def render_ai():
     curr_emp_data = next((e for e in CFG.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == curr_user), None)
     job_desc = curr_emp_data.get('job_desc', 'لا يوجد وصف وظيفي محدد.') if curr_emp_data else 'أنت المدير العام.'
     
+    # تحميل لوحة المهام العالمية لمنع التكرار
+    global_tasks = CFG.get('GLOBAL_TASKS', {})
+    tasks_str = "المهام المسندة حالياً للموظفين:\n"
+    for t_id, t_info in global_tasks.items():
+        if t_info.get('status') != 'done':
+            tasks_str += f"- مع الموظف ({t_info['emp']}): {t_info['task']}\n"
+    
     live_context = f"""
 === بيانات النظام الحية (يجب أخذها في الاعتبار) ===
 - المبيعات المنفذة (موافق عليه للشركة): {t_sales_appr:,.0f} ج.م
@@ -2409,7 +2429,10 @@ def render_ai():
 
 === المهام المعلقة الخاصة بالموظف الذي يكلمك الآن من واقع Odoo ===
 {my_drafts_str}
-(توجيه للمدير: يجب أن تسأل الموظف عن هذه العروض وتتابع معه سبب عدم إغلاقها حتى الآن).
+
+=== لوحة مهام الشركة (Global Task Board) ===
+{tasks_str}
+(تحذير للمدير: لا تقم بإسناد مهمة لموظف إذا كانت موجودة في هذه القائمة مع موظف آخر).
 
 === نظام الوقت الاستراتيجي ===
 - اليوم والتاريخ: {current_date_full}
@@ -2736,6 +2759,174 @@ def edit_employee_dialog(emp_index, current_emps, view_options):
             st.rerun()
         else:
             st.warning("يرجى ملء جميع البيانات الأساسية واختيار شاشة واحدة على الأقل.")
+
+@st.dialog("تقرير تقييم الأداء التفصيلي", width="large")
+def show_employee_report_dialog(emp_full_name, start_date, end_date, config_data):
+    emp_short = emp_full_name.split(" - ")[0].strip()
+    emp_role = emp_full_name.split(" - ")[1].strip() if " - " in emp_full_name else ""
+    
+    emp_data = next((e for e in config_data.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == emp_full_name), None)
+    kpis = emp_data.get('job_desc', 'لا يوجد مهام مسجلة') if emp_data else 'لا يوجد'
+            
+    eval_history = config_data.get('EVAL_HISTORY', {}).get(emp_full_name, [])
+    filtered_evals = []
+    for ev in eval_history:
+        try:
+            ev_date = datetime.strptime(ev['date'], "%Y-%m-%d %H:%M").date()
+            if start_date <= ev_date <= end_date:
+                filtered_evals.append(ev)
+        except: pass
+        
+    activities = []
+    if 'workspace_id' in st.session_state:
+        try:
+            if FIREBASE_CONNECTED and db:
+                docs = get_workspace_doc().collection('Logs').where('user', '==', emp_full_name).stream()
+                for doc in docs:
+                    al = doc.to_dict()
+                    al_date = datetime.strptime(al['timestamp'], "%Y-%m-%d %H:%M:%S").date()
+                    if start_date <= al_date <= end_date:
+                        activities.append(al)
+            else:
+                for k, al in st.session_state.offline_db.get('Logs', []):
+                    if al.get('user') == emp_full_name:
+                        al_date = datetime.strptime(al['timestamp'], "%Y-%m-%d %H:%M:%S").date()
+                        if start_date <= al_date <= end_date:
+                            activities.append(al)
+        except: pass
+
+    with st.spinner("جاري تحليل البيانات وتوليد التقرير الذكي بواسطة الذكاء الاصطناعي..."):
+        evals_str = "\n".join([f"[{e['date']}] {e['eval']}" for e in filtered_evals])
+        chats_str = "\n".join([f"[{c['timestamp']}] {'الموظف' if c.get('role')=='user' else 'المدير'}: {c.get('content','')}" for c in activities])
+        
+        if len(evals_str) > 2000: evals_str = "..." + evals_str[-2000:]
+        if len(chats_str) > 3000: chats_str = "..." + chats_str[-3000:]
+
+        report_prompt = f"""
+        أنت خبير تقييم أداء (HR Executive). قم بكتابة تقرير أداء ذكي وملخص لموظف بناءً على البيانات التالية حصرياً:
+        - اسم الموظف: {emp_short}
+        - الوظيفة: {emp_role}
+        - الأهداف المطلوبة (KPIs): {kpis}
+
+        سجل التقييمات السابقة:
+        {evals_str if evals_str else 'لا يوجد'}
+
+        مقتطفات من تفاعلات الموظف وتقاريره (الشات):
+        {chats_str if chats_str else 'لا يوجد سجل محادثات'}
+
+        المطلوب:
+        اكتب تقرير إداري "موجز جداً ومكثف وفي نقاط سريعة" (لا يتعدى نصف صفحة، بحد أقصى 100 كلمة).
+        أخرج كود HTML فقط للمحتوى الداخلي (استخدم العناوين h4 والفقرات p والقوائم ul, li فقط).
+        تحذير صارم: لا تكتب <!DOCTYPE html> أو <html> أو <body> أو <head> نهائياً. أريد المحتوى الصافي فقط ليتم وضعه داخل حاوية موجودة مسبقاً.
+        ممنوع استخدام أي رموز تعبيرية (Emojis).
+        
+        ركز على: الخلاصة، الإنجاز، التزام الموظف، والتقييم النهائي من 10.
+        """
+        try:
+            smart_report_html = call_universal_ai([{"role": "user", "content": report_prompt}])
+            smart_report_html = smart_report_html.replace('```html', '').replace('```', '')
+            smart_report_html = re.sub(r'<!DOCTYPE[^>]*>', '', smart_report_html, flags=re.IGNORECASE)
+            smart_report_html = re.sub(r'</?html[^>]*>', '', smart_report_html, flags=re.IGNORECASE)
+            smart_report_html = re.sub(r'<head.*?</head>', '', smart_report_html, flags=re.DOTALL|re.IGNORECASE)
+            smart_report_html = re.sub(r'</?body[^>]*>', '', smart_report_html, flags=re.IGNORECASE)
+            smart_report_html = smart_report_html.strip()
+
+        except Exception as e:
+            smart_report_html = f"""
+            <div style='text-align: center; padding: 40px; background-color: #ffeef2; border-radius: 12px; border: 1px solid #ff2d78;'>
+                <h3 style='color: #ff2d78; margin-top: 0;'>تعذر الاتصال بالخادم الذكي</h3>
+                <p style='color: #64748b; font-size: 16px;'>عذراً، لم نتمكن من توليد التقرير الذكي في الوقت الحالي.</p>
+            </div>
+            """
+
+    html_export = f"""
+    <!DOCTYPE html>
+    <html dir="rtl" lang="ar">
+    <head>
+        <meta charset="utf-8">
+        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
+        <style>
+            body {{ font-family: 'Cairo', sans-serif; background-color: #f8fafc; padding: 40px; color: #1e293b; direction: rtl; text-align: right; line-height: 1.8; }}
+            .report-container {{ max-width: 800px; margin: auto; background: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border-top: 8px solid #005c4b; }}
+            .header {{ text-align: center; padding-bottom: 20px; border-bottom: 2px solid #e2e8f0; margin-bottom: 30px; }}
+            .header h1 {{ color: #005c4b; font-size: 32px; font-weight: 800; margin: 0 0 10px 0; }}
+            .report-content {{ background: #f8fafc; padding: 30px; border-radius: 12px; border-right: 4px solid #005c4b; color: #334155; }}
+            .report-content h2, .report-content h3, .report-content h4 {{ color: #0f172a; margin-top: 0; font-size: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }}
+            .report-content p {{ font-size: 15px; margin-bottom: 10px; }}
+            .report-content ul {{ padding-right: 20px; margin-bottom: 15px; }}
+            .report-content li {{ margin-bottom: 5px; font-size: 15px; }}
+            .footer {{ text-align: center; margin-top: 40px; color: #94a3b8; font-size: 13px; border-top: 1px solid #e2e8f0; padding-top: 20px; }}
+        </style>
+    </head>
+    <body>
+        <div class="report-container">
+            <div class="header">
+                <h1>تقرير الأداء والتقييم الشامل</h1>
+                <div style="color: #64748b; font-size: 15px;">نظام MUDIR OS الاستراتيجي</div>
+            </div>
+            
+            <table width="100%" style="margin-bottom: 20px; background: #f1f5f9; border-radius: 12px; border: 1px solid #cbd5e1; padding: 15px;">
+                <tr>
+                    <td style="text-align: right; font-size: 16px; color: #334155; width: 33%;"><strong>الموظف:</strong> {emp_short}</td>
+                    <td style="text-align: center; font-size: 16px; color: #334155; width: 33%;"><strong>الوظيفة:</strong> {emp_role}</td>
+                    <td style="text-align: left; font-size: 16px; color: #334155; width: 33%; direction: rtl;"><strong>الفترة:</strong> {start_date} / {end_date}</td>
+                </tr>
+            </table>
+
+            <div class="report-content">
+                {smart_report_html}
+            </div>
+
+            <div class="footer">
+                تم استخراج هذا التقرير آلياً بواسطة محرك الذكاء الاصطناعي - MUDIR OS<br>
+                تاريخ الاستخراج: {get_local_now().strftime('%Y-%m-%d %H:%M')}
+            </div>
+        </div>
+    </body></html>
+    """
+
+    st.markdown("### معاينة التقرير المباشرة:")
+    
+    neon_preview_html = f"""
+    <!DOCTYPE html>
+    <html dir="rtl" lang="ar">
+    <head>
+        <meta charset="utf-8">
+        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Orbitron:wght@700&display=swap" rel="stylesheet">
+        <style>
+            body {{ margin: 0; padding: 10px; background-color: #0b141a; color: #e2e8f0; font-family: 'Cairo', sans-serif; direction: rtl; text-align: right; }}
+            .neon-report-wrapper {{ background: linear-gradient(180deg, #04080a 0%, #0b141a 100%); border-radius: 16px; padding: 30px; border: 1px solid rgba(0, 242, 255, 0.3); box-shadow: 0 0 20px rgba(0, 242, 255, 0.1); }}
+            .neon-report-header {{ text-align: center; border-bottom: 1px solid rgba(0, 242, 255, 0.2); padding-bottom: 20px; margin-bottom: 30px; }}
+            .neon-report-header h2 {{ color: #00f2ff; text-shadow: 0 0 10px rgba(0, 242, 255, 0.6); font-weight: 900; font-size: 2.2rem; margin: 0 0 10px 0; }}
+            .neon-report-body {{ background: rgba(0, 0, 0, 0.3); padding: 30px; border-radius: 12px; border-right: 4px solid #00ff82; font-size: 1.1rem; line-height: 1.8; box-shadow: inset 0 0 15px rgba(0,0,0,0.5); }}
+            .neon-report-body h1, .neon-report-body h2, .neon-report-body h3, .neon-report-body h4 {{ color: #00ff82; font-weight: 800; border-bottom: 1px dashed rgba(0, 255, 130, 0.3); padding-bottom: 8px; margin-top: 1.5rem; margin-bottom: 1rem; }}
+            .neon-report-body ul, .neon-report-body ol {{ padding-right: 25px; }}
+            .neon-report-body li {{ margin-bottom: 10px; }}
+            .neon-report-body strong, .neon-report-body b {{ color: #00f2ff; background: rgba(0, 242, 255, 0.1); padding: 2px 6px; border-radius: 4px; }}
+        </style>
+    </head>
+    <body>
+        <div class="neon-report-wrapper">
+            <div class="neon-report-header">
+                <h2>التقرير الاستراتيجي للأداء</h2>
+                <div style="color: #00ff82; font-size: 1.3rem; font-weight: bold; margin-bottom: 5px;">{emp_short} <span style="color:#64748b; font-weight: normal;">| {emp_role}</span></div>
+                <div style="color: #64748b; font-size: 0.95rem; font-family: 'Orbitron', sans-serif;">DATA RANGE: {start_date} // {end_date}</div>
+            </div>
+            <div class="neon-report-body">
+                {smart_report_html}
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    st.components.v1.html(neon_preview_html, height=650, scrolling=True)
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.download_button("📥 حفظ التقرير (Word)", data=html_export.encode('utf-8-sig'), file_name=f"Performance_Report_{emp_short}.doc", mime="application/msword", use_container_width=True)
+    with c2:
+        st.download_button("🖨️ استخراج للطباعة (PDF)", data=(html_export + "<script>window.print();</script>").encode('utf-8-sig'), file_name=f"Performance_Report_{emp_short}.html", mime="text/html", use_container_width=True)
 
 def render_settings():
     CFG = st.session_state.get('app_config', {})
@@ -3119,7 +3310,7 @@ def render_super_admin():
                 'AI_PROVIDER_URL': 'https://api.openai.com/v1', 'AI_API_KEY': '',
                 'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
                 'MANAGER_PIN': new_m_pin, 
-                'EMPLOYEES': [], 'EVALUATIONS': {}, 'EVAL_HISTORY': {}, 'TASK_REGISTRY': [], 'NOTIFICATIONS': {}, 'MEMORIES': {} 
+                'EMPLOYEES': [], 'EVALUATIONS': {}, 'EVAL_HISTORY': {}, 'TASK_REGISTRY': [], 'GLOBAL_TASKS': {}, 'NOTIFICATIONS': {}, 'MEMORIES': {} 
             }
             
             try:
