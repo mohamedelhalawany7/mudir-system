@@ -2253,6 +2253,7 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
                 if st.button("🗑️", key=f"dl_{curr_user}_{idx}", help="حذف الرسالة"):
                     st.session_state.all_chats[curr_user].pop(idx)
+                    st.session_state.all_chats = st.session_state.all_chats # تحديث إجباري للحالة
                     overwrite_chat_for_user(curr_user, st.session_state.all_chats[curr_user])
                     st.rerun(scope="fragment")
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -2276,6 +2277,7 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
             
         user_msg = {"role": "user", "content": user_input}
         st.session_state.all_chats[curr_user].append(user_msg)
+        st.session_state.all_chats = st.session_state.all_chats # تحديث إجباري للحالة
         
         user_msg_log = user_msg.copy()
         user_msg_log['user'] = curr_user
@@ -2291,6 +2293,7 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 auto_reply = "عذراً نحن خارج أوقات العمل، أراك غداً"
                 ai_final_msg = {"role": "assistant", "content": auto_reply}
                 st.session_state.all_chats[curr_user].append(ai_final_msg)
+                st.session_state.all_chats = st.session_state.all_chats # تحديث إجباري للحالة
                 log_message(curr_user, ai_final_msg)
                 append_chat_message(curr_user, ai_final_msg)
                 st.rerun(scope="fragment")
@@ -2391,6 +2394,8 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
 
                 ai_final_msg = {"role": "assistant", "content": clean_response}
                 st.session_state.all_chats[curr_user].append(ai_final_msg)
+                st.session_state.all_chats = st.session_state.all_chats # تحديث إجباري للحالة
+                st.session_state.app_config = st.session_state.app_config # تحديث إجباري للحالة
                 
                 ai_final_msg_log = ai_final_msg.copy()
                 ai_final_msg_log['user'] = curr_user
@@ -2577,6 +2582,7 @@ def render_ai():
                     with c_arc1:
                         if st.button(f"🗑️ مسح واجهة الشات لـ {sel_emp.split(' - ')[0]}", use_container_width=True):
                             st.session_state.all_chats[sel_emp] = [{"role": "assistant", "content": "تم مسح الأرشيف بواسطة الإدارة العليا. مستعد لتلقي التكليفات الجديدة."}]
+                            st.session_state.all_chats = st.session_state.all_chats # تحديث إجباري للحالة
                             overwrite_chat_for_user(sel_emp, st.session_state.all_chats[sel_emp])
                             st.rerun()
                     with c_arc2:
@@ -2590,6 +2596,7 @@ def render_ai():
                             
                             if audit_history:
                                 st.session_state.all_chats[sel_emp] = [{"role": m.get("role", "user"), "content": m.get("content", "")} for m in audit_history]
+                                st.session_state.all_chats = st.session_state.all_chats # تحديث إجباري للحالة
                                 overwrite_chat_for_user(sel_emp, st.session_state.all_chats[sel_emp])
                                 st.success("تم استعادة المحادثة بالكامل من السجل السري بنجاح!")
                                 time.sleep(1)
@@ -2609,6 +2616,7 @@ def render_ai():
                                 st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
                                 if st.button("🗑️", key=f"gm_dl_{sel_emp}_{idx}", help="حذف الرسالة"):
                                     st.session_state.all_chats[sel_emp].pop(idx)
+                                    st.session_state.all_chats = st.session_state.all_chats # تحديث إجباري للحالة
                                     overwrite_chat_for_user(sel_emp, st.session_state.all_chats[sel_emp])
                                     st.rerun()
                                 st.markdown('</div>', unsafe_allow_html=True)
