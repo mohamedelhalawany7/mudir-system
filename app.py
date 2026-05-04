@@ -13,7 +13,6 @@ import base64
 import re
 import io
 import hashlib
-import threading # للمساعدة في ضغط الذاكرة بالخلفية دون تعطيل النظام
 
 # ============================================================
 # [MODULE 1: SECURITY & INITIALIZATION] 
@@ -36,11 +35,6 @@ try:
 except ImportError:
     HAS_PYTZ = False
 
-try:
-    import PyPDF2
-except ImportError:
-    pass
-    
 try:
     import statsmodels.api as sm
     from statsmodels.tsa.holtwinters import ExponentialSmoothing
@@ -161,26 +155,30 @@ def get_local_now():
     except Exception: pass
     return datetime.now()
 
-# System Prompt الجديد — أقصر لكن يحافظ على فاعلية التفكير
-DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري خبير في المبيعات وإدارة الفرق.
-شخصيتك: مصري أصيل، حازم، جاد، لا تسمح بالتقصير.
-قواعد صارمة:
-1. راعِ الوقت الحالي ومواعيد العمل المذكورة.
-2. قبل إسناد أي مهمة: تحقق من (المهام المحجوزة لباقي الفريق) — لا تكرر إسناد نفس المهمة.
-3. تابع مهام الموظف الحالي المفتوحة ولا تتركها معلقة.
-4. ممنوع الإيموجي نهائياً.
-5. استخدم internal_thoughts للتحليل قبل الرد — هذا يحميك من التسرع ويجعلك ترى الصورة الكاملة.
-6. هام جداً: عند عرض خطط، خيارات، جداول زمنية، أو توزيع مهام، يجب عليك تنسيقها دائماً في "جداول Markdown" (Markdown Tables) مرتبة ومنظمة (مثال: | الوقت | المهمة | المنفذ |)، مع كتابة نصوص دقيقة ومختصرة بدلاً من القوائم العشوائية.
+# =====================================================================
+# SYSTEM PROMPT V2: The Smart Tagging Protocol (NO JSON FORCED)
+# =====================================================================
+DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري خبير وحازم جداً.
+دورك: إدارة الفريق، تحليل بيانات المبيعات (Odoo)، توزيع المهام، ومتابعتها.
+تتحدث بالعامية المصرية بجدية واحترافية (بدون Emojis نهائياً).
 
-ردك يجب أن يكون JSON صالح فقط (تجنب الأسطر الجديدة الحقيقية داخل القيم، استخدم \\n للنزول لسطر):
-{
-  "internal_thoughts": "تحليل سري: من يعمل على ماذا؟ هل المهمة مكررة؟",
-  "response": "الرد بالعامية المصرية.",
-  "eval": "تقييم/10 مع تعليق — اتركه فارغاً إن لم يلزم.",
-  "task_key": "مفتاح_المهمة_بدون_مسافات — فارغ إن لم تكلفه.",
-  "task_label": "وصف المهمة للعرض — فارغ إن لم تكلفه.",
-  "action": "CREATE_SO|العميل:X|القيمة:Y — فارغ إن لم يلزم."
-}"""
+[قواعد ذهبية للذكاء والمتابعة]:
+1. راجع السياق المُقدم لك جيداً (سجل المهام لكل الموظفين). لا تكلف موظفاً بمهمة يعمل عليها موظف آخر.
+2. إذا كان الموظف يعمل على مهمة، اسأله عن آخر تطوراتها قبل إعطائه مهام جديدة.
+3. تذكر دائماً المعلومات التي خزنتها عن الموظف (في قسم الذاكرة).
+4. عند عرض أي بيانات أو خطط، استخدم الجداول (Markdown Tables) لتكون منظمة، مع نصوص قصيرة ومفيدة.
+
+[بروتوكول الأوامر السرية - هام جداً]:
+أنت ترد بنص عادي (Markdown) حر وبأي طول تريده. لكن، إذا أردت تنفيذ إجراء برمجي في النظام، أضف العلامات التالية في **نهاية** رسالتك تماماً (ويمكنك استخدام أكثر من علامة في نفس الرد):
+- لإسناد مهمة للموظف الحالي: [TASK: اكتب وصف المهمة باختصار هنا]
+- لتقييم الموظف بناءً على حديثه: [EVAL: 8/10 لأنه فعل كذا وكذا]
+- لحفظ معلومة في ذاكرتك عن الموظف لتتذكرها لاحقاً: [MEMO: الموظف جيد في التفاوض]
+- لإنشاء مسودة عرض سعر في النظام: [ACTION: CREATE_SO|العميل:اسم العميل|القيمة:1000]
+
+مثال على ردك:
+يا أحمد، أنا شايف إنك متأخر في تسليم عروض أسعار شركة الأمل. خلصها النهاردة ضروري وابدأ في تحليل مبيعات ربع السنة.
+[TASK: إنهاء عروض شركة الأمل وبدء تحليل مبيعات ربع السنة]
+[MEMO: يحتاج متابعة يومية لتسليم العروض]"""
 
 def load_config():
     defaults = {
@@ -210,7 +208,7 @@ def load_config():
                     defaults['ODOO_PASS'] = decrypt_password(pwd)
                     
         except Exception as e:
-            st.error(f"خطأ في قراءة إعدادات مساحة العمل: {e}")
+            pass
     return defaults
 
 def save_config(cfg_dict):
@@ -231,101 +229,13 @@ def save_config(cfg_dict):
 def update_system_config(updates_dict):
     if 'app_config' in st.session_state:
         st.session_state.app_config.update(updates_dict)
-    
-    # تحسين التزامن: تحديث الحقول بشكل مفرد بدلاً من استبدال الملف كامل
     if FIREBASE_CONNECTED and db and 'workspace_id' in st.session_state:
         try:
             get_workspace_doc().update(updates_dict)
         except Exception:
-            # Fallback if document doesn't exist
             save_config(st.session_state.get('app_config', {}))
     else:
         save_config(st.session_state.get('app_config', {}))
-
-def update_employee_fields_only(updates: dict):
-    if 'app_config' in st.session_state:
-        st.session_state.app_config.update(updates)
-    
-    if FIREBASE_CONNECTED and db and 'workspace_id' in st.session_state:
-        try:
-            get_workspace_doc().update(updates)
-        except Exception as e:
-            if 'NOT_FOUND' in str(e) or 'no document' in str(e).lower():
-                get_workspace_doc().set(updates, merge=True)
-
-def claim_task_atomic(task_key: str, emp_name: str) -> bool:
-    """محاولة حجز مهمة atomically"""
-    if not FIREBASE_CONNECTED or not db:
-        existing = st.session_state.app_config.get('TASK_LOCKS', {})
-        if task_key in existing and existing[task_key] != emp_name:
-            return False
-        existing[task_key] = emp_name
-        st.session_state.app_config['TASK_LOCKS'] = existing
-        return True
-        
-    lock_ref = get_workspace_doc().collection('TaskLocks').document(task_key)
-    
-    @firestore.transactional
-    def try_claim(transaction, lock_ref, emp_name):
-        snap = lock_ref.get(transaction=transaction)
-        if snap.exists:
-            current = snap.to_dict()
-            if current.get('emp') != emp_name and current.get('status') == 'open':
-                return False
-        transaction.set(lock_ref, {
-            'emp': emp_name,
-            'status': 'open',
-            'created_at': firestore.SERVER_TIMESTAMP
-        })
-        return True
-        
-    try:
-        transaction = db.transaction()
-        return try_claim(transaction, lock_ref, emp_name)
-    except Exception:
-        return False
-
-def release_task(task_key: str):
-    """إغلاق المهمة عند الإنجاز"""
-    if FIREBASE_CONNECTED and db:
-        try:
-            get_workspace_doc().collection('TaskLocks').document(task_key).update({
-                'status': 'done',
-                'closed_at': firestore.SERVER_TIMESTAMP
-            })
-        except Exception:
-            pass
-
-def get_all_open_tasks_compact(curr_user_short: str) -> tuple:
-    """يرجع مهام الموظف الحالي مفصلة، ومهام الآخرين بأسماء فقط كعناوين لتوفير التوكنز"""
-    my_tasks = []
-    others_tasks = []
-    try:
-        if FIREBASE_CONNECTED and db:
-            docs = get_workspace_doc().collection('TaskLocks').where('status', '==', 'open').stream()
-            for doc in docs:
-                d = doc.to_dict()
-                emp = d.get('emp', '?').split(' - ')[0]
-                task = doc.id.replace('_', ' ')
-                if curr_user_short in emp:
-                    my_tasks.append(task)
-                else:
-                    others_tasks.append(task)
-        else:
-            raw = st.session_state.app_config.get('TASK_LOCKS', {})
-            for k, v in raw.items():
-                task = k.replace('_', ' ')
-                emp = v.split(' - ')[0]
-                if curr_user_short in emp:
-                    my_tasks.append(task)
-                else:
-                    others_tasks.append(task)
-    except Exception:
-        pass
-        
-    my_str = "\n- ".join(my_tasks) if my_tasks else "لا يوجد"
-    others_str = ", ".join(others_tasks) if others_tasks else "لا يوجد"
-    return my_str, others_str
 
 def get_employee_memory(curr_user):
     try:
@@ -333,60 +243,22 @@ def get_employee_memory(curr_user):
             doc = get_workspace_doc().get()
             if doc.exists:
                 return doc.to_dict().get('MEMORIES', {}).get(curr_user, "")
-    except:
-        pass
+    except: pass
     return st.session_state.app_config.get('MEMORIES', {}).get(curr_user, "")
 
-def add_task_safely(curr_user, task_string):
-    task_id = str(int(time.time() * 1000))
-    if FIREBASE_CONNECTED and db:
-        try:
-            get_workspace_doc().update({
-                'TASK_REGISTRY': firestore.ArrayUnion([f"{curr_user}: {task_string}"]),
-                f'GLOBAL_TASKS.{task_id}': {'emp': curr_user, 'task': task_string, 'status': 'pending'}
-            })
-        except Exception:
-            pass
-            
-    current_cfg = st.session_state.get('app_config', {})
-    if 'GLOBAL_TASKS' not in current_cfg: current_cfg['GLOBAL_TASKS'] = {}
-    current_cfg['GLOBAL_TASKS'][task_id] = {'emp': curr_user, 'task': task_string, 'status': 'pending'}
+def append_employee_memory(curr_user, new_memo):
+    current_memo = get_employee_memory(curr_user)
+    updated_memo = f"{current_memo} | {new_memo}" if current_memo else new_memo
     
-    if 'TASK_REGISTRY' not in current_cfg: current_cfg['TASK_REGISTRY'] = []
-    current_cfg['TASK_REGISTRY'].append(f"{curr_user}: {task_string}")
-
-def add_system_notification(target_user, message):
-    if FIREBASE_CONNECTED and db:
-        try:
-            get_workspace_doc().update({
-                f'NOTIFICATIONS.{target_user}': firestore.ArrayUnion([message])
-            })
-        except Exception:
-            pass
-    
-    current_cfg = st.session_state.get('app_config', {})
-    notifs = current_cfg.get('NOTIFICATIONS', {})
-    if target_user not in notifs: notifs[target_user] = []
-    notifs[target_user].append(message)
-
-def save_chat_for_user_safe(user_key: str):
-    """حفظ آمن للشات يكتب فقط في مسار المستخدم لمنع التداخل"""
-    if 'workspace_id' not in st.session_state:
-        return
+    # Keep memory concise (last 500 chars)
+    if len(updated_memo) > 500:
+        updated_memo = "..." + updated_memo[-490:]
         
-    chats = st.session_state.all_chats.get(user_key, [])[-300:]
-    try:
-        if FIREBASE_CONNECTED and db:
-            (get_workspace_doc()
-             .collection('Chats')
-             .document(user_key)
-             .set({'messages': chats, 'updated_at': firestore.SERVER_TIMESTAMP},
-                  merge=True))
-        else:
-            offline = st.session_state.offline_db.setdefault('Chats', {})
-            offline[user_key] = {'messages': chats}
-    except Exception as e:
-        print(f"[WARN] chat save failed for {user_key}: {e}")
+    cfg = st.session_state.get('app_config', {})
+    memories = cfg.get('MEMORIES', {})
+    memories[curr_user] = updated_memo
+    cfg['MEMORIES'] = memories
+    update_system_config({'MEMORIES': memories})
 
 def save_chat_for_user(user_key):
     if 'workspace_id' in st.session_state:
@@ -397,8 +269,7 @@ def save_chat_for_user(user_key):
             else:
                 if 'Chats' not in st.session_state.offline_db: st.session_state.offline_db['Chats'] = {}
                 st.session_state.offline_db['Chats'][user_key] = {'messages': chats}
-        except Exception as e:
-            pass
+        except Exception as e: pass
 
 def log_message(user, msg_dict):
     if 'workspace_id' in st.session_state:
@@ -411,28 +282,7 @@ def log_message(user, msg_dict):
             else:
                 if 'Logs' not in st.session_state.offline_db: st.session_state.offline_db['Logs'] = []
                 st.session_state.offline_db['Logs'].append((f"{user}_{log_id}", entry))
-        except Exception:
-            pass 
-
-def record_eval_safe(emp_name: str, eval_text: str):
-    """تسجيل تقييم موظف بشكل آمن"""
-    now_str = get_local_now().strftime("%Y-%m-%d %H:%M")
-    eval_entry = {'eval': eval_text, 'date': now_str}
-        
-    if FIREBASE_CONNECTED and db:
-        try:
-            get_workspace_doc().update({
-                f'EVALUATIONS.{emp_name}': eval_entry,
-                f'EVAL_HISTORY.{emp_name}': firestore.ArrayUnion([eval_entry])
-            })
-        except Exception:
-            cfg = st.session_state.get('app_config', {})
-            cfg.setdefault('EVALUATIONS', {})[emp_name] = eval_entry
-            cfg.setdefault('EVAL_HISTORY', {}).setdefault(emp_name, []).append(eval_entry)
-    else:
-        cfg = st.session_state.get('app_config', {})
-        cfg.setdefault('EVALUATIONS', {})[emp_name] = eval_entry
-        cfg.setdefault('EVAL_HISTORY', {}).setdefault(emp_name, []).append(eval_entry)
+        except Exception: pass 
 
 def load_user_chats(specific_user=None):
     chats_dict = {}
@@ -449,8 +299,7 @@ def load_user_chats(specific_user=None):
                         chats_dict[doc.id] = doc.to_dict().get('messages', [])
             else:
                 chats_dict = {k: v.get('messages', []) for k, v in st.session_state.offline_db.get('Chats', {}).items()}
-        except Exception:
-            pass
+        except Exception: pass
     return chats_dict
 
 def load_licenses():
@@ -460,8 +309,7 @@ def load_licenses():
             if doc.exists: return doc.to_dict()
         else:
             return st.session_state.offline_db['System'].get('Licenses', {"workspaces": {}})
-    except Exception:
-        pass
+    except Exception: pass
     return {"workspaces": {}}
 
 def save_licenses(data):
@@ -533,11 +381,9 @@ def init_state():
     if 'all_chats' not in st.session_state and st.session_state.current_user:
         st.session_state.all_chats = load_user_chats(st.session_state.current_user)
 
-def call_universal_ai_optimized(messages, json_mode=False):
-    """نسخة محسنة لزيادة المساحة العقلية للمدير بدون قيود"""
+def call_universal_ai(messages, json_mode=False):
     api_key = st.session_state.app_config.get('AI_API_KEY', '').strip()
-    if not api_key:
-        raise Exception("مفتاح API غير متوفر.")
+    if not api_key: raise Exception("مفتاح API غير متوفر.")
         
     base_url = st.session_state.app_config.get('AI_PROVIDER_URL', '').strip() or None
     model_name = st.session_state.app_config.get('AI_MODEL_NAME', 'gpt-4o')
@@ -555,69 +401,7 @@ def call_universal_ai_optimized(messages, json_mode=False):
             
     response = client.chat.completions.create(**kwargs)
     raw_text = response.choices[0].message.content
-        
-    if json_mode:
-        clean = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL).strip()
-        clean = re.sub(r'^```json\s*', '', clean, flags=re.IGNORECASE|re.MULTILINE)
-        clean = re.sub(r'^```\s*', '', clean, flags=re.MULTILINE)
-        clean = re.sub(r'```$', '', clean, flags=re.MULTILINE).strip()
-        match = re.search(r'\{.*\}', clean, re.DOTALL)
-        if match:
-            return match.group(0)
-        else:
-            return clean
     return raw_text
-
-def build_compressed_context(curr_user: str, cfg: dict, df_s, df_p, work_start: int, work_end: int) -> str:
-    """يبني سياقاً مضغوطاً للذكاء الاصطناعي لتوفير التوكنز"""
-    now = get_local_now()
-    curr_user_short = curr_user.split(" - ")[0]
-        
-    appr = df_s[df_s['state'].isin(['sale','done'])]['amount_total'].sum() if not df_s.empty and 'state' in df_s.columns else 0
-    draft = df_s[df_s['state'].isin(['draft','sent'])]['amount_total'].sum() if not df_s.empty and 'state' in df_s.columns else 0
-        
-    my_drafts = "لا يوجد"
-    if not df_s.empty and 'user_id' in df_s.columns:
-        df_s['_u'] = df_s['user_id'].apply(clean_odoo_m2o)
-        emp_drafts = df_s[
-            (df_s['state'].isin(['draft','sent'])) & 
-            (df_s['_u'].str.contains(curr_user_short, na=False))
-        ]
-        if not emp_drafts.empty:
-            items = [
-                f"{row.get('name','?')} / {clean_odoo_m2o(row.get('partner_id','?'))} / {row.get('amount_total',0):,.0f}ج"
-                for _, row in emp_drafts.head(3).iterrows()
-            ]
-            my_drafts = " | ".join(items)
-        
-    my_open_tasks, other_taken_tasks = get_all_open_tasks_compact(curr_user_short)
-        
-    memory = get_employee_memory(curr_user)
-    if len(memory) > 300:
-        memory = memory[:300] + "..."
-        
-    h12 = now.hour % 12 or 12
-    am_pm = "ص" if now.hour < 12 else "م"
-    is_work = work_start <= now.hour < work_end
-    time_status = "داخل وقت العمل" if is_work else "خارج وقت العمل"
-        
-    emp_data = next((e for e in cfg.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == curr_user), None)
-    kpis_short = (emp_data.get('job_desc', '')[:200] if emp_data else "المدير العام")
-        
-    context = f"""=بيانات النظام=
-وقت:{h12}:{now.minute:02d}{am_pm} ({time_status} {work_start}ص-{work_end}م)
-مبيعات معتمدة:{appr:,.0f}ج | مسودة:{draft:,.0f}ج | عملاء:{len(df_p) if df_p is not None else 0}
-=عروض {curr_user_short} المعلقة=
-{my_drafts}
-=مهام {curr_user_short} المفتوحة=
-{my_open_tasks}
-=مهام محجوزة لباقي الفريق (ممنوع تكرار إسنادها لك)=
-{other_taken_tasks}
-=ذاكرة {curr_user_short}=
-{memory if memory else 'لا يوجد'}
-=KPIs=
-{kpis_short}"""
-    return context
 
 def get_icon(name: str, size: int = 24, color: str = "currentColor", class_name: str = "") -> str:
     svg_map = {
@@ -652,11 +436,10 @@ def get_icon(name: str, size: int = 24, color: str = "currentColor", class_name:
         "activity": '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'
     }
     path = svg_map.get(name, "")
-    return f'<svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" class="{class_name}" width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{path}</svg>'
+    return f'<svg xmlns="http://www.w3.org/2000/svg" class="{class_name}" width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{path}</svg>'
 
 def neonize_numbers(text):
     if not isinstance(text, str): return text
-    # التعديل لضمان التقاط الأرقام بدقة وجعلها نيون بدون إفساد أي HTML موجود مسبقاً
     return re.sub(r'(?<![a-zA-Z0-9_])(\d+(?:,\d+)*(?:\.\d+)?)(?![a-zA-Z0-9_])', r'<span class="neon-number">\1</span>', text)
 
 def map_state_ar(state_val):
@@ -947,7 +730,7 @@ def render_login():
                     initial_msg = {"role": "assistant", "content": "أهلاً بك. الأرقام والبيانات جاهزة للعرض والمناقشة."}
                     st.session_state.all_chats[selected_user] = [initial_msg]
                     log_message(selected_user, initial_msg)
-                    save_chat_for_user_safe(selected_user)
+                    save_chat_for_user(selected_user)
                 st.rerun()
             else:
                 st.error("عذراً، رمز الدخول غير صحيح!")
@@ -970,7 +753,7 @@ def render_login():
                     initial_msg = {"role": "assistant", "content": f"أهلاً بيك يا {emp_name_only}. أنا مديرك. مفيش وقت نضيعه، وريني إيه اللي وراك النهاردة."}
                     st.session_state.all_chats[selected_user] = [initial_msg]
                     log_message(selected_user, initial_msg)
-                    save_chat_for_user_safe(selected_user)
+                    save_chat_for_user(selected_user)
                 st.rerun()
             else:
                 st.error("عذراً، رمز الدخول السري الخاص بك غير صحيح!")
@@ -989,7 +772,7 @@ def render_login():
 # ============================================================
 st.markdown("""
 <style>
-@import url('[https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Orbitron:wght@400;700;900&display=swap](https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Orbitron:wght@400;700;900&display=swap)');
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Orbitron:wght@400;700;900&display=swap');
 
 :root {
     --c-primary:   #00f2ff;
@@ -1171,21 +954,13 @@ html, body, [class*="css"] {
 
 .chat-bubble ul { list-style-type: disc !important; padding-right: 25px !important; margin: 8px 0 !important; direction: rtl !important;}
 .chat-bubble ol { list-style-type: decimal !important; padding-right: 25px !important; margin: 8px 0 !important; direction: rtl !important;}
-.chat-bubble li { 
-    display: list-item !important; 
-    text-align: right !important; 
-    margin-bottom: 5px !important; 
-    font-size: 14.2px !important; 
-    line-height: 1.6 !important; 
-    list-style-position: outside !important;
-}
+.chat-bubble li { display: list-item !important; text-align: right !important; margin-bottom: 5px !important; font-size: 14.2px !important; line-height: 1.6 !important; list-style-position: outside !important; }
 
 .chat-bubble table { width: 100% !important; border-collapse: collapse !important; margin: 15px 0 !important; font-size: 14.2px !important; border-radius: 8px; overflow: hidden; }
 .chat-bubble th, .chat-bubble td { border: 1px solid rgba(0, 242, 255, 0.15) !important; padding: 10px 14px !important; text-align: right !important; }
 .chat-bubble th { background-color: rgba(0, 242, 255, 0.1) !important; color: #00f2ff !important; font-weight: 900 !important; }
 .chat-bubble td { background-color: rgba(0, 0, 0, 0.25) !important; color: #e9edef !important; }
 
-/* تأثير الأرقام (بدون شادو) */
 .neon-number {
     color: #00f2ff !important;
     text-shadow: none !important;
@@ -1225,12 +1000,7 @@ html, body, [class*="css"] {
     .custom-metric { padding: 0.8rem !important; }
     
     .emp-info-grid { grid-template-columns: 1fr !important; }
-    [data-testid="column"] { 
-        width: 100% !important; 
-        flex: 1 1 100% !important; 
-        min-width: 100% !important; 
-        margin-bottom: 15px !important;
-    }
+    [data-testid="column"] { width: 100% !important; flex: 1 1 100% !important; min-width: 100% !important; margin-bottom: 15px !important; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -1269,7 +1039,7 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             df_pol_master = st.session_state.df_pol
 
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v52.1</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("chart", 32, "var(--c-primary)")}</div><div class="brand-name">MUDIR</div><div class="brand-ver">OS Kernel v52.2 Quantum</div></div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style="text-align:center; color:var(--c-primary); font-weight:bold; margin-bottom:20px; font-size:0.9rem;">مرحباً: {st.session_state.current_user.split(" - ")[0]}</div>""", unsafe_allow_html=True)
 
         if st.session_state.current_user and st.session_state.current_user != "المدير العام":
@@ -1290,7 +1060,6 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
             else:
                 st.button("🔕 لا توجد إشعارات حالياً", disabled=True, use_container_width=True)
             st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 10px 0;'>", unsafe_allow_html=True)
-
 
         allowed_navs = []
         if st.session_state.current_user == "المدير العام":
@@ -1336,7 +1105,7 @@ def build_infographic_html(data: dict) -> str:
     return f"""<div style="font-family:'Cairo',sans-serif;direction:rtl;color:#e2e8f0;"><p style="color:#94a3b8;font-size:1rem;margin:0 0 1.5rem;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:15px;">{data.get('subtitle', '')}</p><div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:2rem;">{kpi_html}</div>{f'<div style="font-weight:900;font-size:1rem;color:#64748b;text-transform:uppercase;margin:1.5rem 0 1rem;">{get_icon("chart",18)} المؤشرات الحيوية</div>{bar_html}' if bar_html else ''}{f'<div style="font-weight:900;font-size:1rem;color:#64748b;text-transform:uppercase;margin:2rem 0 1rem;">{get_icon("check",18)} التصنيفات الاستراتيجية</div><div>{badge_html}</div>' if badge_html else ''}</div>"""
 
 def create_export_buttons(title, df_dict):
-    html_content = f"""<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='[http://www.w3.org/TR/REC-html40](http://www.w3.org/TR/REC-html40)'>
+    html_content = f"""<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
     <head><meta charset='utf-8'><title>{title}</title>
     <style>
         body{{font-family: Arial, sans-serif; direction: rtl; text-align: right; background-color: #ffffff; color: #000000;}} 
@@ -1931,9 +1700,6 @@ def render_departments():
     else:
         st.info("لا توجد بيانات تفصيلية لعرضها.")
 
-# =========================================================================
-# تحديث وحدة التنبؤ الجذري (Holt-Winters Exponential Smoothing)
-# =========================================================================
 def render_forecast():
     st.markdown(f"""
     <div class="page-header" style="justify-content: space-between;">
@@ -1956,12 +1722,10 @@ def render_forecast():
         st.warning("لا توجد مبيعات فعلية معتمدة لبناء التنبؤ.")
         return
 
-    # 1. تجميع البيانات وضمان عدم وجود فجوات زمنية
     df_appr['Month'] = df_appr['date_order'].dt.to_period('M').dt.to_timestamp()
     monthly = df_appr.groupby('Month')['amount_total'].sum().reset_index()
     monthly.set_index('Month', inplace=True)
     
-    # تحويل البيانات إلى تسلسل زمني مستمر (ملء الأشهر المفقودة بأصفار إن وجدت)
     monthly = monthly.resample('MS').sum().fillna(0).reset_index()
 
     if len(monthly) < 3:
@@ -1969,7 +1733,6 @@ def render_forecast():
         st.dataframe(style_dataframe(monthly.rename(columns={'amount_total':'القيمة (ج.م)'})), use_container_width=True, hide_index=True)
         return
 
-    # الأشهر المستقبلية المتوقعة
     last_month = monthly['Month'].max()
     future_months = [last_month + pd.DateOffset(months=i) for i in range(1, 4)]
     
@@ -1982,10 +1745,8 @@ def render_forecast():
     upper_bound_arr = []
     lower_bound_arr = []
 
-    # 2. محرك التنبؤ الرئيسي (Exponential Smoothing)
     if use_statsmodels and len(monthly) >= 4:
         try:
-            # استخدام النمط المضاف والمخمد (Damped Additive) لمنع الانحدار العنيف للصفر
             model = ExponentialSmoothing(
                 monthly['amount_total'], 
                 trend='add', 
@@ -1996,7 +1757,6 @@ def render_forecast():
             fit_model = model.fit(optimized=True)
             future_y = fit_model.forecast(3).values
             
-            # حساب حدود الثقة
             residuals = fit_model.resid
             std_err = np.std(residuals) if len(residuals) > 1 else monthly['amount_total'].std()
             if std_err == 0 or pd.isna(std_err): std_err = monthly['amount_total'].mean() * 0.1
@@ -2004,12 +1764,10 @@ def render_forecast():
             upper_bound_arr = future_y + (1.96 * std_err)
             lower_bound_arr = np.maximum(future_y - (1.96 * std_err), 0)
         except Exception as e:
-            use_statsmodels = False # التراجع للمحرك الاحتياطي في حال فشل الخوارزمية رياضياً
+            use_statsmodels = False 
 
-    # 3. محرك التنبؤ الاحتياطي الذكي (WMA + Damped Trend) 
     if not use_statsmodels or len(monthly) < 4:
         y_vals = monthly['amount_total'].values
-        # وزن أكبر للأشهر الحديثة
         if len(y_vals) >= 3:
             baseline = (y_vals[-1]*0.5) + (y_vals[-2]*0.3) + (y_vals[-3]*0.2)
             trend = (y_vals[-1] - y_vals[-2]) * 0.3
@@ -2020,7 +1778,7 @@ def render_forecast():
         current_val = baseline
         for i in range(3):
             current_val = current_val + trend
-            trend = trend * 0.5 # تخميد الانحدار (Damping)
+            trend = trend * 0.5 
             future_y.append(current_val)
             
         future_y = np.array(future_y)
@@ -2028,7 +1786,6 @@ def render_forecast():
         upper_bound_arr = future_y + std_err
         lower_bound_arr = np.maximum(future_y - std_err, 0)
 
-    # 4. طبقة حماية من الأصفار والأرقام السالبة (Business Safety Floor)
     min_historical = monthly[monthly['amount_total'] > 0]['amount_total'].min()
     safe_floor = min_historical * 0.1 if not pd.isna(min_historical) else 0
     future_y = np.maximum(future_y, safe_floor)
@@ -2036,7 +1793,6 @@ def render_forecast():
     pred_df = pd.DataFrame({'Month': future_months, 'amount_total': future_y})
     pred_trace_df = pd.concat([monthly.iloc[[-1]], pred_df]).reset_index(drop=True)
     
-    # مصفوفات النطاق الموثوق للرسم
     last_actual = monthly['amount_total'].iloc[-1]
     upper_bound = pd.Series([last_actual] + list(upper_bound_arr))
     lower_bound = pd.Series([last_actual] + list(lower_bound_arr))
@@ -2116,7 +1872,7 @@ def render_forecast():
             pred_str = ", ".join([f"{val:,.0f}" for val in future_y])
             prompt = f"بناءً على التحليل الإحصائي، المبيعات الفعلية لأخر 3 شهور كانت: [{actual_str}] جنيه. النموذج يتوقع للأشهر الـ 3 القادمة: [{pred_str}] جنيه. بصفتك المدير التنفيذي للشركة، أعطني تحليلاً قصيراً جداً وتوجيهاً استراتيجياً واحداً لمواجهة هذا المسار بناءً على خبرتك بدون استخدام Emojis نهائياً."
             try:
-                res = call_universal_ai([{"role": "user", "content": prompt}])
+                res = call_universal_ai([{"role": "user", "content": prompt}], json_mode=False)
                 st.markdown("<div style='background:rgba(255,215,0,0.1); border:1px solid rgba(255,215,0,0.4); padding:20px; border-radius:12px; margin-top:10px;'>", unsafe_allow_html=True)
                 st.markdown(f"<h4 style='color:#ffd700; margin-top:0;'>رؤية المدير الاستراتيجية للمستقبل</h4>", unsafe_allow_html=True)
                 st.markdown(f"<div dir='rtl' style='text-align: right; line-height: 1.8; font-size: 1.05rem; color: #e2e8f0;'>\n\n{res}\n\n</div>", unsafe_allow_html=True)
@@ -2180,7 +1936,7 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
         ركز على: الخلاصة، الإنجاز، التزام الموظف، والتقييم النهائي من 10.
         """
         try:
-            smart_report_html = call_universal_ai([{"role": "user", "content": report_prompt}])
+            smart_report_html = call_universal_ai([{"role": "user", "content": report_prompt}], json_mode=False)
             smart_report_html = smart_report_html.replace('```html', '').replace('```', '')
             smart_report_html = re.sub(r'<!DOCTYPE[^>]*>', '', smart_report_html, flags=re.IGNORECASE)
             smart_report_html = re.sub(r'</?html[^>]*>', '', smart_report_html, flags=re.IGNORECASE)
@@ -2201,7 +1957,7 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
     <html dir="rtl" lang="ar">
     <head>
         <meta charset="utf-8">
-        <link href="[https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap](https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap)" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
         <style>
             body {{ font-family: 'Cairo', sans-serif; background-color: #f8fafc; padding: 40px; color: #1e293b; direction: rtl; text-align: right; line-height: 1.8; }}
             .report-container {{ max-width: 800px; margin: auto; background: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border-top: 8px solid #005c4b; }}
@@ -2249,7 +2005,7 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
     <html dir="rtl" lang="ar">
     <head>
         <meta charset="utf-8">
-        <link href="[https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Orbitron:wght@700&display=swap](https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Orbitron:wght@700&display=swap)" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Orbitron:wght@700&display=swap" rel="stylesheet">
         <style>
             body {{ margin: 0; padding: 10px; background-color: #0b141a; color: #e2e8f0; font-family: 'Cairo', sans-serif; direction: rtl; text-align: right; }}
             .neon-report-wrapper {{ background: linear-gradient(180deg, #04080a 0%, #0b141a 100%); border-radius: 16px; padding: 30px; border: 1px solid rgba(0, 242, 255, 0.3); box-shadow: 0 0 20px rgba(0, 242, 255, 0.1); }}
@@ -2284,409 +2040,6 @@ def show_employee_report_dialog(emp_full_name, start_date, end_date):
         st.download_button("📥 حفظ التقرير (Word)", data=html_export.encode('utf-8-sig'), file_name=f"Performance_Report_{emp_short}.doc", mime="application/msword", use_container_width=True)
     with c2:
         st.download_button("🖨️ استخراج للطباعة (PDF)", data=(html_export + "<script>window.print();</script>").encode('utf-8-sig'), file_name=f"Performance_Report_{emp_short}.html", mime="text/html", use_container_width=True)
-
-# -------------------------------------------------------------------
-# Fragment المخصص للشات يعمل بشكل مستقل لعدم إعادة تحميل الصفحة
-# -------------------------------------------------------------------
-@st.fragment
-def render_chat_fragment(curr_user, sys_prompt_context, CFG):
-    chat_area = st.container(height=650, border=False)
-    with chat_area:
-        for idx, msg in enumerate(st.session_state.all_chats.get(curr_user, [])):
-            with st.chat_message(msg["role"]):
-                st.markdown(f"<span class='msg-{msg['role']}' style='display:none;'></span>", unsafe_allow_html=True)
-                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(msg['content'])}</div>", unsafe_allow_html=True)
-                
-                st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
-                if st.button("🗑️", key=f"dl_{curr_user}_{idx}", help="حذف الرسالة"):
-                    st.session_state.all_chats[curr_user].pop(idx)
-                    save_chat_for_user(curr_user)
-                    st.rerun(scope="fragment")
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-    user_input = st.chat_input("اكتب رسالة...")
-
-    if user_input:
-        if curr_user not in st.session_state.all_chats:
-            st.session_state.all_chats[curr_user] = []
-            
-        user_msg = {"role": "user", "content": user_input}
-        st.session_state.all_chats[curr_user].append(user_msg)
-        
-        user_msg_log = user_msg.copy()
-        user_msg_log['user'] = curr_user
-        log_message(curr_user, user_msg_log)
-        save_chat_for_user(curr_user)
-        
-        with chat_area:
-            with st.chat_message("user"):
-                st.markdown("<span class='msg-user' style='display:none;'></span>", unsafe_allow_html=True)
-                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(user_input)}</div>", unsafe_allow_html=True)
-            
-            with st.spinner("المدير بيفكر..."):
-                api_messages = [{"role": "system", "content": sys_prompt_context}]
-                api_messages.extend(st.session_state.all_chats[curr_user][-20:])
-                
-                # =========================================================================
-                # 🛡️ نظام الشفاء التلقائي لمعالجة أخطاء JSON Mode (Fallback Mechanism)
-                # =========================================================================
-                max_retries = 2
-                ai_data = {}
-                
-                for attempt in range(max_retries):
-                    try:
-                        response_text = call_universal_ai(api_messages, json_mode=True)
-                        if not response_text:
-                            raise ValueError("Empty response")
-                            
-                        clean_json_str = response_text.replace('```json', '').replace('```', '').strip()
-                        parsed_data = json.loads(clean_json_str)
-                        
-                        if isinstance(parsed_data, dict):
-                            ai_data = parsed_data
-                            break 
-                        else:
-                            raise ValueError("Not a dictionary")
-                            
-                    except Exception as e:
-                        err_msg = str(e).lower()
-                        # التمييز بين خطأ الاتصال وخطأ التحليل
-                        if "api_key" in err_msg or "مفتاح" in err_msg or "connection" in err_msg or "timeout" in err_msg:
-                            ai_data = {
-                                "response": "أنا مشغول جداً في اجتماع مجلس إدارة طارئ دلوقتي. من فضلك حاول تكلمني تاني بعد 10 دقايق.",
-                                "eval": "", "task": "", "action": ""
-                            }
-                            break
-                            
-                        if attempt < max_retries - 1:
-                            api_messages.append({"role": "user", "content": "الرد السابق لم يكن بصيغة JSON صحيحة. يرجى الرد بكائن JSON فقط يحتوي على: response, eval, task, action."})
-                        else:
-                            ai_data = {
-                                "response": "أنا مشغول جداً في اجتماع مجلس إدارة طارئ دلوقتي. من فضلك حاول تكلمني تاني بعد 10 دقايق.",
-                                "eval": "", "task": "", "action": ""
-                            }
-                            break
-                            
-                # تأمين إضافي لضمان عدم حدوث انهيار في حالة استمرار المشكلة
-                if not isinstance(ai_data, dict) or not ai_data or 'response' not in ai_data:
-                    ai_data = {
-                        "response": "أنا مشغول جداً في اجتماع مجلس إدارة طارئ دلوقتي. من فضلك حاول تكلمني تاني بعد 10 دقايق.",
-                        "eval": "", "task": "", "action": ""
-                    }
-                # =========================================================================
-
-                actual_response = ai_data.get('response', '')
-                eval_data = ai_data.get('eval', '')
-                assigned_task = ai_data.get('task', '')
-                action_data = ai_data.get('action', '')
-
-                # 1. معالجة الـ ACTION إن وجد
-                if action_data and "CREATE_SO" in action_data:
-                    client_name = "غير محدد"
-                    amt = "0"
-                    if "|" in action_data:
-                        parts = action_data.split("|")
-                        for p in parts:
-                            if "العميل:" in p: client_name = p.replace("العميل:", "").strip()
-                            if "القيمة:" in p: amt = p.replace("القيمة:", "").strip()
-                            
-                    ai_msg1 = {"role": "assistant", "content": actual_response}
-                    st.session_state.all_chats[curr_user].append(ai_msg1)
-                    
-                    ai_msg1_log = ai_msg1.copy()
-                    ai_msg1_log['user'] = curr_user
-                    log_message(curr_user, ai_msg1_log)
-                    
-                    ai_msg2 = {"role": "system", "content": f"إشعار من النظام: تم إنشاء مسودة عرض سعر بنجاح في النظام للعميل ({client_name}) بقيمة تقديرية ({amt})."}
-                    st.session_state.all_chats[curr_user].append(ai_msg2)
-                    
-                    ai_msg2_log = ai_msg2.copy()
-                    ai_msg2_log['user'] = curr_user
-                    log_message(curr_user, ai_msg2_log)
-                    
-                    try:
-                        current_cfg = get_workspace_doc().get().to_dict() or {}
-                        if 'NOTIFICATIONS' not in current_cfg: current_cfg['NOTIFICATIONS'] = {}
-                        if curr_user not in current_cfg['NOTIFICATIONS']: current_cfg['NOTIFICATIONS'][curr_user] = []
-                        current_cfg['NOTIFICATIONS'][curr_user].append(f"✅ تم تنفيذ أمر تلقائي: إنشاء عرض سعر لـ ({client_name}) بقيمة ({amt}).")
-                        get_workspace_doc().set({'NOTIFICATIONS': current_cfg['NOTIFICATIONS']}, merge=True)
-                        CFG['NOTIFICATIONS'] = current_cfg['NOTIFICATIONS']
-                    except Exception: pass
-                    
-                    save_chat_for_user(curr_user)
-                    st.rerun(scope="fragment")
-
-                # 2. تسجيل المهام (والإشعارات)
-                if assigned_task and "المدير العام" not in curr_user:
-                    try:
-                        current_cfg = get_workspace_doc().get().to_dict() or {}
-                        if 'TASK_REGISTRY' not in current_cfg: current_cfg['TASK_REGISTRY'] = []
-                        now_str = get_local_now().strftime("%Y-%m-%d")
-                        task_entry = f"- {assigned_task} (تم حجزها لـ {curr_user.split(' - ')[0]} في {now_str})"
-                        current_cfg['TASK_REGISTRY'].append(task_entry)
-                        
-                        if 'NOTIFICATIONS' not in current_cfg: current_cfg['NOTIFICATIONS'] = {}
-                        if curr_user not in current_cfg['NOTIFICATIONS']: current_cfg['NOTIFICATIONS'][curr_user] = []
-                        current_cfg['NOTIFICATIONS'][curr_user].append(f"📌 تكليف جديد من المدير: {assigned_task}")
-                        
-                        get_workspace_doc().set({'TASK_REGISTRY': current_cfg['TASK_REGISTRY'], 'NOTIFICATIONS': current_cfg['NOTIFICATIONS']}, merge=True)
-                        st.session_state.app_config['TASK_REGISTRY'] = current_cfg['TASK_REGISTRY']
-                        st.session_state.app_config['NOTIFICATIONS'] = current_cfg['NOTIFICATIONS']
-                    except Exception:
-                        pass
-
-                # 3. التقييم
-                if eval_data and "المدير العام" not in curr_user:
-                    try:
-                        current_cfg = get_workspace_doc().get().to_dict() or {}
-                        if 'EVALUATIONS' not in current_cfg: current_cfg['EVALUATIONS'] = {}
-                        if 'EVAL_HISTORY' not in current_cfg: current_cfg['EVAL_HISTORY'] = {}
-                        if curr_user not in current_cfg['EVAL_HISTORY']: current_cfg['EVAL_HISTORY'][curr_user] = []
-                        now_str = get_local_now().strftime("%Y-%m-%d %H:%M")
-                        current_cfg['EVALUATIONS'][curr_user] = {'eval': eval_data, 'date': now_str}
-                        current_cfg['EVAL_HISTORY'][curr_user].append({'eval': eval_data, 'date': now_str})
-                        get_workspace_doc().set({'EVALUATIONS': current_cfg['EVALUATIONS'], 'EVAL_HISTORY': current_cfg['EVAL_HISTORY']}, merge=True)
-                        st.session_state.app_config['EVALUATIONS'] = current_cfg['EVALUATIONS']
-                        st.session_state.app_config['EVAL_HISTORY'] = current_cfg['EVAL_HISTORY']
-                    except Exception:
-                        pass
-                
-                if actual_response:
-                    ai_final_msg = {"role": "assistant", "content": actual_response}
-                    st.session_state.all_chats[curr_user].append(ai_final_msg)
-                    
-                    ai_final_msg_log = ai_final_msg.copy()
-                    ai_final_msg_log['user'] = curr_user
-                    log_message(curr_user, ai_final_msg_log)
-                    
-                    save_chat_for_user(curr_user)
-                    st.rerun(scope="fragment")
-
-def render_ai():
-    
-    CFG = st.session_state.app_config
-    curr_user = st.session_state.current_user
-    
-    now = get_local_now()
-    try:
-        work_start = int(CFG.get('WORK_START', 8))
-        work_end = int(CFG.get('WORK_END', 17))
-    except:
-        work_start, work_end = 8, 17
-        
-    is_working_hours = work_start <= now.hour < work_end
-    
-    time_status_color = "#00ff82" if is_working_hours else "#ff2d78"
-    time_status_text = "داخل أوقات العمل" if is_working_hours else "خارج أوقات العمل"
-    
-    start_am_pm = f"{work_start if work_start <= 12 else work_start - 12} {'ص' if work_start < 12 else 'م'}"
-    end_am_pm = f"{work_end if work_end <= 12 else work_end - 12} {'ص' if work_end < 12 else 'م'}"
-    
-    h12 = now.hour % 12 or 12
-    am_pm_ar = "صباحاً" if now.hour < 12 else "مساءً"
-    current_time_str = f"{h12:02d}:{now.minute:02d} {am_pm_ar}"
-    
-    st.markdown(f"""
-    <div style="background:rgba(0,242,255,0.05); padding:10px 20px; border-radius:12px; border:1px solid rgba(0,242,255,0.2); display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-        <div style="display:flex; align-items:center; gap:10px;">
-            {get_icon('clock', 20, '#00f2ff')}
-            <strong style="color:#00f2ff; font-family:'Orbitron', sans-serif; font-size:1.1rem;">{current_time_str}</strong>
-        </div>
-        <div style="color:{time_status_color}; font-weight:bold; font-size:0.9rem;">
-            ● {time_status_text} ({start_am_pm} - {end_am_pm})
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-        
-    c_header1, c_header2 = st.columns([3, 1])
-    with c_header1:
-        st.markdown(f"""
-        <div style="background-color: #1f2c34; padding: 12px 20px; border-radius: 12px; display: flex; align-items: center; gap: 15px; margin-bottom: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-            <div style="width: 45px; height: 45px; border-radius: 50%; background-color: rgba(0, 242, 255, 0.1); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: bold; color: var(--c-primary); border: 1px solid rgba(0, 242, 255, 0.3);">
-                {get_icon("command", 24, "var(--c-primary)")}
-            </div>
-            <div>
-                <div style="font-weight: 700; font-size: 1.1rem; color: #fff; margin-bottom: -3px;">المدير العام</div>
-                <div style="font-size: 0.85rem; color: #00ff82;">متصل الآن</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    with c_header2:
-        curr_user_for_export = st.session_state.current_user
-        chat_content = ""
-        for msg in st.session_state.all_chats.get(curr_user_for_export, []):
-            role_name = "الموظف" if msg['role'] == 'user' else "المدير"
-            chat_content += f"[{role_name}]: {msg['content']}\n{'-'*40}\n"
-        
-        st.download_button(
-            label="📥 حفظ المحادثة (TXT)",
-            data=chat_content.encode('utf-8-sig'),
-            file_name=f"Chat_Backup_{curr_user_for_export}_{get_local_now().strftime('%Y%m%d')}.txt",
-            mime="text/plain",
-            use_container_width=True
-        )
-
-    df_s = df_s_master
-    df_p = df_p_master
-
-    t_sales_appr = df_s[df_s['state'].isin(['sale','done'])]['amount_total'].sum() if df_s is not None and not df_s.empty and 'state' in df_s.columns else 0
-    t_sales_draft = df_s[df_s['state'].isin(['draft','sent'])]['amount_total'].sum() if df_s is not None and not df_s.empty and 'state' in df_s.columns else 0
-    t_sales_canc = df_s[df_s['state'] == 'cancel']['amount_total'].sum() if df_s is not None and not df_s.empty and 'state' in df_s.columns else 0
-    p_len = len(df_p) if df_p is not None else 0
-    
-    quotes_summary = "لا توجد عروض أسعار معلقة أو مسودة حالياً."
-    if df_s is not None and not df_s.empty and 'state' in df_s.columns and 'partner_id' in df_s.columns:
-        drafts = df_s[df_s['state'].isin(['draft', 'sent'])].head(5)
-        if not drafts.empty:
-            quotes_summary = " | ".join([f"عرض ({row.get('name', 'N/A')}) للعميل ({clean_odoo_m2o(row['partner_id'])}) بقيمة {row.get('amount_total', 0)} ج.م" for _, row in drafts.iterrows()])
-
-    clients_summary = "لا توجد بيانات عملاء كافية."
-    if df_p is not None and not df_p.empty and 'name' in df_p.columns:
-        sample_df = df_p[['name', 'city', 'total_invoiced']].dropna().sort_values('total_invoiced', ascending=False).head(5)
-        clients_summary = " | ".join([f"{row['name']} ({row.get('city','-')})" for _, row in sample_df.iterrows()])
-
-    team_context_lines = []
-    for emp, chat in st.session_state.all_chats.items():
-        if emp == "المدير العام" or emp == curr_user or not chat: continue
-        last_task = next((m['content'] for m in reversed(chat) if m['role'] == 'assistant'), "")
-        if last_task:
-            team_context_lines.append(f"- {emp}: {last_task[:150]}...")
-    team_context_str = "\n".join(team_context_lines) if team_context_lines else "لا توجد تكليفات لزملاء آخرين حالياً."
-
-    base_prompt = CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT)
-    curr_emp_data = next((e for e in CFG.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == curr_user), None)
-    job_desc = curr_emp_data.get('job_desc', 'لا يوجد وصف وظيفي محدد.') if curr_emp_data else 'أنت المدير العام.'
-    
-    live_context = f"""
-=== بيانات النظام الحية (يجب أخذها في الاعتبار) ===
-- المبيعات المنفذة (موافق عليه): {t_sales_appr:,.0f} ج.م
-- عروض الأسعار المسودة/المعلقة (قيد الانتظار): {t_sales_draft:,.0f} ج.م
-- العروض الملغاة (خسائر محتملة أو رفض): {t_sales_canc:,.0f} ج.م
-- إجمالي قاعدة العملاء: {p_len} عميل
-- عينة من أهم عملائنا الحاليين: {clients_summary}
-- عروض أسعار معلقة محتاجة متابعة فورية: {quotes_summary}
-
-=== نظام الوقت الاستراتيجي ===
-- الساعة الآن: {current_time_str}
-- مواعيد العمل الرسمية للشركة: من {start_am_pm} إلى {end_am_pm}.
-
-=== موقف باقي أعضاء الفريق ===
-{team_context_str}
-
-الموظف اللي بيكلمك دلوقتي: {curr_user}.
-"""
-    task_reg = CFG.get('TASK_REGISTRY', [])
-    task_reg_str = "\n".join(task_reg[-100:]) if task_reg else "لا يوجد مهام أو عملاء محجوزين مسبقاً."
-
-    live_context += f"""
-=== سجل المهام والعملاء المحجوزين (الذاكرة المؤسسية) ===
-هذه القائمة تحتوي على المهام والشركات التي تم تكليف موظفين بها سابقاً:
-{task_reg_str}
-تعليمات: إياك أن تكلف الموظف الحالي بمهمة محجوزة.
-"""
-    if curr_user != "المدير العام":
-        live_context += f"\n=== ملف الموظف الحالي ({curr_user}) ===\n"
-        live_context += f"المهام والأهداف المطلوبة من هذا الموظف (KPIs):\n{job_desc}\n"
-
-    knowledge_base = CFG.get('KNOWLEDGE_BASE', '')
-    if knowledge_base:
-        live_context += f"\n\n=== قاعدة المعرفة ===\n{knowledge_base[:8000]}\n"
-
-    sys_prompt_context = base_prompt + "\n" + live_context
-
-
-    if "المدير العام" in curr_user:
-        gm_tabs = st.tabs(["مراقبة وتقييم الموظفين (سري)", "مكتبي الخاص (توجيهات الإدارة)"])
-        
-        with gm_tabs[0]:
-            cl1, cl2 = st.columns([3, 1])
-            with cl1:
-                st.markdown(f"<div class='g-card-title' style='color:var(--c-gold);'>{get_icon('eye', 22)} آخر تقييمات الموظفين التلقائية</div>", unsafe_allow_html=True)
-            with cl2:
-                if st.button("🔄 مزامنة الرسائل الجديدة", use_container_width=True):
-                    st.session_state.all_chats = load_user_chats()
-                    st.rerun()
-
-            evals = CFG.get('EVALUATIONS', {})
-            if not evals:
-                st.info("لا توجد تقييمات مسجلة بعد. سيقوم النظام بتسجيلها تلقائياً عند حديث الموظفين معه.")
-            else:
-                for emp_name, emp_data in evals.items():
-                    st.markdown(f"""<div style="background:rgba(255,255,255,0.02); padding:15px; border-radius:8px; border:1px solid rgba(255,255,255,0.05); margin-bottom:10px;">
-                        <div style="color:var(--c-primary); font-weight:bold; font-size:1.1rem; margin-bottom:5px;">{emp_name}</div>
-                        <div style="font-size:0.85rem; color:var(--c-dim); margin-bottom:10px;">تاريخ آخر تقييم: {emp_data.get('date', '')}</div>
-                        <div style="color:#e2e8f0; font-size:0.95rem; direction:rtl; text-align:right;">{emp_data.get('eval', '')}</div>
-                    </div>""", unsafe_allow_html=True)
-            
-            st.markdown("<hr style='border-color:rgba(255,255,255,0.1); margin: 30px 0;'>", unsafe_allow_html=True)
-            st.markdown(f"<div class='g-card-title' style='color:#00f2ff;'>{get_icon('folder', 22)} تقرير أداء وتقييم الموظف الذكي (للطباعة)</div>", unsafe_allow_html=True)
-            
-            emp_list = [u for u in st.session_state.all_chats.keys() if "المدير العام" not in u]
-            if emp_list:
-                c_r1, c_r2, c_r3, c_r4 = st.columns([2, 1.5, 1.5, 1.5])
-                with c_r1:
-                    sel_rep_emp = st.selectbox("اختر الموظف للتقرير:", emp_list, key="sel_rep_emp", label_visibility="collapsed")
-                with c_r2:
-                    start_d = st.date_input("من تاريخ:", value=get_local_now().date() - timedelta(days=30), key="start_d")
-                with c_r3:
-                    end_d = st.date_input("إلى تاريخ:", value=get_local_now().date(), key="end_d")
-                with c_r4:
-                    if st.button("📄 استخراج التقرير", type="primary", use_container_width=True):
-                        show_employee_report_dialog(sel_rep_emp, start_d, end_d)
-            
-            st.markdown("<hr style='border-color:rgba(255,255,255,0.1); margin: 30px 0;'>", unsafe_allow_html=True)
-            st.markdown(f"<div class='g-card-title' style='color:var(--c-accent);'>{get_icon('search', 22)} أرشيف محادثات الموظفين (إدارة كاملة)</div>", unsafe_allow_html=True)
-            
-            if emp_list:
-                sel_emp = st.selectbox("اختر الموظف لمراجعة محادثته الحية:", emp_list, label_visibility="collapsed")
-                if sel_emp:
-                    c_arc1, c_arc2 = st.columns(2)
-                    with c_arc1:
-                        if st.button(f"🗑️ مسح واجهة الشات لـ {sel_emp.split(' - ')[0]}", use_container_width=True):
-                            st.session_state.all_chats[sel_emp] = [{"role": "assistant", "content": "تم مسح الأرشيف بواسطة الإدارة العليا. مستعد لتلقي التكليفات الجديدة."}]
-                            save_chat_for_user(sel_emp)
-                            st.rerun()
-                    with c_arc2:
-                        if st.button(f"🔄 استعادة المحادثة بالكامل من السجل السري", use_container_width=True, type="primary"):
-                            audit_history = []
-                            try:
-                                docs = get_workspace_doc().collection('Logs').where('user', '==', sel_emp).stream()
-                                for doc in docs:
-                                    audit_history.append(doc.to_dict())
-                            except: pass
-                            
-                            if audit_history:
-                                st.session_state.all_chats[sel_emp] = [{"role": m.get("role", "user"), "content": m.get("content", "")} for m in audit_history]
-                                save_chat_for_user(sel_emp)
-                                st.success("تم استعادة المحادثة بالكامل من السجل السري بنجاح!")
-                                time.sleep(1)
-                                st.rerun()
-                            else:
-                                st.warning("لا يوجد سجل سري مسجل لهذا الموظف بعد.")
-                    
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    show_emp_chat = st.toggle(f"👁️ إظهار رسائل ومحادثة ({sel_emp.split(' - ')[0]})", value=False, help="اضغط هنا لعرض تفاصيل المحادثة كاملة إذا لزم الأمر")
-                    if show_emp_chat:
-                        chat_to_view = st.session_state.all_chats.get(sel_emp, [])
-                        for idx, m in enumerate(chat_to_view):
-                            with st.chat_message(m.get("role", "user")):
-                                st.markdown(f"<span class='msg-{m.get('role', 'user')}' style='display:none;'></span>", unsafe_allow_html=True)
-                                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(m.get('content', ''))}</div>", unsafe_allow_html=True)
-                                
-                                st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
-                                if st.button("🗑️", key=f"gm_dl_{sel_emp}_{idx}", help="حذف الرسالة"):
-                                    st.session_state.all_chats[sel_emp].pop(idx)
-                                    save_chat_for_user(sel_emp)
-                                    st.rerun()
-                                st.markdown('</div>', unsafe_allow_html=True)
-            else:
-                st.info("لا توجد محادثات نشطة للموظفين حتى الآن.")
-
-        with gm_tabs[1]:
-            render_chat_fragment(curr_user, sys_prompt_context, CFG)
-            
-    else:
-        render_chat_fragment(curr_user, sys_prompt_context, CFG)
 
 def render_fusion():
     st.markdown(f"""
@@ -2734,7 +2087,7 @@ def render_fusion():
                         النص الخام:
                         {raw_text[:20000]}
                         """
-                        structured_text = call_universal_ai([{"role": "user", "content": organize_prompt}])
+                        structured_text = call_universal_ai([{"role": "user", "content": organize_prompt}], json_mode=False)
                     except Exception as ai_e:
                         st.warning(f"تعذر الاتصال بالذكاء الاصطناعي لتنظيم النص، سيتم حفظ النص الخام. السبب: {ai_e}")
                         structured_text = raw_text
@@ -2799,7 +2152,7 @@ def render_fusion():
                         fusion_prompt = f"أنت محلل. بياناتنا: {internal_summary}. الملف الخارجي (عينة): {ext_df.head(10).to_string()}. استخرج 3 فرص ذهبية، مخاطر محتملة، وتكتيك للغد. أجب باحترافية تامة وبدون Emojis."
                         try:
                             messages = [{"role": "user", "content": fusion_prompt}]
-                            response_text = call_universal_ai(messages)
+                            response_text = call_universal_ai(messages, json_mode=False)
                             st.markdown("<div class='g-card' style='background:rgba(112,0,255,0.05); border-color:rgba(112,0,255,0.3);'>", unsafe_allow_html=True)
                             st.markdown(f"<h3 style='color:#7000ff; margin-top:0; display:flex; align-items:center; gap:10px;'>{get_icon('dna', 28)} تقرير الاندماج فائق الدقة</h3>", unsafe_allow_html=True)
                             st.markdown(f"<div dir='rtl' style='text-align: right;'>\n\n{response_text}\n\n</div>", unsafe_allow_html=True)
@@ -2867,6 +2220,361 @@ def render_territories():
     st.dataframe(style_dataframe(city_details), use_container_width=True, hide_index=True)
 
 
+# =========================================================================
+# THE SMART AI CHAT FRAGMENT - SOLVING THE JSON/TOKEN/MEMORY ISSUES
+# =========================================================================
+@st.fragment
+def render_chat_fragment(curr_user, sys_prompt_context, CFG):
+    chat_area = st.container(height=650, border=False)
+    with chat_area:
+        for idx, msg in enumerate(st.session_state.all_chats.get(curr_user, [])):
+            with st.chat_message(msg["role"]):
+                st.markdown(f"<span class='msg-{msg['role']}' style='display:none;'></span>", unsafe_allow_html=True)
+                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(msg['content'])}</div>", unsafe_allow_html=True)
+                
+                st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
+                if st.button("🗑️", key=f"dl_{curr_user}_{idx}", help="حذف الرسالة"):
+                    st.session_state.all_chats[curr_user].pop(idx)
+                    save_chat_for_user(curr_user)
+                    st.rerun(scope="fragment")
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+    user_input = st.chat_input("اكتب رسالة للمدير...")
+
+    if user_input:
+        if curr_user not in st.session_state.all_chats:
+            st.session_state.all_chats[curr_user] = []
+            
+        user_msg = {"role": "user", "content": user_input}
+        st.session_state.all_chats[curr_user].append(user_msg)
+        
+        user_msg_log = user_msg.copy()
+        user_msg_log['user'] = curr_user
+        log_message(curr_user, user_msg_log)
+        save_chat_for_user(curr_user)
+        
+        with chat_area:
+            with st.chat_message("user"):
+                st.markdown("<span class='msg-user' style='display:none;'></span>", unsafe_allow_html=True)
+                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(user_input)}</div>", unsafe_allow_html=True)
+            
+            with st.spinner("المدير يفكر بحزم..."):
+                # ضغط الذاكرة: إرسال آخر 6 رسائل فقط للحفاظ على التوكنز
+                recent_history = st.session_state.all_chats[curr_user][-6:]
+                api_messages = [{"role": "system", "content": sys_prompt_context}]
+                api_messages.extend(recent_history)
+                
+                try:
+                    # تعطيل الـ JSON Mode لاسترجاع إجابات طويلة وحرة بدون انهيار
+                    raw_ai_text = call_universal_ai(api_messages, json_mode=False)
+                    
+                    # استخراج الأوامر باستخدام Regex (Smart Tagging Protocol)
+                    task_match = re.search(r'\[TASK:(.*?)\]', raw_ai_text, re.IGNORECASE | re.DOTALL)
+                    eval_match = re.search(r'\[EVAL:(.*?)\]', raw_ai_text, re.IGNORECASE | re.DOTALL)
+                    memo_match = re.search(r'\[MEMO:(.*?)\]', raw_ai_text, re.IGNORECASE | re.DOTALL)
+                    action_match = re.search(r'\[ACTION:(.*?)\]', raw_ai_text, re.IGNORECASE | re.DOTALL)
+                    
+                    # تنظيف النص ليراه الموظف كرسالة طبيعية بدون أكواد
+                    clean_response = re.sub(r'\[(TASK|EVAL|MEMO|ACTION):.*?\]', '', raw_ai_text, flags=re.IGNORECASE | re.DOTALL).strip()
+                    
+                    if not clean_response:
+                        clean_response = "تمام، جاري المتابعة والتنفيذ."
+
+                except Exception as e:
+                    clean_response = "السيستم عليه ضغط كبير دلوقتي. راجعني كمان 5 دقايق."
+                    task_match, eval_match, memo_match, action_match = None, None, None, None
+
+                # 1. تنفيذ وتخزين الـ ACTION إن وجد (إنشاء مسودة عرض سعر)
+                if action_match and "CREATE_SO" in action_match.group(1):
+                    action_data = action_match.group(1).strip()
+                    client_name = "غير محدد"
+                    amt = "0"
+                    parts = action_data.split("|")
+                    for p in parts:
+                        if "العميل:" in p: client_name = p.replace("العميل:", "").strip()
+                        if "القيمة:" in p: amt = p.replace("القيمة:", "").strip()
+                    
+                    try:
+                        current_cfg = get_workspace_doc().get().to_dict() or {}
+                        if 'NOTIFICATIONS' not in current_cfg: current_cfg['NOTIFICATIONS'] = {}
+                        if curr_user not in current_cfg['NOTIFICATIONS']: current_cfg['NOTIFICATIONS'][curr_user] = []
+                        current_cfg['NOTIFICATIONS'][curr_user].append(f"✅ تم تنفيذ أمر تلقائي من المدير: إنشاء عرض سعر لـ ({client_name}) بقيمة ({amt}).")
+                        get_workspace_doc().set({'NOTIFICATIONS': current_cfg['NOTIFICATIONS']}, merge=True)
+                        CFG['NOTIFICATIONS'] = current_cfg['NOTIFICATIONS']
+                    except Exception: pass
+
+                # 2. تسجيل المهام (وتجنب التكرار بربط المهمة باسم الموظف)
+                if task_match and "المدير العام" not in curr_user:
+                    assigned_task = task_match.group(1).strip()
+                    try:
+                        current_cfg = get_workspace_doc().get().to_dict() or {}
+                        if 'TASK_REGISTRY' not in current_cfg: current_cfg['TASK_REGISTRY'] = []
+                        now_str = get_local_now().strftime("%Y-%m-%d")
+                        
+                        # هيكل المهام الجديد يمنع تكرار الإسناد
+                        emp_short = curr_user.split(' - ')[0]
+                        task_entry = f"🔴 مهمة مفتوحة لـ ({emp_short}): {assigned_task} [تاريخ: {now_str}]"
+                        current_cfg['TASK_REGISTRY'].append(task_entry)
+                        
+                        if 'NOTIFICATIONS' not in current_cfg: current_cfg['NOTIFICATIONS'] = {}
+                        if curr_user not in current_cfg['NOTIFICATIONS']: current_cfg['NOTIFICATIONS'][curr_user] = []
+                        current_cfg['NOTIFICATIONS'][curr_user].append(f"📌 تكليف جديد من المدير: {assigned_task}")
+                        
+                        get_workspace_doc().set({'TASK_REGISTRY': current_cfg['TASK_REGISTRY'], 'NOTIFICATIONS': current_cfg['NOTIFICATIONS']}, merge=True)
+                        st.session_state.app_config['TASK_REGISTRY'] = current_cfg['TASK_REGISTRY']
+                        st.session_state.app_config['NOTIFICATIONS'] = current_cfg['NOTIFICATIONS']
+                    except Exception: pass
+
+                # 3. تسجيل التقييم في ملف الموظف
+                if eval_match and "المدير العام" not in curr_user:
+                    eval_data = eval_match.group(1).strip()
+                    try:
+                        current_cfg = get_workspace_doc().get().to_dict() or {}
+                        if 'EVALUATIONS' not in current_cfg: current_cfg['EVALUATIONS'] = {}
+                        if 'EVAL_HISTORY' not in current_cfg: current_cfg['EVAL_HISTORY'] = {}
+                        if curr_user not in current_cfg['EVAL_HISTORY']: current_cfg['EVAL_HISTORY'][curr_user] = []
+                        now_str = get_local_now().strftime("%Y-%m-%d %H:%M")
+                        current_cfg['EVALUATIONS'][curr_user] = {'eval': eval_data, 'date': now_str}
+                        current_cfg['EVAL_HISTORY'][curr_user].append({'eval': eval_data, 'date': now_str})
+                        get_workspace_doc().set({'EVALUATIONS': current_cfg['EVALUATIONS'], 'EVAL_HISTORY': current_cfg['EVAL_HISTORY']}, merge=True)
+                        st.session_state.app_config['EVALUATIONS'] = current_cfg['EVALUATIONS']
+                        st.session_state.app_config['EVAL_HISTORY'] = current_cfg['EVAL_HISTORY']
+                    except Exception: pass
+
+                # 4. تسجيل الذاكرة المخصصة (MEMO) - لا ينسى المدير أبداً
+                if memo_match and "المدير العام" not in curr_user:
+                    memo_data = memo_match.group(1).strip()
+                    append_employee_memory(curr_user, memo_data)
+
+                # عرض وإضافة الرد النهائي للشات
+                ai_final_msg = {"role": "assistant", "content": clean_response}
+                st.session_state.all_chats[curr_user].append(ai_final_msg)
+                
+                ai_final_msg_log = ai_final_msg.copy()
+                ai_final_msg_log['user'] = curr_user
+                log_message(curr_user, ai_final_msg_log)
+                
+                save_chat_for_user(curr_user)
+                st.rerun(scope="fragment")
+
+def render_ai():
+    
+    CFG = st.session_state.app_config
+    curr_user = st.session_state.current_user
+    
+    now = get_local_now()
+    try:
+        work_start = int(CFG.get('WORK_START', 8))
+        work_end = int(CFG.get('WORK_END', 17))
+    except:
+        work_start, work_end = 8, 17
+        
+    is_working_hours = work_start <= now.hour < work_end
+    
+    time_status_color = "#00ff82" if is_working_hours else "#ff2d78"
+    time_status_text = "داخل أوقات العمل" if is_working_hours else "خارج أوقات العمل"
+    
+    start_am_pm = f"{work_start if work_start <= 12 else work_start - 12} {'ص' if work_start < 12 else 'م'}"
+    end_am_pm = f"{work_end if work_end <= 12 else work_end - 12} {'ص' if work_end < 12 else 'م'}"
+    
+    h12 = now.hour % 12 or 12
+    am_pm_ar = "صباحاً" if now.hour < 12 else "مساءً"
+    current_time_str = f"{h12:02d}:{now.minute:02d} {am_pm_ar}"
+    
+    st.markdown(f"""
+    <div style="background:rgba(0,242,255,0.05); padding:10px 20px; border-radius:12px; border:1px solid rgba(0,242,255,0.2); display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+            {get_icon('clock', 20, '#00f2ff')}
+            <strong style="color:#00f2ff; font-family:'Orbitron', sans-serif; font-size:1.1rem;">{current_time_str}</strong>
+        </div>
+        <div style="color:{time_status_color}; font-weight:bold; font-size:0.9rem;">
+            ● {time_status_text} ({start_am_pm} - {end_am_pm})
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+        
+    c_header1, c_header2 = st.columns([3, 1])
+    with c_header1:
+        st.markdown(f"""
+        <div style="background-color: #1f2c34; padding: 12px 20px; border-radius: 12px; display: flex; align-items: center; gap: 15px; margin-bottom: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+            <div style="width: 45px; height: 45px; border-radius: 50%; background-color: rgba(0, 242, 255, 0.1); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: bold; color: var(--c-primary); border: 1px solid rgba(0, 242, 255, 0.3);">
+                {get_icon("command", 24, "var(--c-primary)")}
+            </div>
+            <div>
+                <div style="font-weight: 700; font-size: 1.1rem; color: #fff; margin-bottom: -3px;">المدير العام</div>
+                <div style="font-size: 0.85rem; color: #00ff82;">متصل الآن</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c_header2:
+        curr_user_for_export = st.session_state.current_user
+        chat_content = ""
+        for msg in st.session_state.all_chats.get(curr_user_for_export, []):
+            role_name = "الموظف" if msg['role'] == 'user' else "المدير"
+            chat_content += f"[{role_name}]: {msg['content']}\n{'-'*40}\n"
+        
+        st.download_button(
+            label="📥 حفظ المحادثة",
+            data=chat_content.encode('utf-8-sig'),
+            file_name=f"Chat_{curr_user_for_export}.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
+
+    # -------------------------------------------------------------
+    # بناء السياق المعرفي المضغوط (Odoo Context Compression)
+    # -------------------------------------------------------------
+    df_s = df_s_master
+    df_p = df_p_master
+
+    t_sales_appr = df_s[df_s['state'].isin(['sale','done'])]['amount_total'].sum() if df_s is not None and not df_s.empty and 'state' in df_s.columns else 0
+    t_sales_draft = df_s[df_s['state'].isin(['draft','sent'])]['amount_total'].sum() if df_s is not None and not df_s.empty and 'state' in df_s.columns else 0
+    p_len = len(df_p) if df_p is not None else 0
+    
+    # فلترة العروض المفتوحة التي تخص الموظف الحالي فقط لتوفير التوكنز
+    my_quotes = "لا يوجد مسودات تخصك حالياً."
+    if df_s is not None and not df_s.empty and 'state' in df_s.columns and 'user_id' in df_s.columns:
+        emp_short = curr_user.split(" - ")[0]
+        # البحث عن اسم الموظف داخل خانة المبيعات
+        mask = df_s['user_id'].astype(str).str.contains(emp_short, na=False, case=False)
+        my_drafts = df_s[(df_s['state'].isin(['draft', 'sent'])) & mask].head(3)
+        if not my_drafts.empty:
+            my_quotes = " | ".join([f"عرض ({row.get('name', 'N/A')}) للعميل ({clean_odoo_m2o(row.get('partner_id', ''))}) بقيمة {row.get('amount_total', 0)} ج" for _, row in my_drafts.iterrows()])
+
+    # جلب الذاكرة المركزية الخاصة بالموظف
+    emp_memo = get_employee_memory(curr_user)
+
+    # جلب جميع المهام المفتوحة لبقية الشركة (حتى لا يتم التكرار)
+    task_reg = CFG.get('TASK_REGISTRY', [])
+    # استخراج المهام التي حالتها مفتوحة فقط (توفيرا للتوكنز)
+    open_tasks_str = "\n".join([t for t in task_reg[-50:] if "مفتوحة" in t]) if task_reg else "لا يوجد مهام مفتوحة حالياً."
+
+    base_prompt = CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT)
+    curr_emp_data = next((e for e in CFG.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == curr_user), None)
+    job_desc = curr_emp_data.get('job_desc', 'لا يوجد وصف.') if curr_emp_data else 'أنت تتحدث مع المدير العام.'
+    
+    live_context = f"""
+=== حقائق Odoo (أرقام سريعة) ===
+إجمالي المبيعات المعتمدة بالشركة: {t_sales_appr:,.0f} ج | المسودات العامة: {t_sales_draft:,.0f} ج | إجمالي العملاء: {p_len}
+
+=== بيانات الموظف اللي بيكلمك ({curr_user.split(' - ')[0]}) ===
+وصف وظيفته: {job_desc}
+عروض الأسعار المفتوحة الخاصة به حالياً: {my_quotes}
+ذاكرتك الشخصية عن الموظف ده (لا تنساها): {emp_memo if emp_memo else 'لا توجد ملاحظات سابقة.'}
+
+=== خريطة المهام المفتوحة في الشركة (لا تكرر إسنادها) ===
+{open_tasks_str}
+"""
+    knowledge_base = CFG.get('KNOWLEDGE_BASE', '')
+    if knowledge_base:
+        live_context += f"\n=== لوائح وقوانين الشركة ===\n{knowledge_base[:3000]}\n"
+
+    sys_prompt_context = base_prompt + "\n" + live_context
+
+    if "المدير العام" in curr_user:
+        gm_tabs = st.tabs(["مراقبة وتقييم الموظفين (سري)", "مكتبي الخاص (توجيهات الإدارة)"])
+        
+        with gm_tabs[0]:
+            cl1, cl2 = st.columns([3, 1])
+            with cl1:
+                st.markdown(f"<div class='g-card-title' style='color:var(--c-gold);'>{get_icon('eye', 22)} آخر تقييمات الموظفين التلقائية</div>", unsafe_allow_html=True)
+            with cl2:
+                if st.button("🔄 مزامنة الرسائل الجديدة", use_container_width=True):
+                    st.session_state.all_chats = load_user_chats()
+                    st.rerun()
+
+            evals = CFG.get('EVALUATIONS', {})
+            if not evals:
+                st.info("لا توجد تقييمات مسجلة بعد. سيقوم النظام بتسجيلها تلقائياً عند حديث الموظفين معه.")
+            else:
+                for emp_name, emp_data in evals.items():
+                    st.markdown(f"""<div style="background:rgba(255,255,255,0.02); padding:15px; border-radius:8px; border:1px solid rgba(255,255,255,0.05); margin-bottom:10px;">
+                        <div style="color:var(--c-primary); font-weight:bold; font-size:1.1rem; margin-bottom:5px;">{emp_name}</div>
+                        <div style="font-size:0.85rem; color:var(--c-dim); margin-bottom:10px;">تاريخ آخر تقييم: {emp_data.get('date', '')}</div>
+                        <div style="color:#e2e8f0; font-size:0.95rem; direction:rtl; text-align:right;">{emp_data.get('eval', '')}</div>
+                    </div>""", unsafe_allow_html=True)
+            
+            st.markdown("<hr style='border-color:rgba(255,255,255,0.1); margin: 30px 0;'>", unsafe_allow_html=True)
+            
+            # قسم عرض المهام والذكريات الشاملة للمدير
+            st.markdown(f"<div class='g-card-title' style='color:#00ff82;'>{get_icon('layers', 22)} لوحة تحكم المهام وذاكرة الموظفين</div>", unsafe_allow_html=True)
+            
+            memories = CFG.get('MEMORIES', {})
+            if memories:
+                st.markdown("**ملاحظاتك المسجلة عن الموظفين:**")
+                for m_emp, m_text in memories.items():
+                    st.markdown(f"- **{m_emp}:** {m_text}")
+                    
+            st.markdown("<hr style='border-color:rgba(255,255,255,0.1); margin: 30px 0;'>", unsafe_allow_html=True)
+            st.markdown(f"<div class='g-card-title' style='color:#00f2ff;'>{get_icon('folder', 22)} تقرير أداء وتقييم الموظف الذكي (للطباعة)</div>", unsafe_allow_html=True)
+            
+            emp_list = [u for u in st.session_state.all_chats.keys() if "المدير العام" not in u]
+            if emp_list:
+                c_r1, c_r2, c_r3, c_r4 = st.columns([2, 1.5, 1.5, 1.5])
+                with c_r1:
+                    sel_rep_emp = st.selectbox("اختر الموظف للتقرير:", emp_list, key="sel_rep_emp", label_visibility="collapsed")
+                with c_r2:
+                    start_d = st.date_input("من تاريخ:", value=get_local_now().date() - timedelta(days=30), key="start_d")
+                with c_r3:
+                    end_d = st.date_input("إلى تاريخ:", value=get_local_now().date(), key="end_d")
+                with c_r4:
+                    if st.button("📄 استخراج التقرير", type="primary", use_container_width=True):
+                        show_employee_report_dialog(sel_rep_emp, start_d, end_d)
+            
+            st.markdown("<hr style='border-color:rgba(255,255,255,0.1); margin: 30px 0;'>", unsafe_allow_html=True)
+            st.markdown(f"<div class='g-card-title' style='color:var(--c-accent);'>{get_icon('search', 22)} أرشيف محادثات الموظفين (إدارة كاملة)</div>", unsafe_allow_html=True)
+            
+            if emp_list:
+                sel_emp = st.selectbox("اختر الموظف لمراجعة محادثته الحية:", emp_list, label_visibility="collapsed")
+                if sel_emp:
+                    c_arc1, c_arc2 = st.columns(2)
+                    with c_arc1:
+                        if st.button(f"🗑️ مسح واجهة الشات لـ {sel_emp.split(' - ')[0]}", use_container_width=True):
+                            st.session_state.all_chats[sel_emp] = [{"role": "assistant", "content": "تم مسح الأرشيف بواسطة الإدارة العليا. مستعد لتلقي التكليفات الجديدة."}]
+                            save_chat_for_user(sel_emp)
+                            st.rerun()
+                    with c_arc2:
+                        if st.button(f"🔄 استعادة المحادثة بالكامل من السجل السري", use_container_width=True, type="primary"):
+                            audit_history = []
+                            try:
+                                docs = get_workspace_doc().collection('Logs').where('user', '==', sel_emp).stream()
+                                for doc in docs:
+                                    audit_history.append(doc.to_dict())
+                            except: pass
+                            
+                            if audit_history:
+                                st.session_state.all_chats[sel_emp] = [{"role": m.get("role", "user"), "content": m.get("content", "")} for m in audit_history]
+                                save_chat_for_user(sel_emp)
+                                st.success("تم استعادة المحادثة بالكامل من السجل السري بنجاح!")
+                                time.sleep(1)
+                                st.rerun()
+                            else:
+                                st.warning("لا يوجد سجل سري مسجل لهذا الموظف بعد.")
+                    
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    show_emp_chat = st.toggle(f"👁️ إظهار رسائل ومحادثة ({sel_emp.split(' - ')[0]})", value=False, help="اضغط هنا لعرض تفاصيل المحادثة كاملة إذا لزم الأمر")
+                    if show_emp_chat:
+                        chat_to_view = st.session_state.all_chats.get(sel_emp, [])
+                        for idx, m in enumerate(chat_to_view):
+                            with st.chat_message(m.get("role", "user")):
+                                st.markdown(f"<span class='msg-{m.get('role', 'user')}' style='display:none;'></span>", unsafe_allow_html=True)
+                                st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(m.get('content', ''))}</div>", unsafe_allow_html=True)
+                                
+                                st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
+                                if st.button("🗑️", key=f"gm_dl_{sel_emp}_{idx}", help="حذف الرسالة"):
+                                    st.session_state.all_chats[sel_emp].pop(idx)
+                                    save_chat_for_user(sel_emp)
+                                    st.rerun()
+                                st.markdown('</div>', unsafe_allow_html=True)
+            else:
+                st.info("لا توجد محادثات نشطة للموظفين حتى الآن.")
+            
+        with gm_tabs[1]:
+            render_chat_fragment(curr_user, sys_prompt_context, CFG)
+            
+    else:
+        render_chat_fragment(curr_user, sys_prompt_context, CFG)
+
 @st.dialog("تعديل بيانات الموظف")
 def edit_employee_dialog(emp_index, current_emps, view_options):
     emp = current_emps[emp_index]
@@ -2905,274 +2613,6 @@ def edit_employee_dialog(emp_index, current_emps, view_options):
         else:
             st.warning("يرجى ملء جميع البيانات الأساسية واختيار شاشة واحدة على الأقل.")
 
-def render_settings():
-    st.markdown(f"""<div class="page-header"><div class="ph-icon-wrap">{get_icon("settings", 46, "#00f2ff")}</div><div><div class="ph-title">إعدادات النواة المركزية</div><div class="ph-sub">إصدار COMMANDER: إدارة شاملة للبيانات، الخوادم، وهيكل الموظفين</div></div></div>""", unsafe_allow_html=True)
-
-    licenses = load_licenses()
-    ws_id = st.session_state.get('workspace_key', '')
-    ws_data = licenses.get('workspaces', {}).get(ws_id, {})
-    max_devices = ws_data.get('max_devices', 1)
-
-    st.markdown(f"<div class='g-card-title' style='color:#00ff82;'>{get_icon('folder', 22)} خزنة الشركة (النسخ الاحتياطي السحابي)</div>", unsafe_allow_html=True)
-    st.info("نظراً لطبيعة الخوادم السحابية، يُنصح بتحميل نسخة احتياطية من بيانات شركتك والاحتفاظ بها.")
-    
-    cv1, cv2 = st.columns(2)
-    with cv1:
-        vault_data_str = json.dumps(CFG, ensure_ascii=False, indent=4)
-        st.download_button(
-            label="📥 سحب ملف خزنة الشركة (Backup)",
-            data=vault_data_str.encode('utf-8-sig'),
-            file_name=f"Mudir_Vault_{ws_id}_{get_local_now().strftime('%Y%m%d')}.json",
-            mime="application/json",
-            use_container_width=True
-        )
-    with cv2:
-        uploaded_vault = st.file_uploader("📤 استعادة النظام من الخزنة", type=['json'], label_visibility="collapsed")
-        if uploaded_vault:
-            if st.button("🚨 تأكيد الاستعادة (سيمسح البيانات الحالية)", type="primary", use_container_width=True):
-                try:
-                    restored_data = json.load(uploaded_vault)
-                    st.session_state.app_config = restored_data
-                    save_config(restored_data)
-                    st.success("تم استعادة بيانات الشركة بنجاح! جاري إعادة التشغيل...")
-                    time.sleep(1)
-                    st.rerun()
-                except Exception:
-                    st.error("ملف الخزنة تالف أو غير صالح.")
-    
-    st.markdown("<br><hr style='border-color:rgba(255,255,255,0.05)'><br>", unsafe_allow_html=True)
-
-    st.markdown(f"<div class='g-card-title'>{get_icon('check', 22)} إعدادات الأمان للمدير العام</div>", unsafe_allow_html=True)
-    m_pin = st.text_input("رمز الدخول السري للمدير (PIN)", value=CFG.get('MANAGER_PIN', '0000'), type="password", disabled=True, help="لا يمكن تغيير الرقم السري إلا من قبل الإدارة العليا (Super Admin).")
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    st.markdown(f"<div class='g-card-title'>{get_icon('clock', 22)} مواعيد العمل الرسمية للشركة</div>", unsafe_allow_html=True)
-    st.info("المدير سيستخدم هذه المواعيد لمعرفة متى يبدأ وينتهي الدوام، ليتخذ قرارات مناسبة بشأن توزيع المهام للموظفين والمهندسين.")
-    col_t1, col_t2, col_t3 = st.columns(3)
-    with col_t1:
-        work_start_input = st.number_input("ساعة بدء العمل (نظام 24 ساعة):", min_value=0, max_value=23, value=int(CFG.get('WORK_START', 8)), step=1)
-    with col_t2:
-        work_end_input = st.number_input("ساعة انتهاء العمل (نظام 24 ساعة):", min_value=0, max_value=23, value=int(CFG.get('WORK_END', 17)), step=1)
-    with col_t3:
-        tz_opts = ["Africa/Cairo", "Asia/Riyadh", "Asia/Dubai", "Europe/London", "America/New_York", "UTC"]
-        curr_tz = CFG.get('TIMEZONE', 'Africa/Cairo')
-        if curr_tz not in tz_opts: tz_opts.append(curr_tz)
-        tz_input = st.selectbox("توقيت الشركة (المنطقة الزمنية):", tz_opts, index=tz_opts.index(curr_tz))
-        
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    st.markdown(f"<div class='g-card-title'>{get_icon('users', 22)} هيكل الفريق والبطاقات التعريفية (الحد الأقصى: {max_devices} مستخدم)</div>", unsafe_allow_html=True)
-    
-    current_emps = CFG.get('EMPLOYEES', [])
-    view_options = {i[2]: i[0] for i in ALL_NAV_ITEMS if i[0] not in ['settings']}
-    
-    st.info(f"تم استهلاك {len(current_emps)} من أصل {max_devices} مستخدم مسموح به في رخصة شركتك.")
-    
-    with st.expander("➕ إضافة موظف جديد", expanded=False):
-        with st.form("add_emp_form", clear_on_submit=True):
-            c_emp1, c_emp2, c_emp3 = st.columns([2, 2, 2])
-            with c_emp1: new_emp_name = st.text_input("اسم الموظف", placeholder="مثال: أحمد محمود")
-            with c_emp2: new_emp_role = st.text_input("الوظيفة / القسم", placeholder="مثال: مبيعات هاتفية")
-            with c_emp3: new_emp_pin = st.text_input("الرقم السري للموظف (PIN)", placeholder="مثال: 1234")
-            
-            new_emp_desc = st.text_area("الوصف الوظيفي والأهداف (KPIs)", placeholder="اكتب هنا مهام الموظف وما تتوقعه منه، ليقوم الذكاء الاصطناعي بمتابعته وتوجيهه بناءً عليها...")
-            
-            new_emp_views = st.multiselect("الشاشات المسموحة", list(view_options.keys()), default=["مكتب المدير"])
-            submit_emp = st.form_submit_button("إضافة الموظف للنظام", use_container_width=True, type="primary")
-
-        if submit_emp:
-            if len(current_emps) >= max_devices:
-                st.error("🚫 عذراً! لقد وصلت للحد الأقصى لعدد المستخدمين المسموح به في رخصتك الحالية.")
-            elif any(emp['name'].strip().lower() == new_emp_name.strip().lower() for emp in current_emps):
-                st.error("🚫 عذراً! يوجد موظف مسجل بنفس هذا الاسم مسبقاً. يرجى استخدام اسم مختلف.")
-            elif new_emp_name and new_emp_role and new_emp_views and new_emp_pin:
-                view_keys = [view_options[k] for k in new_emp_views]
-                current_emps.append({
-                    'name': new_emp_name, 
-                    'role': new_emp_role, 
-                    'pin': new_emp_pin, 
-                    'job_desc': new_emp_desc,
-                    'views': view_keys
-                })
-                
-                try:
-                    current_cfg = get_workspace_doc().get().to_dict() or {}
-                    current_cfg['EMPLOYEES'] = current_emps
-                    get_workspace_doc().set(current_cfg, merge=True)
-                except Exception as e:
-                    st.error(f"خطأ في الحفظ: {e}")
-                
-                CFG['EMPLOYEES'] = current_emps
-                st.rerun()
-            else:
-                st.warning("أدخل كافة البيانات (الاسم، الوظيفة، الرمز السري) واختر شاشة واحدة على الأقل.")
-                
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    if current_emps:
-        st.markdown("**📋 بطاقات الموظفين (Cyberpunk UI):**")
-        emp_cols = st.columns(2)
-        
-        for i, emp in enumerate(current_emps):
-            views_str = " | ".join([k for k, v in view_options.items() if emp.get('views') and view_options.get(k) in emp['views']])
-            pin_display = emp.get('pin', '0000')
-            desc_display = emp.get('job_desc', 'لا يوجد وصف مخصص.')
-            
-            with emp_cols[i % 2]:
-                st.markdown(f"""
-                <div class="emp-card-neon">
-                    <div class="emp-header">
-                        <div class="emp-avatar">{emp['name'][:1]}</div>
-                        <div style="margin-right: 15px;">
-                            <div class="emp-name">{emp['name']}</div>
-                            <div class="emp-role">{emp['role']}</div>
-                        </div>
-                    </div>
-                    <div class="emp-info-grid">
-                        <div>
-                            <div class="emp-label">رمز الدخول السري:</div>
-                            <div class="emp-pin-box">✱✱{pin_display[-2:] if len(pin_display)>2 else pin_display}</div>
-                        </div>
-                        <div>
-                            <div class="emp-label">الصلاحيات والشاشات:</div>
-                            <div class="emp-value" style="font-size:0.8rem; line-height: 1.4;">{views_str}</div>
-                        </div>
-                    </div>
-                    <div style="margin-bottom: 15px;">
-                        <div class="emp-label">م مؤشرات الأداء (KPIs):</div>
-                        <div class="emp-value" style="font-size:0.85rem; color:#94a3b8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{desc_display}</div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                btn_col1, btn_col2 = st.columns(2)
-                with btn_col1:
-                    if st.button(f"✏️ تعديل {emp['name']}", key=f"edit_emp_{i}", use_container_width=True):
-                        edit_employee_dialog(i, current_emps, view_options)
-                with btn_col2:
-                    if st.button(f"🗑️ إزالة {emp['name']}", key=f"del_emp_{i}", use_container_width=True, type="secondary"):
-                        current_emps.pop(i)
-                        try:
-                            current_cfg = get_workspace_doc().get().to_dict() or {}
-                            current_cfg['EMPLOYEES'] = current_emps
-                            get_workspace_doc().set(current_cfg, merge=True)
-                        except Exception as e:
-                            st.error(f"خطأ في الحذف: {e}")
-                        CFG['EMPLOYEES'] = current_emps
-                        st.rerun()
-                st.markdown("<br>", unsafe_allow_html=True)
-    else:
-        st.markdown("<div style='color:var(--c-dim); font-size:0.9rem; text-align:center; padding: 20px; border: 1px dashed rgba(255,255,255,0.1); border-radius: 12px;'>لا يوجد موظفين مسجلين حالياً بالهيكل.</div>", unsafe_allow_html=True)
-
-    st.markdown("<br><hr style='border-color:rgba(255,255,255,0.05)'><br>", unsafe_allow_html=True)
-
-    st.markdown(f"<div class='g-card-title'>{get_icon('cpu', 22)} إعدادات الاتصال بالخادم المركزي</div>", unsafe_allow_html=True)
-    
-    st.markdown("### شخصية وتوجيهات المدير (System Prompt)")
-    st.info("هذا النص يحدد شخصية وطريقة تفكير المدير. سيقوم النظام آلياً بفرض JSON Mode بناءً على هذه الإعدادات.")
-    ai_system_prompt = st.text_area("تعليمات الإدارة", value=CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT), height=250)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("### دليل وإعدادات الربط")
-    
-    with st.expander("معلومات إضافية حول روابط الخدمة (انقر للفتح)"):
-        st.markdown("""
-        **لربط الخادم الرئيسي (OpenAI):**
-        - **رابط المزود:** `https://api.openai.com/v1`
-        - **اسم الموديل:** `gpt-4o` أو `gpt-3.5-turbo`
-        
-        **ملاحظة عن JSON Mode:** بعض الموديلات لا تدعم `json_object` صراحة ولكنها تستجيب جيداً. موديلات OpenAI مثل `gpt-4o` تدعمها بكفاءة بشرط تضمين كلمة JSON في التعليمات.
-        """)
-        
-    saved_url = CFG.get('AI_PROVIDER_URL', '')
-    url_presets = ["[https://openrouter.ai/api/v1](https://openrouter.ai/api/v1)", "[https://api.openai.com/v1](https://api.openai.com/v1)", "[https://api.x.ai/v1](https://api.x.ai/v1)", "[https://generativelanguage.googleapis.com/v1beta/openai/](https://generativelanguage.googleapis.com/v1beta/openai/)", ""]
-    if saved_url not in url_presets: url_presets.insert(0, saved_url)
-    url_options = list(dict.fromkeys(url_presets)) + ["مخصص (كتابة يدوية)..."]
-    
-    sel_url = st.selectbox("رابط مزود الخدمة (Base URL)", url_options, index=url_options.index(saved_url) if saved_url in url_options else 0, help="اختر رابط الخدمة أو اكتبه يدوياً باختيار 'مخصص'")
-    ai_url = st.text_input("أدخل الرابط المخصص:", value=saved_url) if sel_url == "مخصص (كتابة يدوية)..." else sel_url
-
-    saved_model = CFG.get('AI_MODEL_NAME', 'gpt-4o')
-    model_presets = ["gpt-4o", "gpt-4o-mini", "openai/gpt-4o-mini", "google/gemini-2.5-flash", "gemini-2.5-flash", "anthropic/claude-3-5-sonnet", "grok-beta"]
-    if saved_model not in model_presets: model_presets.insert(0, saved_model)
-    model_options = list(dict.fromkeys(model_presets)) + ["مخصص (كتابة يدوية)..."]
-    
-    sel_model = st.selectbox("اسم الموديل (Model Name)", model_options, index=model_options.index(saved_model) if saved_model in model_options else 0, help="تأكد من توافق اسم الموديل مع مزود الخدمة (مثال: OpenAI يستخدم gpt-4o)")
-    ai_model = st.text_input("أدخل اسم الموديل المخصص:", value=saved_model) if sel_model == "مخصص (كتابة يدوية)..." else sel_model
-
-    ai_key = st.text_input("مفتاح الربط (API Key)", value=CFG.get('AI_API_KEY', ''), type="password", help="انسخ المفتاح وتأكد من عدم وجود مسافات فارغة قبله أو بعده")
-
-    if st.button("فحص اتصال الخادم المركزي", key="test_ai"):
-        if not ai_key.strip():
-            st.warning("الرجاء إدخال مفتاح الربط في الحقل أعلاه قبل إجراء الفحص.")
-        else:
-            try:
-                with st.spinner("جاري فحص الاتصال بالخادم..."):
-                    test_client = OpenAI(api_key=ai_key.strip(), base_url=ai_url.strip() if ai_url.strip() else None)
-                    resp = test_client.chat.completions.create(model=ai_model, messages=[{"role": "user", "content": "Respond with a valid JSON containing key 'status' and value 'OK'."}], response_format={"type": "json_object"}, max_tokens=15)
-                    if resp.choices[0].message.content: st.success("تم الاتصال بالخادم المركزي ودعم الـ JSON Mode بنجاح!")
-            except Exception as e: 
-                err_msg = str(e).lower()
-                if "429" in err_msg or "quota" in err_msg or "rate limit" in err_msg or "insufficient" in err_msg:
-                    st.error("❌ انتهت عدد التوكينز يرجى التجديد")
-                elif "404" in err_msg or "not found" in err_msg or "connection" in err_msg or "resolve" in err_msg or "model" in err_msg:
-                    st.error("❌ ال url base , model غير صحيحين")
-                elif "401" in err_msg or "auth" in err_msg or "key" in err_msg:
-                    st.error("❌ مفتاح الربط (API Key) غير صحيح أو منتهي.")
-                else:
-                    st.error(f"❌ فشل الاتصال بالخادم. تأكد من صحة الرابط (Base URL) ومفتاح الربط (API Key). تفاصيل الخطأ: {e}")
-
-    st.markdown("<br><hr style='border-color:rgba(255,255,255,0.05)'><br>", unsafe_allow_html=True)
-
-    st.markdown(f"<div class='g-card-title'>{get_icon('fusion', 22)} تكوين قاعدة البيانات (Odoo)</div>", unsafe_allow_html=True)
-    o_url = st.text_input("رابط الخادم (URL)", value=CFG.get('ODOO_URL', ''))
-    o_db = st.text_input("قاعدة البيانات (DB)", value=CFG.get('ODOO_DB', ''))
-    o_usr = st.text_input("المستخدم (User)", value=CFG.get('ODOO_USER', ''))
-    o_pwd = st.text_input("كلمة المرور (Password)", value=CFG.get('ODOO_PASS', ''), type="password")
-    
-    if st.button("فحص اتصال Odoo", key="test_odoo"):
-        try:
-            with st.spinner("جاري فحص الاتصال..."):
-                cm = xmlrpc.client.ServerProxy(f'{o_url}/xmlrpc/2/common')
-                uid = cm.authenticate(o_db, o_usr, o_pwd, {})
-                if uid: st.success("الاتصال بقاعدة البيانات ناجح وموثق!")
-                else: st.error("المصادقة مرفوضة. تأكد من البيانات.")
-        except Exception as e: 
-            st.error(f"خطأ في الاتصال: {e}")
-
-    st.markdown("<hr style='border-color:rgba(255,255,255,0.1); margin: 30px 0;'>", unsafe_allow_html=True)
-    if st.button("حفظ الإعدادات وإعادة بناء النواة", type="primary", use_container_width=True):
-        
-        try:
-            current_cfg = get_workspace_doc().get().to_dict() or {}
-            
-            if 'ALL_CHATS' in current_cfg: del current_cfg['ALL_CHATS']
-            if 'AUDIT_LOG' in current_cfg: del current_cfg['AUDIT_LOG']
-            
-            current_cfg.update({
-                'ODOO_URL': o_url, 'ODOO_DB': o_db, 'ODOO_USER': o_usr, 'ODOO_PASS': o_pwd, 
-                'AI_PROVIDER_URL': ai_url, 'AI_MODEL_NAME': ai_model, 'AI_API_KEY': ai_key,
-                'AI_SYSTEM_PROMPT': ai_system_prompt,
-                'MANAGER_PIN': m_pin,
-                'EMPLOYEES': current_emps,
-                'WORK_START': int(work_start_input),
-                'WORK_END': int(work_end_input),
-                'TIMEZONE': tz_input
-            })
-            
-            get_workspace_doc().set(current_cfg, merge=True)
-            st.session_state.app_config = current_cfg
-            fetch_master_data.clear()
-            st.session_state.data_loaded = False
-            st.success("تم الحفظ بنجاح على قاعدة البيانات السحابية! جاري إعادة التشغيل...")
-            time.sleep(1)
-            st.rerun()
-        except Exception as e:
-            st.error(f"حدث خطأ أثناء الحفظ على الخادم السحابي: {e}")
-            
-    st.markdown("<div style='text-align: center; color: var(--c-dim); font-size: 0.9rem; margin-top: 50px; font-weight: bold;'>Powered by محمد الحلواني</div>", unsafe_allow_html=True)
-
 @st.dialog("إعدادات رخصة الشركة")
 def change_workspace_pin_dialog(ws_id):
     st.markdown(f"**تغيير الرقم السري لمدير شركة:** `{ws_id}`")
@@ -3182,7 +2622,7 @@ def change_workspace_pin_dialog(ws_id):
         doc = doc_ref.get()
         ws_cfg = doc.to_dict() if doc.exists else {
             'ODOO_URL': '', 'ODOO_DB': '', 'ODOO_USER': '', 'ODOO_PASS': '',
-            'AI_PROVIDER_URL': '[https://api.openai.com/v1](https://api.openai.com/v1)', 'AI_API_KEY': '',
+            'AI_PROVIDER_URL': 'https://api.openai.com/v1', 'AI_API_KEY': '',
             'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
             'MANAGER_PIN': '0000', 'EMPLOYEES': [], 'EVALUATIONS': {} 
         }
@@ -3202,9 +2642,39 @@ def change_workspace_pin_dialog(ws_id):
         except Exception as e:
             st.error(f"حدث خطأ أثناء الحفظ: {e}")
 
+@st.dialog("تعديل أعداد المستخدمين")
+def edit_workspace_devices_dialog(ws_id, licenses):
+    ws_info = licenses['workspaces'][ws_id]
+    st.markdown(f"**تعديل الحد الأقصى للمستخدمين للشركة:** `{ws_id}`")
+    current_max = ws_info.get('max_devices', 1)
+    new_max = st.number_input("أقصى عدد للمستخدمين:", min_value=1, max_value=1000, value=current_max)
+    if st.button("حفظ", type="primary", use_container_width=True):
+        licenses['workspaces'][ws_id]['max_devices'] = new_max
+        save_licenses(licenses)
+        st.success("تم التعديل بنجاح!")
+        time.sleep(1)
+        st.rerun()
+
+@st.dialog("حذف مساحة العمل")
+def delete_workspace_dialog(ws_id, licenses):
+    st.warning(f"هل أنت متأكد من حذف المساحة `{ws_id}` بشكل نهائي؟ هذا الإجراء لا يمكن التراجع عنه.")
+    pin_confirm = st.text_input("اكتب رمز الـ Super Admin للتأكيد:", type="password")
+    
+    if st.button("🚨 تأكيد الحذف النهائي", type="primary", use_container_width=True):
+        if pin_confirm == MASTER_ADMIN_CODE:
+            del licenses['workspaces'][ws_id]
+            save_licenses(licenses)
+            if FIREBASE_CONNECTED and db:
+                db.collection('Mudir_Workspaces').document(ws_id).delete()
+            st.success("تم الحذف بنجاح!")
+            time.sleep(1)
+            st.rerun()
+        else:
+            st.error("الرمز السري غير صحيح.")
+
 def render_super_admin():
     with st.sidebar:
-        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v51.0</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v52.1</div></div>""", unsafe_allow_html=True)
         st.markdown("---")
         if st.button("🔴 تسجيل الخروج وإغلاق", use_container_width=True, type="primary"):
             st.query_params.clear()
@@ -3378,6 +2848,297 @@ def render_super_admin():
                                 delete_workspace_dialog(ws_id, licenses)
                 st.markdown("<hr style='border-color:rgba(255,255,255,0.05); margin:10px 0;'>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
+
+def render_settings():
+    st.markdown(f"""<div class="page-header"><div class="ph-icon-wrap">{get_icon("settings", 46, "#00f2ff")}</div><div><div class="ph-title">إعدادات النواة المركزية</div><div class="ph-sub">إصدار COMMANDER: إدارة شاملة للبيانات، الخوادم، وهيكل الموظفين</div></div></div>""", unsafe_allow_html=True)
+
+    licenses = load_licenses()
+    ws_id = st.session_state.get('workspace_key', '')
+    ws_data = licenses.get('workspaces', {}).get(ws_id, {})
+    max_devices = ws_data.get('max_devices', 1)
+
+    st.markdown(f"<div class='g-card-title' style='color:#00ff82;'>{get_icon('folder', 22)} خزنة الشركة (النسخ الاحتياطي السحابي)</div>", unsafe_allow_html=True)
+    st.info("نظراً لطبيعة الخوادم السحابية، يُنصح بتحميل نسخة احتياطية من بيانات شركتك والاحتفاظ بها.")
+    
+    cv1, cv2 = st.columns(2)
+    with cv1:
+        vault_data_str = json.dumps(CFG, ensure_ascii=False, indent=4)
+        st.download_button(
+            label="📥 سحب ملف خزنة الشركة (Backup)",
+            data=vault_data_str.encode('utf-8-sig'),
+            file_name=f"Mudir_Vault_{ws_id}_{get_local_now().strftime('%Y%m%d')}.json",
+            mime="application/json",
+            use_container_width=True
+        )
+    with cv2:
+        uploaded_vault = st.file_uploader("📤 استعادة النظام من الخزنة", type=['json'], label_visibility="collapsed")
+        if uploaded_vault:
+            if st.button("🚨 تأكيد الاستعادة (سيمسح البيانات الحالية)", type="primary", use_container_width=True):
+                try:
+                    restored_data = json.load(uploaded_vault)
+                    st.session_state.app_config = restored_data
+                    save_config(restored_data)
+                    st.success("تم استعادة بيانات الشركة بنجاح! جاري إعادة التشغيل...")
+                    time.sleep(1)
+                    st.rerun()
+                except Exception:
+                    st.error("ملف الخزنة تالف أو غير صالح.")
+    
+    st.markdown("<br><hr style='border-color:rgba(255,255,255,0.05)'><br>", unsafe_allow_html=True)
+
+    st.markdown(f"<div class='g-card-title'>{get_icon('check', 22)} إعدادات الأمان للمدير العام</div>", unsafe_allow_html=True)
+    m_pin = st.text_input("رمز الدخول السري للمدير (PIN)", value=CFG.get('MANAGER_PIN', '0000'), type="password", disabled=True, help="لا يمكن تغيير الرقم السري إلا من قبل الإدارة العليا (Super Admin).")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    st.markdown(f"<div class='g-card-title'>{get_icon('clock', 22)} مواعيد العمل الرسمية للشركة</div>", unsafe_allow_html=True)
+    st.info("المدير سيستخدم هذه المواعيد لمعرفة متى يبدأ وينتهي الدوام، ليتخذ قرارات مناسبة بشأن توزيع المهام للموظفين والمهندسين.")
+    col_t1, col_t2, col_t3 = st.columns(3)
+    with col_t1:
+        work_start_input = st.number_input("ساعة بدء العمل (نظام 24 ساعة):", min_value=0, max_value=23, value=int(CFG.get('WORK_START', 8)), step=1)
+    with col_t2:
+        work_end_input = st.number_input("ساعة انتهاء العمل (نظام 24 ساعة):", min_value=0, max_value=23, value=int(CFG.get('WORK_END', 17)), step=1)
+    with col_t3:
+        tz_opts = ["Africa/Cairo", "Asia/Riyadh", "Asia/Dubai", "Europe/London", "America/New_York", "UTC"]
+        curr_tz = CFG.get('TIMEZONE', 'Africa/Cairo')
+        if curr_tz not in tz_opts: tz_opts.append(curr_tz)
+        tz_input = st.selectbox("توقيت الشركة (المنطقة الزمنية):", tz_opts, index=tz_opts.index(curr_tz))
+        
+    if st.button("💾 حفظ مواعيد العمل", key="save_work_hours", use_container_width=True):
+        update_system_config({
+            'WORK_START': int(work_start_input),
+            'WORK_END': int(work_end_input),
+            'TIMEZONE': tz_input
+        })
+        st.success("تم حفظ مواعيد العمل بنجاح!")
+        time.sleep(1)
+        st.rerun()
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    st.markdown(f"<div class='g-card-title'>{get_icon('users', 22)} هيكل الفريق والبطاقات التعريفية (الحد الأقصى: {max_devices} مستخدم)</div>", unsafe_allow_html=True)
+    
+    current_emps = CFG.get('EMPLOYEES', [])
+    view_options = {i[2]: i[0] for i in ALL_NAV_ITEMS if i[0] not in ['settings']}
+    
+    st.info(f"تم استهلاك {len(current_emps)} من أصل {max_devices} مستخدم مسموح به في رخصة شركتك.")
+    
+    with st.expander("➕ إضافة موظف جديد", expanded=False):
+        with st.form("add_emp_form", clear_on_submit=True):
+            c_emp1, c_emp2, c_emp3 = st.columns([2, 2, 2])
+            with c_emp1: new_emp_name = st.text_input("اسم الموظف", placeholder="مثال: أحمد محمود")
+            with c_emp2: new_emp_role = st.text_input("الوظيفة / القسم", placeholder="مثال: مبيعات هاتفية")
+            with c_emp3: new_emp_pin = st.text_input("الرقم السري للموظف (PIN)", placeholder="مثال: 1234")
+            
+            new_emp_desc = st.text_area("الوصف الوظيفي والأهداف (KPIs)", placeholder="اكتب هنا مهام الموظف وما تتوقعه منه، ليقوم الذكاء الاصطناعي بمتابعته وتوجيهه بناءً عليها...")
+            
+            new_emp_views = st.multiselect("الشاشات المسموحة", list(view_options.keys()), default=["مكتب المدير"])
+            submit_emp = st.form_submit_button("إضافة الموظف للنظام", use_container_width=True, type="primary")
+
+        if submit_emp:
+            if len(current_emps) >= max_devices:
+                st.error("🚫 عذراً! لقد وصلت للحد الأقصى لعدد المستخدمين المسموح به في رخصتك الحالية.")
+            elif any(emp['name'].strip().lower() == new_emp_name.strip().lower() for emp in current_emps):
+                st.error("🚫 عذراً! يوجد موظف مسجل بنفس هذا الاسم مسبقاً. يرجى استخدام اسم مختلف.")
+            elif new_emp_name and new_emp_role and new_emp_views and new_emp_pin:
+                view_keys = [view_options[k] for k in new_emp_views]
+                current_emps.append({
+                    'name': new_emp_name, 
+                    'role': new_emp_role, 
+                    'pin': new_emp_pin, 
+                    'job_desc': new_emp_desc,
+                    'views': view_keys
+                })
+                
+                try:
+                    current_cfg = get_workspace_doc().get().to_dict() or {}
+                    current_cfg['EMPLOYEES'] = current_emps
+                    get_workspace_doc().set(current_cfg, merge=True)
+                except Exception as e:
+                    st.error(f"خطأ في الحفظ: {e}")
+                
+                CFG['EMPLOYEES'] = current_emps
+                st.rerun()
+            else:
+                st.warning("أدخل كافة البيانات (الاسم، الوظيفة، الرمز السري) واختر شاشة واحدة على الأقل.")
+                
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    if current_emps:
+        st.markdown("**📋 بطاقات الموظفين (Cyberpunk UI):**")
+        emp_cols = st.columns(2)
+        
+        for i, emp in enumerate(current_emps):
+            views_str = " | ".join([k for k, v in view_options.items() if emp.get('views') and view_options.get(k) in emp['views']])
+            pin_display = emp.get('pin', '0000')
+            desc_display = emp.get('job_desc', 'لا يوجد وصف مخصص.')
+            
+            with emp_cols[i % 2]:
+                st.markdown(f"""
+                <div class="emp-card-neon">
+                    <div class="emp-header">
+                        <div class="emp-avatar">{emp['name'][:1]}</div>
+                        <div style="margin-right: 15px;">
+                            <div class="emp-name">{emp['name']}</div>
+                            <div class="emp-role">{emp['role']}</div>
+                        </div>
+                    </div>
+                    <div class="emp-info-grid">
+                        <div>
+                            <div class="emp-label">رمز الدخول السري:</div>
+                            <div class="emp-pin-box">✱✱{pin_display[-2:] if len(pin_display)>2 else pin_display}</div>
+                        </div>
+                        <div>
+                            <div class="emp-label">الصلاحيات والشاشات:</div>
+                            <div class="emp-value" style="font-size:0.8rem; line-height: 1.4;">{views_str}</div>
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <div class="emp-label">مؤشرات الأداء (KPIs):</div>
+                        <div class="emp-value" style="font-size:0.85rem; color:#94a3b8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{desc_display}</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                btn_col1, btn_col2 = st.columns(2)
+                with btn_col1:
+                    if st.button(f"✏️ تعديل {emp['name']}", key=f"edit_emp_{i}", use_container_width=True):
+                        edit_employee_dialog(i, current_emps, view_options)
+                with btn_col2:
+                    if st.button(f"🗑️ إزالة {emp['name']}", key=f"del_emp_{i}", use_container_width=True, type="secondary"):
+                        current_emps.pop(i)
+                        try:
+                            current_cfg = get_workspace_doc().get().to_dict() or {}
+                            current_cfg['EMPLOYEES'] = current_emps
+                            get_workspace_doc().set(current_cfg, merge=True)
+                        except Exception as e:
+                            st.error(f"خطأ في الحذف: {e}")
+                        CFG['EMPLOYEES'] = current_emps
+                        st.rerun()
+                st.markdown("<br>", unsafe_allow_html=True)
+    else:
+        st.markdown("<div style='color:var(--c-dim); font-size:0.9rem; text-align:center; padding: 20px; border: 1px dashed rgba(255,255,255,0.1); border-radius: 12px;'>لا يوجد موظفين مسجلين حالياً بالهيكل.</div>", unsafe_allow_html=True)
+
+    st.markdown("<br><hr style='border-color:rgba(255,255,255,0.05)'><br>", unsafe_allow_html=True)
+
+    st.markdown(f"<div class='g-card-title'>{get_icon('cpu', 22)} إعدادات الاتصال بالخادم المركزي</div>", unsafe_allow_html=True)
+    
+    st.markdown("### شخصية وتوجيهات المدير (System Prompt)")
+    st.info("تنبيه: لا تقم بتغيير هيكل العلامات السرية (TASK, EVAL, MEMO) حتى لا يفقد المدير ذاكرته.")
+    ai_system_prompt = st.text_area("تعليمات الإدارة", value=CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT), height=250)
+    
+    if st.button("💾 حفظ تعليمات الإدارة فقط", key="save_prompt", use_container_width=True):
+        update_system_config({'AI_SYSTEM_PROMPT': ai_system_prompt})
+        st.success("تم حفظ تعليمات الإدارة بنجاح!")
+        time.sleep(1)
+        st.rerun()
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("### دليل وإعدادات الربط")
+    
+    with st.expander("معلومات إضافية حول روابط الخدمة (انقر للفتح)"):
+        st.markdown("""
+        **لربط الخادم الرئيسي (OpenAI):**
+        - **رابط المزود:** `https://api.openai.com/v1`
+        - **اسم الموديل:** `gpt-4o` أو `gpt-3.5-turbo`
+        
+        **ملاحظة عن JSON Mode:** بعض الموديلات لا تدعم `json_object` صراحة ولكنها تستجيب جيداً. موديلات OpenAI مثل `gpt-4o` تدعمها بكفاءة بشرط تضمين كلمة JSON في التعليمات.
+        """)
+        
+    saved_url = CFG.get('AI_PROVIDER_URL', '')
+    url_presets = ["https://openrouter.ai/api/v1", "https://api.openai.com/v1", "https://api.x.ai/v1", "https://generativelanguage.googleapis.com/v1beta/openai/", ""]
+    if saved_url not in url_presets: url_presets.insert(0, saved_url)
+    url_options = list(dict.fromkeys(url_presets)) + ["مخصص (كتابة يدوية)..."]
+    
+    sel_url = st.selectbox("رابط مزود الخدمة (Base URL)", url_options, index=url_options.index(saved_url) if saved_url in url_options else 0, help="اختر رابط الخدمة أو اكتبه يدوياً باختيار 'مخصص'")
+    ai_url = st.text_input("أدخل الرابط المخصص:", value=saved_url) if sel_url == "مخصص (كتابة يدوية)..." else sel_url
+
+    saved_model = CFG.get('AI_MODEL_NAME', 'gpt-4o')
+    model_presets = ["gpt-4o", "gpt-4o-mini", "openai/gpt-4o-mini", "google/gemini-2.5-flash", "gemini-2.5-flash", "anthropic/claude-3-5-sonnet", "grok-beta"]
+    if saved_model not in model_presets: model_presets.insert(0, saved_model)
+    model_options = list(dict.fromkeys(model_presets)) + ["مخصص (كتابة يدوية)..."]
+    
+    sel_model = st.selectbox("اسم الموديل (Model Name)", model_options, index=model_options.index(saved_model) if saved_model in model_options else 0, help="تأكد من توافق اسم الموديل مع مزود الخدمة (مثال: OpenAI يستخدم gpt-4o)")
+    ai_model = st.text_input("أدخل اسم الموديل المخصص:", value=saved_model) if sel_model == "مخصص (كتابة يدوية)..." else sel_model
+
+    ai_key = st.text_input("مفتاح الربط (API Key)", value=CFG.get('AI_API_KEY', ''), type="password", help="انسخ المفتاح وتأكد من عدم وجود مسافات فارغة قبله أو بعده")
+
+    col_ai1, col_ai2 = st.columns(2)
+    with col_ai1:
+        if st.button("فحص اتصال الخادم المركزي", key="test_ai", use_container_width=True):
+            if not ai_key.strip():
+                st.warning("الرجاء إدخال مفتاح الربط في الحقل أعلاه قبل إجراء الفحص.")
+            else:
+                try:
+                    with st.spinner("جاري فحص الاتصال بالخادم..."):
+                        test_client = OpenAI(api_key=ai_key.strip(), base_url=ai_url.strip() if ai_url.strip() else None)
+                        resp = test_client.chat.completions.create(model=ai_model, messages=[{"role": "user", "content": "Hello"}], max_tokens=15)
+                        if resp.choices[0].message.content: st.success("تم الاتصال بالخادم المركزي بنجاح!")
+                except Exception as e: 
+                    err_msg = str(e).lower()
+                    if "429" in err_msg or "quota" in err_msg or "rate limit" in err_msg or "insufficient" in err_msg:
+                        st.error("❌ انتهت عدد التوكينز يرجى التجديد")
+                    elif "404" in err_msg or "not found" in err_msg or "connection" in err_msg or "resolve" in err_msg or "model" in err_msg:
+                        st.error("❌ ال url base , model غير صحيحين")
+                    elif "401" in err_msg or "auth" in err_msg or "key" in err_msg:
+                        st.error("❌ مفتاح الربط (API Key) غير صحيح أو منتهي.")
+                    else:
+                        st.error(f"❌ فشل الاتصال بالخادم. تفاصيل الخطأ: {e}")
+    with col_ai2:
+        if st.button("💾 حفظ إعدادات الخادم المركزي فقط", key="save_ai", use_container_width=True, type="primary"):
+            update_system_config({
+                'AI_PROVIDER_URL': ai_url, 'AI_MODEL_NAME': ai_model, 'AI_API_KEY': ai_key
+            })
+            st.success("تم حفظ إعدادات الذكاء الاصطناعي بنجاح!")
+            time.sleep(1)
+            st.rerun()
+
+    st.markdown("<br><hr style='border-color:rgba(255,255,255,0.05)'><br>", unsafe_allow_html=True)
+
+    st.markdown(f"<div class='g-card-title'>{get_icon('fusion', 22)} تكوين قاعدة البيانات (Odoo)</div>", unsafe_allow_html=True)
+    o_url = st.text_input("رابط الخادم (URL)", value=CFG.get('ODOO_URL', ''))
+    o_db = st.text_input("قاعدة البيانات (DB)", value=CFG.get('ODOO_DB', ''))
+    o_usr = st.text_input("المستخدم (User)", value=CFG.get('ODOO_USER', ''))
+    o_pwd = st.text_input("كلمة المرور (Password)", value=CFG.get('ODOO_PASS', ''), type="password")
+    
+    col_od1, col_od2 = st.columns(2)
+    with col_od1:
+        if st.button("فحص اتصال Odoo", key="test_odoo", use_container_width=True):
+            try:
+                with st.spinner("جاري فحص الاتصال..."):
+                    cm = xmlrpc.client.ServerProxy(f'{o_url}/xmlrpc/2/common')
+                    uid = cm.authenticate(o_db, o_usr, o_pwd, {})
+                    if uid: st.success("الاتصال بقاعدة البيانات ناجح وموثق!")
+                    else: st.error("المصادقة مرفوضة. تأكد من البيانات.")
+            except Exception as e: 
+                st.error(f"خطأ في الاتصال: {e}")
+    with col_od2:
+        if st.button("💾 حفظ إعدادات Odoo وإعادة بناء النواة", key="save_odoo", use_container_width=True, type="primary"):
+            try:
+                current_cfg = get_workspace_doc().get().to_dict() or {}
+                if 'ALL_CHATS' in current_cfg: del current_cfg['ALL_CHATS']
+                if 'AUDIT_LOG' in current_cfg: del current_cfg['AUDIT_LOG']
+                current_cfg.update({
+                    'ODOO_URL': o_url, 'ODOO_DB': o_db, 'ODOO_USER': o_usr
+                })
+                
+                if o_pwd and not is_encrypted(o_pwd):
+                    current_cfg['ODOO_PASS'] = encrypt_password(o_pwd) if HAS_CRYPTO else o_pwd
+                elif o_pwd:
+                    current_cfg['ODOO_PASS'] = o_pwd
+                    
+                get_workspace_doc().set(current_cfg, merge=True)
+                st.session_state.app_config = load_config() 
+                fetch_master_data.clear()
+                st.session_state.data_loaded = False
+                st.success("تم الحفظ بنجاح على قاعدة البيانات السحابية! جاري إعادة التشغيل...")
+                time.sleep(1)
+                st.rerun()
+            except Exception as e:
+                st.error(f"حدث خطأ أثناء الحفظ على الخادم السحابي: {e}")
+            
+    st.markdown("<div style='text-align: center; color: var(--c-dim); font-size: 0.9rem; margin-top: 50px; font-weight: bold;'>Powered by محمد الحلواني</div>", unsafe_allow_html=True)
+
 
 # ============================================================
 # [MODULE 8: APP ROUTER] 
