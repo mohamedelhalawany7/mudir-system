@@ -170,6 +170,7 @@ DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري
 3. تابع مهام الموظف الحالي المفتوحة ولا تتركها معلقة.
 4. ممنوع الإيموجي نهائياً.
 5. استخدم internal_thoughts للتحليل قبل الرد — هذا يحميك من التسرع ويجعلك ترى الصورة الكاملة.
+6. هام جداً: عند عرض خطط، خيارات، جداول زمنية، أو توزيع مهام، يجب عليك تنسيقها دائماً في "جداول Markdown" (Markdown Tables) مرتبة ومنظمة (مثال: | الوقت | المهمة | المنفذ |)، مع كتابة نصوص دقيقة ومختصرة بدلاً من القوائم العشوائية.
 
 ردك يجب أن يكون JSON صالح فقط (تجنب الأسطر الجديدة الحقيقية داخل القيم، استخدم \\n للنزول لسطر):
 {
@@ -1213,6 +1214,11 @@ html, body, [class*="css"] {
     line-height: 1.6 !important; 
     list-style-position: outside !important;
 }
+
+.chat-bubble table { width: 100% !important; border-collapse: collapse !important; margin: 15px 0 !important; font-size: 14.2px !important; border-radius: 8px; overflow: hidden; }
+.chat-bubble th, .chat-bubble td { border: 1px solid rgba(0, 242, 255, 0.15) !important; padding: 10px 14px !important; text-align: right !important; }
+.chat-bubble th { background-color: rgba(0, 242, 255, 0.1) !important; color: #00f2ff !important; font-weight: 900 !important; }
+.chat-bubble td { background-color: rgba(0, 0, 0, 0.25) !important; color: #e9edef !important; }
 
 .neon-number {
     color: #00f2ff !important;
