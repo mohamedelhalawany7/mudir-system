@@ -797,11 +797,11 @@ def fetch_master_data(url, db, user, pswd):
                 if 'project' in f_name or 'مشروع' in f_str or 'قسم' in f_str:
                     target_fields.append(f)
 
-        s_raw = models.execute_kw(db, uid, pswd, 'sale.order', 'search_read', [[]], {'fields': target_fields})
-        p_raw = models.execute_kw(db, uid, pswd, 'res.partner', 'search_read', [[]], {'fields': ['name','city','industry_id','total_invoiced','email','phone']})
-        i_raw = models.execute_kw(db, uid, pswd, 'product.product', 'search_read', [[('sale_ok','=',True)]], {'fields': ['name','lst_price','qty_available','default_code']})
-        po_raw = models.execute_kw(db, uid, pswd, 'purchase.order', 'search_read', [[]], {'fields': ['name','partner_id','amount_total','date_order','state']})
-        pol_raw = models.execute_kw(db, uid, pswd, 'purchase.order.line', 'search_read', [[]], {'fields': ['product_id','product_qty','price_subtotal']})
+        s_raw = models.execute_kw(db, uid, pswd, 'sale.order', 'search_read', [[]], {'fields': target_fields, 'limit': 0})
+        p_raw = models.execute_kw(db, uid, pswd, 'res.partner', 'search_read', [[]], {'fields': ['name','city','industry_id','total_invoiced','email','phone'], 'limit': 0})
+        i_raw = models.execute_kw(db, uid, pswd, 'product.product', 'search_read', [[('sale_ok','=',True)]], {'fields': ['name','lst_price','qty_available','default_code'], 'limit': 0})
+        po_raw = models.execute_kw(db, uid, pswd, 'purchase.order', 'search_read', [[]], {'fields': ['name','partner_id','amount_total','date_order','state'], 'limit': 0})
+        pol_raw = models.execute_kw(db, uid, pswd, 'purchase.order.line', 'search_read', [[]], {'fields': ['product_id','product_qty','price_subtotal'], 'limit': 0})
         
         df_s, df_p, df_i = pd.DataFrame(s_raw), pd.DataFrame(p_raw), pd.DataFrame(i_raw)
         df_po, df_pol = pd.DataFrame(po_raw), pd.DataFrame(pol_raw)
@@ -884,16 +884,18 @@ def get_smart_filter_dates(prefix):
         
     return start_dt, end_dt, prev_start_dt, prev_end_dt
 
-def render_live_ticker(df_s, df_p):
+def render_live_ticker(df_s, df_p, df_po):
     if df_s is None or df_s.empty: return
     
     appr = df_s[df_s['state'].isin(['sale','done'])]['amount_total'].sum() if 'state' in df_s.columns else 0
     draft = df_s[df_s['state'].isin(['draft','sent'])]['amount_total'].sum() if 'state' in df_s.columns else 0
     canc = df_s[df_s['state'] == 'cancel']['amount_total'].sum() if 'state' in df_s.columns else 0
     clients = len(df_p) if df_p is not None else 0
+    po_appr = df_po[df_po['state'].isin(['purchase', 'done'])]['amount_total'].sum() if df_po is not None and not df_po.empty and 'state' in df_po.columns else 0
     
     ticker_text = "".join([
         f'<div class="ticker-item"><span class="ticker-icon">{get_icon("rocket", 20, "#00ff82")}</span> إجمالي المبيعات المعتمدة: <span>{appr:,.0f} ج.م</span></div>',
+        f'<div class="ticker-item"><span class="ticker-icon">{get_icon("truck", 20, "#00f2ff")}</span> إجمالي المشتريات المعتمدة: <span>{po_appr:,.0f} ج.م</span></div>',
         f'<div class="ticker-item"><span class="ticker-icon">{get_icon("orders", 20, "#ffd700")}</span> عروض قيد الانتظار: <span>{draft:,.0f} ج.م</span></div>',
         f'<div class="ticker-item"><span class="ticker-icon">{get_icon("bell", 20, "#ff2d78")}</span> نزيف مالي (ملغي): <span>{canc:,.0f} ج.م</span></div>',
         f'<div class="ticker-item"><span class="ticker-icon">{get_icon("users", 20, "#00f2ff")}</span> إجمالي العملاء: <span>{clients} عميل</span></div>',
@@ -1715,7 +1717,7 @@ def render_dashboard():
     else:
         split_stock = {"الكل": style_dataframe(clean_i)}
 
-    render_live_ticker(st.session_state.df_s, st.session_state.df_p)
+    render_live_ticker(filtered_s, df_p, df_po)
 
     metrics = [
         ("الإيرادات (المعتمدة)", f"{t_sales_appr:,.0f}", "ج.م", "money", get_delta_html(t_sales_appr, t_sales_appr_prev), {
