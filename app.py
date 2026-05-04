@@ -3187,4 +3187,66 @@ def render_super_admin():
             with st.container():
                 rc1, rc2, rc3, rc4, rc5, rc6 = st.columns([1.5, 1.5, 1.2, 1.5, 1.5, 2.5])
                 rc1.markdown(f"**الشركة:** `{ws_id}`")
-                rc2.markdown(f"**الحالة:** {status_html}", unsafe_allow
+                rc2.markdown(f"**الحالة:** {status_html}", unsafe_allow_html=True)
+                rc3.markdown(f"**مستخدمين:** {max_d}")
+                rc4.markdown(f"**الانتهاء:** {ws_info['expiry_date']}")
+                
+                with rc5:
+                    if st.button("تغيير PIN", key=f"btn_pin_{ws_id}", use_container_width=True):
+                        change_workspace_pin_dialog(ws_id)
+                        
+                with rc6:
+                    c_act1, c_act2 = st.columns([2, 1])
+                    with c_act1:
+                        action_opts = ["اختر إجراء...", "تجديد +شهر", "تجديد +سنة", "تعديل المستخدمين", "إيقاف (تعليق)", "تفعيل", "حذف المساحة"]
+                        action = st.selectbox("الإجراء", action_opts, key=f"act_{ws_id}", label_visibility="collapsed")
+                    with c_act2:
+                        if st.button("تنفيذ", key=f"exec_{ws_id}", use_container_width=True):
+                            if action == "تجديد +شهر":
+                                new_exp = (exp_date + timedelta(days=30)).strftime("%Y-%m-%d")
+                                licenses['workspaces'][ws_id]['expiry_date'] = new_exp
+                                licenses['workspaces'][ws_id]['status'] = 'active'
+                                save_licenses(licenses)
+                                st.rerun()
+                            elif action == "تجديد +سنة":
+                                new_exp = (exp_date + timedelta(days=365)).strftime("%Y-%m-%d")
+                                licenses['workspaces'][ws_id]['expiry_date'] = new_exp
+                                licenses['workspaces'][ws_id]['status'] = 'active'
+                                save_licenses(licenses)
+                                st.rerun()
+                            elif action == "تعديل المستخدمين":
+                                edit_workspace_devices_dialog(ws_id, licenses)
+                            elif action == "إيقاف (تعليق)":
+                                licenses['workspaces'][ws_id]['status'] = 'suspended'
+                                save_licenses(licenses)
+                                st.rerun()
+                            elif action == "تفعيل":
+                                licenses['workspaces'][ws_id]['status'] = 'active'
+                                save_licenses(licenses)
+                                st.rerun()
+                            elif action == "حذف المساحة":
+                                delete_workspace_dialog(ws_id, licenses)
+                st.markdown("<hr style='border-color:rgba(255,255,255,0.05); margin:10px 0;'>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# ============================================================
+# [MODULE 8: APP ROUTER] 
+# ============================================================
+view = st.session_state.get('view', 'login')
+curr_user = st.session_state.get('current_user')
+
+if view == "workspace_login": 
+    render_workspace_login()
+elif view == "super_admin": 
+    render_super_admin()
+elif not curr_user or view == "login": 
+    render_login()
+else:
+    if view == "dashboard": render_dashboard()
+    elif view == "departments": render_departments()
+    elif view == "forecast": render_forecast()
+    elif view == "ai": render_ai()
+    elif view == "fusion": render_fusion()
+    elif view == "territories": render_territories()
+    elif view == "settings": render_settings()
+    else: render_dashboard()
