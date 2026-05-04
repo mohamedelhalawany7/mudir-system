@@ -171,7 +171,7 @@ DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري
 5. إذا سألك الموظف عن خطط أو توقعات مستقبلية، أجب بتفصيل واشرح رؤيتك الاستراتيجية بوضوح.
 
 هام جداً: يجب أن يكون ردك دائماً كائن JSON صالح (Valid JSON) فقط.
-(تحذير: لا تستخدم أسطر جديدة حقيقية Line Breaks داخل النصوص، استخدم الرمز \\n للنزول لسطر جديد. وتجنب استخدام علامات التنصيص المزدوجة " داخل القيم).
+(تحذير: لا تستخدم أسطر جديدة حقيقية Line Breaks داخل النصوص، استخدم الرمز \\n للنزول لسطر جديد. وتجنب استخدام علامات التنصيص المزدوجة " داخل القيم واستخدم العلامة الفردية ' بدلاً منها).
 {
   "response": "نص الرد الذي ستقوله للموظف بلهجتك المصرية كمدير.",
   "eval": "التقييم من 10 مع تعليق سري. اتركه فارغاً إذا لم تقيم.",
@@ -399,9 +399,10 @@ def call_universal_ai(messages, json_mode=False):
     if not base_url: base_url = None
     model_name = st.session_state.app_config.get('AI_MODEL_NAME', 'gpt-4o')
 
-    # رفع مهلة الانتظار لـ 60 ثانية للأسئلة الاستراتيجية المعقدة
-    client = OpenAI(api_key=api_key, base_url=base_url, timeout=60.0)
-    kwargs = {"model": model_name, "messages": messages, "temperature": 0.7}
+    # إعطاء مساحة أكبر للتفكير (120 ثانية)
+    client = OpenAI(api_key=api_key, base_url=base_url, timeout=120.0)
+    # تحديد max_tokens برقم كبير جداً لضمان عدم قطع الإجابات الطويلة
+    kwargs = {"model": model_name, "messages": messages, "temperature": 0.7, "max_tokens": 4000}
     
     if json_mode:
         if "openrouter" not in str(base_url).lower() and "claude" not in model_name.lower():
@@ -411,11 +412,14 @@ def call_universal_ai(messages, json_mode=False):
     raw_text = response.choices[0].message.content
     
     if json_mode:
-        match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+        # التنظيف الذكي للنص
+        clean_text = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL).strip()
+        clean_text = clean_text.replace('```json', '').replace('```', '').strip()
+        match = re.search(r'\{.*\}', clean_text, re.DOTALL)
         if match:
             return match.group(0)
         else:
-            return raw_text
+            return clean_text
     return raw_text
 
 def get_icon(name: str, size: int = 24, color: str = "currentColor", class_name: str = "") -> str:
