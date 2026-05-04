@@ -2966,8 +2966,8 @@ def render_settings():
                             st.success("تم التحقق من الاتصال واستخراج الـ JSON بنجاح وتم حفظ الإعدادات!")
                         else:
                             st.warning("تم الاتصال لكن الموديل لم يرجع JSON صالح. تأكد من أن النموذج يدعم JSON أو راجع الرابط.")
-                except Exception:
-                    st.error("❌ فشل الاتصال بالخادم. تأكد من صحة الرابط (Base URL) ومفتاح الربط (API Key) وأن الرصيد كافٍ.")
+                except Exception as e:
+                    st.error(f"❌ فشل الاتصال بالخادم. (تفاصيل الخطأ التقني: {e})")
             else:
                 st.warning("يرجى إدخال مفتاح الربط API Key أولاً.")
 
