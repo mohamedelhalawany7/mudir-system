@@ -619,7 +619,7 @@ def build_compressed_context(curr_user: str, cfg: dict, df_s, df_p, work_start: 
     return context
 
 def call_universal_ai_optimized(messages, json_mode=False):
-    """نسخة محسنة بـ max_tokens 2500 لزيادة المساحة العقلية للمدير"""
+    """نسخة محسنة لزيادة المساحة العقلية للمدير بدون قيود"""
     api_key = st.session_state.app_config.get('AI_API_KEY', '').strip()
     if not api_key:
         raise Exception("مفتاح API غير متوفر.")
@@ -631,8 +631,8 @@ def call_universal_ai_optimized(messages, json_mode=False):
     kwargs = {
         "model": model_name,
         "messages": messages,
-        "temperature": 0.7,
-        "max_tokens": 2500 # تم رفعها لـ 2500 حسب طلبك لزيادة حرية التفكير
+        "temperature": 0.7
+        # تم إزالة قيد max_tokens بالكامل ليتمكن المدير من كتابة رده بأي طول يريده
     }
         
     if json_mode:
@@ -2285,6 +2285,21 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 st.markdown(f"<span class='msg-user' style='display:none;'></span>", unsafe_allow_html=True)
                 st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(user_input)}</div>", unsafe_allow_html=True)
             
+            now = get_local_now()
+            try:
+                work_start = int(CFG.get('WORK_START', 8))
+                work_end = int(CFG.get('WORK_END', 17))
+            except:
+                work_start, work_end = 8, 17
+                
+            if not (work_start <= now.hour < work_end) and "المدير العام" not in curr_user:
+                out_msg = "عذرا انا الان خارج الشركة لانهاء ميعاد العمل , اراك غدا ان شاء الله"
+                ai_msg = {"role": "assistant", "content": out_msg}
+                st.session_state.all_chats[curr_user].append(ai_msg)
+                log_message(curr_user, ai_msg)
+                save_chat_for_user_safe(curr_user)
+                st.rerun(scope="fragment")
+            
             with st.spinner("يكتب الأن..."):
                 compressed_ctx = build_compressed_context(
                     curr_user, CFG, df_s_master, df_p_master,
@@ -2337,7 +2352,8 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                         if not ai_data and len(raw_val) > 15:
                             clean_fallback = re.sub(r'["{}\\]', '', raw_val)
                             clean_fallback = re.sub(r'(internal_thoughts|response|eval|task_key|task_label|action)\s*:', '', clean_fallback, flags=re.IGNORECASE)
-                            ai_data = {"response": clean_fallback.strip()[:800], "eval": "", "task": "", "action": ""}
+                            # تم إزالة قيد القص [:800] لتصل الرسالة الطويلة كاملة حتى لو أخطأ الموديل في صياغة JSON
+                            ai_data = {"response": clean_fallback.strip(), "eval": "", "task": "", "action": ""}
                             
                         if not ai_data:
                             ai_data = {"response": "أواجه ضغطاً في العمل وأحتاج دقيقة لترتيب أفكاري، جرب تراسلني مرة أخرى.", "eval": "", "task": "", "action": ""}
