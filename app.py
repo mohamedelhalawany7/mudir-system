@@ -2307,7 +2307,7 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                     elif "404" in err_str or "not found" in err_str or "connection" in err_str or "resolve" in err_str or "model" in err_str:
                         ai_data = {"response": "عذراً، الرابط (URL) أو الموديل (Model) غير صحيح. برجاء مراجعة إعدادات النظام.", "eval": "", "task": "", "action": ""}
                     elif "401" in err_str or "auth" in err_str or "key" in err_str:
-                        ai_data = {"response": "عذراً، مفتاح الربط (API Key) منتهي أو غير صحيح. برجاء مراجعة الإعدادات.", "eval": "", "task": "", "action": ""}
+                        ai_data = {"response": "انا فى استراحة ارجوك بلغ الادارة ضروري", "eval": "", "task": "", "action": ""}
                     else:
                         ai_data = {"response": f"عذراً، حدث خطأ مؤقت. حاول تاني.\n\n(السبب التقني: {str(e)})", "eval": "", "task": "", "action": ""}
 
