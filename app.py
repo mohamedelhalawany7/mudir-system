@@ -2898,14 +2898,21 @@ def render_settings():
                     with st.spinner("جاري اختبار الاتصال واستخراج JSON..."):
                         test_client = OpenAI(api_key=ai_key.strip(), base_url=ai_url.strip() if ai_url.strip() else None)
                         
-                        kwargs = {"model": ai_model, "messages": [{"role": "user", "content": "Respond with a valid JSON containing key 'status' and value 'OK'."}], "max_tokens": 50}
+                        # إعطاء أمر صارم جداً للنموذج مع رفع التوكنز إلى 150 لتجنب قطع الرد
+                        strict_prompt = "You are a bot. Respond ONLY with a valid JSON object containing exactly one key 'status' with the value 'OK'. Do NOT add any extra text, markdown formatting, or <think> tags."
+                        kwargs = {"model": ai_model, "messages": [{"role": "user", "content": strict_prompt}], "max_tokens": 150}
+                        
                         if "openrouter" not in str(ai_url).lower() and "claude" not in ai_model.lower():
                             kwargs["response_format"] = {"type": "json_object"}
                             
                         resp = test_client.chat.completions.create(**kwargs)
                         raw_text = resp.choices[0].message.content
                         
-                        match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+                        # تنظيف النص المستلم في فحص الإعدادات كما نفعل في الشات الأساسي
+                        clean_text = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL).strip()
+                        clean_text = clean_text.replace('```json', '').replace('```', '').strip()
+                        
+                        match = re.search(r'\{.*\}', clean_text, re.DOTALL)
                         if match:
                             update_system_config({
                                 'AI_PROVIDER_URL': ai_url, 'AI_MODEL_NAME': ai_model, 
