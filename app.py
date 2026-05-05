@@ -767,7 +767,7 @@ def render_login():
                 st.session_state.all_chats = load_user_chats(selected_user)
                 if selected_user not in st.session_state.all_chats or not st.session_state.all_chats[selected_user]:
                     emp_name_only = selected_user.split(" - ")[0]
-                    initial_msg = {"role": "assistant", "content": f"أهلاً بيك يا {emp_name_only}. أنا مديرك. مفيش وقت نضيعه، وريني إيه اللي وراك النهاردة."}
+                    initial_msg = {"role": "assistant", "content": f"أهلاً {emp_name_only}، جاهز نبدأ؟"}
                     st.session_state.all_chats[selected_user] = [initial_msg]
                     log_message(selected_user, initial_msg)
                     overwrite_chat_for_user(selected_user, st.session_state.all_chats[selected_user])
@@ -2251,11 +2251,12 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 st.markdown(f"<div class='chat-bubble' dir='rtl'>{neonize_numbers(msg['content'])}</div>", unsafe_allow_html=True)
                 
                 st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
-                if st.button("🗑️", key=f"dl_{curr_user}_{idx}", help="حذف الرسالة"):
-                    st.session_state.all_chats[curr_user].pop(idx)
-                    st.session_state.all_chats = st.session_state.all_chats # تحديث إجباري للحالة
-                    overwrite_chat_for_user(curr_user, st.session_state.all_chats[curr_user])
-                    st.rerun(scope="fragment")
+                if st.session_state.get('current_user') == "المدير العام":
+                    if st.button("🗑️", key=f"dl_{curr_user}_{idx}", help="حذف الرسالة"):
+                        st.session_state.all_chats[curr_user].pop(idx)
+                        st.session_state.all_chats = st.session_state.all_chats # تحديث إجباري للحالة
+                        overwrite_chat_for_user(curr_user, st.session_state.all_chats[curr_user])
+                        st.rerun(scope="fragment")
                 st.markdown('</div>', unsafe_allow_html=True)
                 
     user_input = st.chat_input("اكتب رسالة للمدير...")
@@ -2298,7 +2299,7 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 append_chat_message(curr_user, ai_final_msg)
                 st.rerun(scope="fragment")
 
-            with st.spinner("المدير يفكر بحزم..."):
+            with st.spinner("يكتب الآن..."):
                 recent_history = st.session_state.all_chats[curr_user][-6:]
                 api_messages = [{"role": "system", "content": sys_prompt_context}]
                 
@@ -3132,35 +3133,32 @@ def render_settings():
 
     ai_key = st.text_input("مفتاح الربط (API Key)", value=CFG.get('AI_API_KEY', ''), type="password", help="انسخ المفتاح وتأكد من عدم وجود مسافات فارغة قبله أو بعده")
 
-    col_ai1, col_ai2 = st.columns(2)
-    with col_ai1:
-        if st.button("فحص اتصال الخادم المركزي", key="test_ai", use_container_width=True):
-            if not ai_key.strip():
-                st.warning("الرجاء إدخال مفتاح الربط في الحقل أعلاه قبل إجراء الفحص.")
-            else:
-                try:
-                    with st.spinner("جاري فحص الاتصال بالخادم..."):
-                        test_client = OpenAI(api_key=ai_key.strip(), base_url=ai_url.strip() if ai_url.strip() else None)
-                        resp = test_client.chat.completions.create(model=ai_model, messages=[{"role": "user", "content": "Hello"}], max_tokens=15)
-                        if resp.choices[0].message.content: st.success("تم الاتصال بالخادم المركزي بنجاح!")
-                except Exception as e: 
-                    err_msg = str(e).lower()
-                    if "429" in err_msg or "quota" in err_msg or "rate limit" in err_msg or "insufficient" in err_msg:
-                        st.error("❌ انتهت عدد التوكينز يرجى التجديد")
-                    elif "404" in err_msg or "not found" in err_msg or "connection" in err_msg or "resolve" in err_msg or "model" in err_msg:
-                        st.error("❌ ال url base , model غير صحيحين")
-                    elif "401" in err_msg or "auth" in err_msg or "key" in err_msg:
-                        st.error("❌ مفتاح الربط (API Key) غير صحيح أو منتهي.")
-                    else:
-                        st.error(f"❌ فشل الاتصال بالخادم. تفاصيل الخطأ: {e}")
-    with col_ai2:
-        if st.button("💾 حفظ إعدادات الخادم المركزي فقط", key="save_ai", use_container_width=True, type="primary"):
-            update_system_config({
-                'AI_PROVIDER_URL': ai_url, 'AI_MODEL_NAME': ai_model, 'AI_API_KEY': ai_key
-            })
-            st.success("تم حفظ إعدادات الذكاء الاصطناعي بنجاح!")
-            time.sleep(1)
-            st.rerun()
+    if st.button("💾 حفظ وفحص إعدادات الخادم المركزي", key="save_and_test_ai", use_container_width=True, type="primary"):
+        update_system_config({
+            'AI_PROVIDER_URL': ai_url, 'AI_MODEL_NAME': ai_model, 'AI_API_KEY': ai_key
+        })
+        st.success("تم حفظ إعدادات الذكاء الاصطناعي بنجاح!")
+        
+        if not ai_key.strip():
+            st.warning("الرجاء إدخال مفتاح الربط في الحقل أعلاه قبل إجراء الفحص.")
+        else:
+            try:
+                with st.spinner("جاري فحص الاتصال بالخادم..."):
+                    test_client = OpenAI(api_key=ai_key.strip(), base_url=ai_url.strip() if ai_url.strip() else None)
+                    resp = test_client.chat.completions.create(model=ai_model, messages=[{"role": "user", "content": "Hello"}], max_tokens=15)
+                    if resp.choices[0].message.content: st.success("تم الاتصال بالخادم المركزي بنجاح!")
+            except Exception as e: 
+                err_msg = str(e).lower()
+                if "429" in err_msg or "quota" in err_msg or "rate limit" in err_msg or "insufficient" in err_msg:
+                    st.error("❌ انتهت عدد التوكينز يرجى التجديد")
+                elif "404" in err_msg or "not found" in err_msg or "connection" in err_msg or "resolve" in err_msg or "model" in err_msg:
+                    st.error("❌ ال url base , model غير صحيحين")
+                elif "401" in err_msg or "auth" in err_msg or "key" in err_msg:
+                    st.error("❌ مفتاح الربط (API Key) غير صحيح أو منتهي.")
+                else:
+                    st.error(f"❌ فشل الاتصال بالخادم. تفاصيل الخطأ: {e}")
+        time.sleep(1.5)
+        st.rerun()
 
     st.markdown("<br><hr style='border-color:rgba(255,255,255,0.05)'><br>", unsafe_allow_html=True)
 
@@ -3170,41 +3168,39 @@ def render_settings():
     o_usr = st.text_input("المستخدم (User)", value=CFG.get('ODOO_USER', ''))
     o_pwd = st.text_input("كلمة المرور (Password)", value=CFG.get('ODOO_PASS', ''), type="password")
     
-    col_od1, col_od2 = st.columns(2)
-    with col_od1:
-        if st.button("فحص اتصال Odoo", key="test_odoo", use_container_width=True):
+    if st.button("💾 حفظ وفحص إعدادات Odoo وإعادة بناء النواة", key="save_and_test_odoo", use_container_width=True, type="primary"):
+        try:
+            current_cfg = get_workspace_doc().get().to_dict() or {}
+            if 'ALL_CHATS' in current_cfg: del current_cfg['ALL_CHATS']
+            if 'AUDIT_LOG' in current_cfg: del current_cfg['AUDIT_LOG']
+            current_cfg.update({
+                'ODOO_URL': o_url, 'ODOO_DB': o_db, 'ODOO_USER': o_usr
+            })
+            
+            if o_pwd and not is_encrypted(o_pwd):
+                current_cfg['ODOO_PASS'] = encrypt_password(o_pwd) if HAS_CRYPTO else o_pwd
+            elif o_pwd:
+                current_cfg['ODOO_PASS'] = o_pwd
+                
+            get_workspace_doc().set(current_cfg, merge=True)
+            st.session_state.app_config = load_config() 
+            fetch_master_data.clear()
+            st.session_state.data_loaded = False
+            st.success("تم الحفظ بنجاح على قاعدة البيانات السحابية!")
+            
             try:
-                with st.spinner("جاري فحص الاتصال..."):
+                with st.spinner("جاري فحص الاتصال بـ Odoo..."):
                     cm = xmlrpc.client.ServerProxy(f'{o_url}/xmlrpc/2/common')
                     uid = cm.authenticate(o_db, o_usr, o_pwd, {})
                     if uid: st.success("الاتصال بقاعدة البيانات ناجح وموثق!")
                     else: st.error("المصادقة مرفوضة. تأكد من البيانات.")
-            except Exception as e: 
-                st.error(f"خطأ في الاتصال: {e}")
-    with col_od2:
-        if st.button("💾 حفظ إعدادات Odoo وإعادة بناء النواة", key="save_odoo", use_container_width=True, type="primary"):
-            try:
-                current_cfg = get_workspace_doc().get().to_dict() or {}
-                if 'ALL_CHATS' in current_cfg: del current_cfg['ALL_CHATS']
-                if 'AUDIT_LOG' in current_cfg: del current_cfg['AUDIT_LOG']
-                current_cfg.update({
-                    'ODOO_URL': o_url, 'ODOO_DB': o_db, 'ODOO_USER': o_usr
-                })
-                
-                if o_pwd and not is_encrypted(o_pwd):
-                    current_cfg['ODOO_PASS'] = encrypt_password(o_pwd) if HAS_CRYPTO else o_pwd
-                elif o_pwd:
-                    current_cfg['ODOO_PASS'] = o_pwd
-                    
-                get_workspace_doc().set(current_cfg, merge=True)
-                st.session_state.app_config = load_config() 
-                fetch_master_data.clear()
-                st.session_state.data_loaded = False
-                st.success("تم الحفظ بنجاح على قاعدة البيانات السحابية! جاري إعادة التشغيل...")
-                time.sleep(1)
-                st.rerun()
-            except Exception as e:
-                st.error(f"حدث خطأ أثناء الحفظ على الخادم السحابي: {e}")
+            except Exception as test_e: 
+                st.error(f"خطأ في الاتصال بـ Odoo: {test_e}")
+
+            time.sleep(1.5)
+            st.rerun()
+        except Exception as e:
+            st.error(f"حدث خطأ أثناء الحفظ على الخادم السحابي: {e}")
             
     st.markdown("<div style='text-align: center; color: var(--c-dim); font-size: 0.9rem; margin-top: 50px; font-weight: bold;'>Powered by محمد الحلواني</div>", unsafe_allow_html=True)
 
