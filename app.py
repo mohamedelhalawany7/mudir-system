@@ -348,8 +348,6 @@ ALL_NAV_ITEMS = [
 def init_state():
     url_ws = st.query_params.get("workspace")
     url_view = st.query_params.get("view")
-    url_user = st.query_params.get("user")
-    url_token = st.query_params.get("auth_token")
 
     if 'view' not in st.session_state: st.session_state.view = 'workspace_login'
     if 'current_user' not in st.session_state: st.session_state.current_user = None
@@ -372,26 +370,6 @@ def init_state():
                         st.session_state.app_config = load_config()
                         st.session_state.view = url_view if url_view else 'login'
 
-    # نظام تسجيل الدخول التلقائي (Auto-Login) من أيقونة الهاتف
-    if url_user and url_token and not st.session_state.current_user and 'workspace_key' in st.session_state:
-        if 'app_config' not in st.session_state:
-            st.session_state.app_config = load_config()
-            
-        cfg = st.session_state.app_config
-        dec_token = decrypt_password(url_token)
-        
-        if url_user == "المدير العام":
-            m_pin_dec = decrypt_password(cfg.get('MANAGER_PIN', '0000'))
-            if dec_token == m_pin_dec or dec_token == cfg.get('MANAGER_PIN', '0000'):
-                st.session_state.current_user = "المدير العام"
-                st.session_state.view = url_view if url_view else 'dashboard'
-        else:
-            emp_data = next((e for e in cfg.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == url_user), None)
-            expected_pin = emp_data.get('pin', '0000') if emp_data else '0000'
-            if emp_data and dec_token == expected_pin:
-                st.session_state.current_user = url_user
-                st.session_state.view = url_view if url_view else (emp_data.get('views', ['ai'])[0] if emp_data.get('views') else 'ai')
-
     if 'workspace_key' not in st.session_state:
         if st.session_state.get('view') != 'super_admin':
             st.session_state.view = 'workspace_login'
@@ -401,9 +379,9 @@ def init_state():
         st.session_state.app_config = load_config()
         
     defaults = {
-        'view': st.session_state.get('view', 'login'), 
+        'view': url_view if url_view else 'login', 
         'modal_open': False, 'modal_title': '', 'modal_data': {},
-        'current_user': st.session_state.get('current_user', None), 
+        'current_user': None, 
         'growth_stream': None, 'last_radar_report': None, 'data_loaded': False,
         'df_s': pd.DataFrame(), 'df_p': pd.DataFrame(), 'df_i': pd.DataFrame(),
         'df_po': pd.DataFrame(), 'df_pol': pd.DataFrame(), 'is_real_data': False,
@@ -702,7 +680,6 @@ def render_workspace_login():
     st.markdown("<p style='color:var(--c-dim); margin-bottom: 30px;'>أدخل كود الشركة المرخص لفتح مساحة العمل الخاصة بك</p>", unsafe_allow_html=True)
     
     ws_key = st.text_input("كود الشركة (License Key):", type="password", placeholder="أدخل الكود هنا...")
-    remember_ws = st.checkbox("تذكر مساحة العمل على هذا الجهاز", value=True)
     
     if st.button("تأكيد ودخول", type="primary", use_container_width=True):
         if ws_key.strip():
@@ -731,7 +708,7 @@ def render_workspace_login():
                         st.session_state.workspace_id = ws_key.strip()
                         st.session_state.app_config = load_config()
                         st.session_state.view = 'login'
-                        if remember_ws: st.query_params["workspace"] = ws_key.strip()
+                        st.query_params["workspace"] = ws_key.strip()
                         st.query_params["view"] = "login"
                         st.rerun()
                     else:
@@ -753,19 +730,17 @@ def render_login():
     selected_user = st.selectbox("من أنت؟", user_options, label_visibility="collapsed")
     
     pin = st.text_input("رمز الدخول السري (PIN)", type="password", placeholder="أدخل الرقم السري الخاص بك")
-    remember_me = st.checkbox("تذكرني وثبّت التطبيق على هذا الجهاز", value=True, help="سيقوم النظام بحفظ بياناتك، وعند إضافة الرابط كأيقونة على هاتفك سيدخل تلقائياً.")
         
     if st.button("دخول للنظام", type="primary", use_container_width=True):
-        auth_success = False
-        target_view = 'dashboard'
-        
         if "المدير العام" in selected_user:
             m_pin_dec = decrypt_password(st.session_state.app_config.get('MANAGER_PIN', '0000'))
             if pin == m_pin_dec or pin == st.session_state.app_config.get('MANAGER_PIN', '0000'):
                 st.session_state.current_user = "المدير العام"
                 st.session_state.view = 'dashboard'
-                target_view = 'dashboard'
-                auth_success = True
+                st.query_params["workspace"] = st.session_state.workspace_key
+                st.query_params["user"] = selected_user
+                st.query_params["token"] = pin
+                st.session_state.login_success_data = {'ws': st.session_state.workspace_key, 'user': selected_user, 'token': pin}
                 
                 st.session_state.all_chats = load_user_chats(selected_user)
                 if selected_user not in st.session_state.all_chats or not st.session_state.all_chats[selected_user]:
@@ -773,6 +748,7 @@ def render_login():
                     st.session_state.all_chats[selected_user] = [initial_msg]
                     log_message(selected_user, initial_msg)
                     overwrite_chat_for_user(selected_user, st.session_state.all_chats[selected_user])
+                st.rerun()
             else:
                 st.error("عذراً، رمز الدخول غير صحيح!")
         else:
@@ -781,9 +757,17 @@ def render_login():
             
             if pin == expected_pin:
                 st.session_state.current_user = selected_user
-                target_view = emp_data.get('views', ['ai'])[0] if emp_data and emp_data.get('views') else 'ai'
-                st.session_state.view = target_view
-                auth_success = True
+                if emp_data and emp_data.get('views'):
+                    st.session_state.view = emp_data['views'][0]
+                    st.query_params["view"] = emp_data['views'][0]
+                else:
+                    st.session_state.view = 'ai' 
+                    st.query_params["view"] = "ai"
+                
+                st.query_params["workspace"] = st.session_state.workspace_key
+                st.query_params["user"] = selected_user
+                st.query_params["token"] = pin
+                st.session_state.login_success_data = {'ws': st.session_state.workspace_key, 'user': selected_user, 'token': pin}
                     
                 st.session_state.all_chats = load_user_chats(selected_user)
                 if selected_user not in st.session_state.all_chats or not st.session_state.all_chats[selected_user]:
@@ -792,16 +776,9 @@ def render_login():
                     st.session_state.all_chats[selected_user] = [initial_msg]
                     log_message(selected_user, initial_msg)
                     overwrite_chat_for_user(selected_user, st.session_state.all_chats[selected_user])
+                st.rerun()
             else:
                 st.error("عذراً، رمز الدخول السري الخاص بك غير صحيح!")
-                
-        if auth_success:
-            if remember_me:
-                st.query_params["workspace"] = st.session_state.get('workspace_key', '')
-                st.query_params["user"] = selected_user
-                st.query_params["auth_token"] = encrypt_password(pin) if HAS_CRYPTO else pin
-            st.query_params["view"] = target_view
-            st.rerun()
             
     if st.button("تغيير مساحة العمل", use_container_width=True):
         del st.session_state['workspace_key']
@@ -3253,11 +3230,12 @@ def render_settings():
 def inject_pwa_manifest():
     pwa_html = """
     <script>
+        // 1. تثبيت التطبيق (PWA)
         if (!document.querySelector('link[rel="manifest"]')) {
             const manifest = {
                 "name": "Mudir OS",
                 "short_name": "Mudir",
-                "start_url": window.location.href,
+                "start_url": window.location.pathname,
                 "display": "standalone",
                 "background_color": "#04040a",
                 "theme_color": "#00f2ff",
@@ -3270,6 +3248,19 @@ def inject_pwa_manifest():
             link.rel = 'manifest';
             link.href = URL.createObjectURL(blob);
             document.head.appendChild(link);
+        }
+
+        // 2. نظام التذكر الصلب (LocalStorage Auto-Login)
+        const currentSearch = window.location.search;
+        if (currentSearch.includes('logout=true')) {
+            localStorage.removeItem('mudir_auth_url'); // مسح الذاكرة عند الخروج
+        } else if (currentSearch.includes('workspace=')) {
+            localStorage.setItem('mudir_auth_url', currentSearch); // تحديث وحفظ الرابط السري
+        } else if (currentSearch === '' || currentSearch === '?') {
+            const savedAuth = localStorage.getItem('mudir_auth_url');
+            if (savedAuth) {
+                window.location.replace(window.location.pathname + savedAuth); // الدخول التلقائي
+            }
         }
     </script>
     """
