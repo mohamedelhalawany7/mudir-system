@@ -255,7 +255,7 @@ def append_employee_memory(curr_user, new_memo):
 
 def save_chat_for_user(user_key):
     if 'workspace_id' in st.session_state:
-        chats = st.session_state.all_chats.get(user_key, [])[-20:]
+        chats = st.session_state.all_chats.get(user_key, [])[-30:] # السماح بتخزين عدد أكبر ليتسع لآلية التلخيص
         try:
             if FIREBASE_CONNECTED and db:
                 get_workspace_doc().collection('Chats').document(user_key).set({'messages': chats}, merge=True)
@@ -2284,13 +2284,13 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
             
         user_msg = {"role": "user", "content": user_input}
         st.session_state.all_chats[curr_user].append(user_msg)
-        st.session_state.all_chats[curr_user] = st.session_state.all_chats[curr_user][-20:] # تطبيق الحد الأقصى 20 رسالة
+        # تم إلغاء القطع العشوائي وسيتم تطبيق التلخيص الذكي
         st.session_state.all_chats = st.session_state.all_chats # تحديث إجباري للحالة
         
         user_msg_log = user_msg.copy()
         user_msg_log['user'] = curr_user
         log_message(curr_user, user_msg_log)
-        overwrite_chat_for_user(curr_user, st.session_state.all_chats[curr_user]) # حفظ 20 رسالة فقط فوقياً
+        overwrite_chat_for_user(curr_user, st.session_state.all_chats[curr_user]) # حفظ فوقي
         
         with chat_area:
             with st.chat_message("user"):
@@ -2301,13 +2301,28 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 auto_reply = "عذراً نحن خارج أوقات العمل، أراك غداً"
                 ai_final_msg = {"role": "assistant", "content": auto_reply}
                 st.session_state.all_chats[curr_user].append(ai_final_msg)
-                st.session_state.all_chats[curr_user] = st.session_state.all_chats[curr_user][-20:]
+                # تم إلغاء القطع الصارم هنا أيضاً
                 st.session_state.all_chats = st.session_state.all_chats # تحديث إجباري للحالة
                 log_message(curr_user, ai_final_msg)
                 overwrite_chat_for_user(curr_user, st.session_state.all_chats[curr_user])
                 st.rerun(scope="fragment")
 
             with st.spinner("يكتب الآن..."):
+                # --- نظام التلخيص الذكي التراكمي للرسائل القديمة ---
+                if len(st.session_state.all_chats[curr_user]) > 25:
+                    try:
+                        old_msgs = st.session_state.all_chats[curr_user][:10]
+                        recent_msgs = st.session_state.all_chats[curr_user][10:]
+                        chat_text = "\n".join([f"{'الموظف' if m['role']=='user' else 'المدير'}: {m['content']}" for m in old_msgs])
+                        sum_prompt = f"قم بتلخيص المحادثات القديمة التالية في نقاط رئيسية قصيرة ومكثفة لتبقى كمرجع سياقي في الذاكرة:\n{chat_text}"
+                        summary_res = call_universal_ai([{"role": "user", "content": sum_prompt}], json_mode=False)
+                        summary_msg = {"role": "assistant", "content": f"📌 **[ملخص تراكمي للرسائل السابقة]:**\n{summary_res}"}
+                        st.session_state.all_chats[curr_user] = [summary_msg] + recent_msgs
+                        overwrite_chat_for_user(curr_user, st.session_state.all_chats[curr_user])
+                    except Exception:
+                        st.session_state.all_chats[curr_user] = st.session_state.all_chats[curr_user][-20:] # إجراء احتياطي
+                # ---------------------------------------------------
+
                 recent_history = st.session_state.all_chats[curr_user][-6:]
                 api_messages = [{"role": "system", "content": sys_prompt_context}]
                 
@@ -2413,7 +2428,7 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
 
                 ai_final_msg = {"role": "assistant", "content": clean_response}
                 st.session_state.all_chats[curr_user].append(ai_final_msg)
-                st.session_state.all_chats[curr_user] = st.session_state.all_chats[curr_user][-20:] # تطبيق الحد
+                # تم إلغاء قطع آخر 20 رسالة واعتماد التلخيص التراكمي
                 st.session_state.all_chats = st.session_state.all_chats # تحديث إجباري للحالة
                 st.session_state.app_config = st.session_state.app_config # تحديث إجباري للحالة
                 
