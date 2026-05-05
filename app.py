@@ -163,9 +163,9 @@ DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري
 تتحدث بالعامية المصرية بجدية واحترافية (بدون Emojis نهائياً).
 
 [قواعد ذهبية للذكاء والمتابعة]:
-1. راجع السياق المُقدم لك جيداً (سجل المهام لكل الموظفين). لا تكلف موظفاً بمهمة يعمل عليها موظف آخر.
-2. إذا كان الموظف يعمل على مهمة، اسأله عن آخر تطوراتها قبل إعطائه مهام جديدة.
-3. تذكر دائماً المعلومات التي خزنتها عن الموظف (في قسم الذاكرة).
+1. راجع السياق المُقدم لك جيداً (سجل المهام لكل الموظفين، العروض، والملاحظات). 
+2. إذا كان الموظف يعمل على مهمة، اسأله عن آخر تطوراتها. إذا كان جديداً وليس لديه عروض، وجهه لاختيار مسودات عامة أو طلب إنشاء عروض جديدة من قسم الإدخال.
+3. اكتب ردودك بشكل مكثف ومباشر. **ممنوع استخدام أسطر فارغة زائدة أو مسافات لا داعي لها بين الجمل أو الجداول.**
 4. عند عرض أي بيانات أو خطط، استخدم الجداول (Markdown Tables) لتكون منظمة، مع نصوص قصيرة ومفيدة.
 5. عندما يخبرك الموظف بإنجاز مهمة، أغلقها فوراً بإرسال [CLOSE_TASK: اسم المهمة].
 
@@ -2339,8 +2339,18 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                     memo_match = re.search(r'\[MEMO:(.*?)\]', raw_ai_text, re.IGNORECASE | re.DOTALL)
                     action_match = re.search(r'\[ACTION:(.*?)\]', raw_ai_text, re.IGNORECASE | re.DOTALL)
                     
+                    # إزالة العلامات السرية من الرد الذي سيظهر للمستخدم
                     clean_response = re.sub(r'\[(TASK|CLOSE_TASK|EVAL|MEMO|ACTION):.*?\]', '', raw_ai_text, flags=re.IGNORECASE | re.DOTALL)
-                    clean_response = re.sub(r'\n\s*\n', '\n\n', clean_response).strip()
+                    
+                    # --- التعديل هنا: تنظيف الأسطر الفارغة بفعالية أكبر ---
+                    # 1. إزالة المسافات الزائدة في بداية ونهاية كل سطر
+                    clean_response = "\n".join([line.strip() for line in clean_response.splitlines()])
+                    # 2. تقليص الأسطر الفارغة المتتالية (أكثر من 2) إلى سطرين كحد أقصى (لفصل الفقرات) أو سطر واحد
+                    clean_response = re.sub(r'\n{3,}', '\n\n', clean_response)
+                    # 3. إزالة المسافات في بداية ونهاية النص بالكامل
+                    clean_response = clean_response.strip()
+                    # -----------------------------------------------------
+
                     if not clean_response: clean_response = "تمام، جاري المتابعة والتنفيذ."
 
                 except Exception as e:
@@ -2433,11 +2443,24 @@ def build_ai_context(curr_user, CFG, df_s, df_p):
     p_len = len(df_p) if df_p is not None else 0
     
     my_quotes = "لا يوجد مسودات تخصك حالياً."
-    if df_s is not None and not df_s.empty and 'state' in df_s.columns and 'user_id' in df_s.columns:
+    if df_s is not None and not df_s.empty and 'state' in df_s.columns:
         emp_short = curr_user.split(" - ")[0]
-        mask = df_s['user_id'].astype(str).str.contains(emp_short, na=False, case=False)
-        my_drafts = df_s[(df_s['state'].isin(['draft', 'sent'])) & mask].head(3)
-        if not my_drafts.empty:
+        # 1. البحث عن عروض تخص الموظف تحديداً
+        if 'user_id' in df_s.columns:
+            mask = df_s['user_id'].astype(str).str.contains(emp_short, na=False, case=False)
+            my_drafts = df_s[(df_s['state'].isin(['draft', 'sent'])) & mask].head(3)
+        else:
+            my_drafts = pd.DataFrame()
+
+        # 2. إذا لم يجد، اقترح مسودات عامة حديثة
+        if my_drafts.empty:
+            general_drafts = df_s[df_s['state'].isin(['draft', 'sent'])].head(3)
+            if not general_drafts.empty:
+                quotes_list = [f"({row.get('name', 'N/A')} - {clean_odoo_m2o(row.get('partner_id', ''))}: {row.get('amount_total', 0)}ج)" for _, row in general_drafts.iterrows()]
+                my_quotes = f"ليس لديك عروض مسجلة باسمك. يمكنك تبني أحد هذه العروض العامة للمتابعة: {' | '.join(quotes_list)}. أو اطلب من قسم الإدخال إنشاء عرض جديد وتزويدك برقمه."
+            else:
+                my_quotes = "لا يوجد مسودات تخصك، ولا توجد مسودات عامة متاحة حالياً. اطلب من قسم الإدخال إنشاء عرض جديد وتزويدك برقمه للمتابعة."
+        else:
             my_quotes = " | ".join([f"عرض ({row.get('name', 'N/A')}) للعميل ({clean_odoo_m2o(row.get('partner_id', ''))}) بقيمة {row.get('amount_total', 0)} ج" for _, row in my_drafts.iterrows()])
 
     emp_memo = get_employee_memory(curr_user)
@@ -2451,27 +2474,22 @@ def build_ai_context(curr_user, CFG, df_s, df_p):
                 open_tasks.append(f"مهمة لـ {t['emp']}: {t['task']}")
             else:
                 open_tasks.append(f"مهمة لـ {t['emp']} (محجوزة)")
-    open_tasks_str = "\n".join(open_tasks) if open_tasks else "لا يوجد مهام مفتوحة حالياً."
+    open_tasks_str = " | ".join(open_tasks) if open_tasks else "لا يوجد مهام مفتوحة حالياً." # تغيير للتقليل من الأسطر
 
     base_prompt = CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT)
     curr_emp_data = next((e for e in CFG.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == curr_user), None)
     job_desc = curr_emp_data.get('job_desc', 'لا يوجد وصف.') if curr_emp_data else 'أنت تتحدث مع المدير العام.'
     
-    context_parts = [
-        "=== حقائق Odoo (أرقام سريعة) ===",
-        f"إجمالي المبيعات المعتمدة بالشركة: {t_sales_appr:,.0f} ج | المسودات العامة: {t_sales_draft:,.0f} ج | إجمالي العملاء: {p_len}",
-        "",
-        f"=== بيانات الموظف اللي بيكلمك ({curr_user.split(' - ')[0]}) ===",
-        f"وصف وظيفته: {job_desc}",
-        f"عروض الأسعار المفتوحة الخاصة به حالياً: {my_quotes}",
-        f"ذاكرتك الشخصية عن الموظف ده (لا تنساها): {emp_memo if emp_memo else 'لا توجد ملاحظات سابقة.'}",
-        "",
-        "=== خريطة المهام المفتوحة في الشركة (لا تكرر إسنادها) ===",
-        open_tasks_str
-    ]
+    # تنسيق مضغوط للسياق لتجنب الأسطر الفارغة الكثيرة
+    live_context = (
+        f"[بيانات الشركة]: مبيعات معتمدة {t_sales_appr:,.0f}ج | مسودات {t_sales_draft:,.0f}ج | عملاء {p_len}\n"
+        f"[الموظف الحالي]: {curr_user.split(' - ')[0]} | الوظيفة: {job_desc}\n"
+        f"[عروض الموظف]: {my_quotes}\n"
+        f"[ذاكرة المدير عن الموظف]: {emp_memo if emp_memo else 'لا توجد ملاحظات.'}\n"
+        f"[المهام المفتوحة]: {open_tasks_str}"
+    )
     
-    live_context = "\n".join(context_parts)
-    return base_prompt + "\n\n" + live_context
+    return f"{base_prompt}\n\n[سياق حي]\n{live_context}"
 
 def render_ai():
     
