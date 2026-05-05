@@ -3108,9 +3108,15 @@ def render_settings():
 # [MODULE 8: APP ROUTER & INJECTIONS] 
 # ============================================================
 APP_NAME = "Mudir OS"
-            // 1. حقن وتثبيت التطبيق PWA (عبر النافذة الأم لتخطي الـ Iframe)
-            if (!document.querySelector('link[rel="manifest"]')) {
-                const manifest = {
+APP_ICON_URL = "https://cdn-icons-png.flaticon.com/512/2103/2103468.png"  # أيقونة ذكية واحترافية للمدير والإدارة
+
+def inject_pwa_manifest():
+    pwa_html = f"""
+    <script>
+        // 1. حقن وتثبيت التطبيق PWA (عبر النافذة الأم لتخطي الـ Iframe)
+        if (window.top === window.self) {{
+            if (!document.querySelector('link[rel="manifest"]')) {{
+                const manifest = {{
                     "name": "{APP_NAME}",
                     "short_name": "Mudir",
                     "start_url": window.location.pathname,
@@ -3118,10 +3124,10 @@ APP_NAME = "Mudir OS"
                     "background_color": "#04040a",
                     "theme_color": "#00f2ff",
                     "icons": [
-                        {"src": "{APP_ICON_URL}", "sizes": "512x512", "type": "image/png"}
+                        {{"src": "{APP_ICON_URL}", "sizes": "512x512", "type": "image/png"}}
                     ]
-                };
-                const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+                }};
+                const blob = new Blob([JSON.stringify(manifest)], {{type: 'application/json'}});
                 const link = document.createElement('link');
                 link.rel = 'manifest';
                 link.href = URL.createObjectURL(blob);
@@ -3132,7 +3138,7 @@ APP_NAME = "Mudir OS"
                 const appleMeta2 = document.createElement('meta'); appleMeta2.name = 'apple-mobile-web-app-status-bar-style'; appleMeta2.content = 'black-translucent';
                 const appleIcon = document.createElement('link'); appleIcon.rel = 'apple-touch-icon'; appleIcon.href = '{APP_ICON_URL}';
                 document.head.appendChild(appleMeta1); document.head.appendChild(appleMeta2); document.head.appendChild(appleIcon);
-            }
+            }}
 
             // 2. نظام التذكر الصلب الأساسي
             const currentSearch = window.location.search;
