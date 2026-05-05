@@ -676,7 +676,7 @@ def render_workspace_login():
     st.markdown("<div style='margin-top: 10vh;'></div>", unsafe_allow_html=True)
     st.markdown("<div class='g-card' style='max-width: 500px; margin: 0 auto; text-align: center;'>", unsafe_allow_html=True)
     st.markdown(f"<div style='color:var(--c-primary); margin-bottom: 20px;'>{get_icon('fusion', 60)}</div>", unsafe_allow_html=True)
-    st.markdown("<h2 style='color:#fff; margin-top:0;'>بوابة الولوج الآمنة (Mudir OS)</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color:#fff; margin-top:0;'>بوابة الدخول المؤسسية (Mudir OS)</h2>", unsafe_allow_html=True)
     st.markdown("<p style='color:var(--c-dim); margin-bottom: 30px;'>أدخل كود الشركة المرخص لفتح مساحة العمل الخاصة بك</p>", unsafe_allow_html=True)
     
     ws_key = st.text_input("كود الشركة (License Key):", type="password", placeholder="أدخل الكود هنا...")
