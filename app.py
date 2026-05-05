@@ -748,12 +748,6 @@ def render_login():
     st.markdown(f"<h2 style='color:#fff; margin-top:0;'>تسجيل الدخول - مساحة: {st.session_state.get('workspace_key', '')}</h2>", unsafe_allow_html=True)
     st.markdown("<p style='color:var(--c-dim); margin-bottom: 30px;'>الرجاء تحديد هويتك للوصول لمهامك وصلاحياتك المحددة</p>", unsafe_allow_html=True)
     
-    st.markdown("""<div style='background:rgba(0,242,255,0.05); border:1px solid rgba(0,242,255,0.2); padding:10px; border-radius:8px; margin-bottom:20px; font-size:0.85rem; color:#e2e8f0; text-align:right;'>
-    💡 <b>لتثبيت التطبيق على هاتفك:</b><br>
-    - <b>أندرويد (Chrome):</b> اضغط على القائمة (⋮) ثم اختر <i>Install App</i> أو <i>Add to Home screen</i>.<br>
-    - <b>آيفون (Safari):</b> اضغط على زر المشاركة (مربع بسهم لأعلى) ثم اختر <i>Add to Home Screen</i>.
-    </div>""", unsafe_allow_html=True)
-    
     employees = st.session_state.app_config.get('EMPLOYEES', [])
     user_options = ["المدير العام (صلاحيات كاملة)"] + [f"{emp['name']} - {emp['role']}" for emp in employees]
     selected_user = st.selectbox("من أنت؟", user_options, label_visibility="collapsed")
