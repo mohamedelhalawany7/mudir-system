@@ -348,8 +348,6 @@ ALL_NAV_ITEMS = [
 def init_state():
     url_ws = st.query_params.get("workspace")
     url_view = st.query_params.get("view")
-    url_user = st.query_params.get("user")
-    url_token = st.query_params.get("auth_token")
 
     if 'view' not in st.session_state: st.session_state.view = 'workspace_login'
     if 'current_user' not in st.session_state: st.session_state.current_user = None
@@ -372,26 +370,6 @@ def init_state():
                         st.session_state.app_config = load_config()
                         st.session_state.view = url_view if url_view else 'login'
 
-    # نظام تسجيل الدخول التلقائي (Auto-Login) من أيقونة الهاتف
-    if url_user and url_token and not st.session_state.current_user and 'workspace_key' in st.session_state:
-        if 'app_config' not in st.session_state:
-            st.session_state.app_config = load_config()
-            
-        cfg = st.session_state.app_config
-        dec_token = decrypt_password(url_token)
-        
-        if url_user == "المدير العام":
-            m_pin_dec = decrypt_password(cfg.get('MANAGER_PIN', '0000'))
-            if dec_token == m_pin_dec or dec_token == cfg.get('MANAGER_PIN', '0000'):
-                st.session_state.current_user = "المدير العام"
-                st.session_state.view = url_view if url_view else 'dashboard'
-        else:
-            emp_data = next((e for e in cfg.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == url_user), None)
-            expected_pin = emp_data.get('pin', '0000') if emp_data else '0000'
-            if emp_data and dec_token == expected_pin:
-                st.session_state.current_user = url_user
-                st.session_state.view = url_view if url_view else (emp_data.get('views', ['ai'])[0] if emp_data.get('views') else 'ai')
-
     if 'workspace_key' not in st.session_state:
         if st.session_state.get('view') != 'super_admin':
             st.session_state.view = 'workspace_login'
@@ -401,9 +379,9 @@ def init_state():
         st.session_state.app_config = load_config()
         
     defaults = {
-        'view': st.session_state.get('view', 'login'), 
+        'view': url_view if url_view else 'login', 
         'modal_open': False, 'modal_title': '', 'modal_data': {},
-        'current_user': st.session_state.get('current_user', None), 
+        'current_user': None, 
         'growth_stream': None, 'last_radar_report': None, 'data_loaded': False,
         'df_s': pd.DataFrame(), 'df_p': pd.DataFrame(), 'df_i': pd.DataFrame(),
         'df_po': pd.DataFrame(), 'df_pol': pd.DataFrame(), 'is_real_data': False,
@@ -702,7 +680,6 @@ def render_workspace_login():
     st.markdown("<p style='color:var(--c-dim); margin-bottom: 30px;'>أدخل كود الشركة المرخص لفتح مساحة العمل الخاصة بك</p>", unsafe_allow_html=True)
     
     ws_key = st.text_input("كود الشركة (License Key):", type="password", placeholder="أدخل الكود هنا...")
-    remember_ws = st.checkbox("تذكر مساحة العمل على هذا الجهاز", value=True)
     
     if st.button("تأكيد ودخول", type="primary", use_container_width=True):
         if ws_key.strip():
@@ -731,7 +708,7 @@ def render_workspace_login():
                         st.session_state.workspace_id = ws_key.strip()
                         st.session_state.app_config = load_config()
                         st.session_state.view = 'login'
-                        if remember_ws: st.query_params["workspace"] = ws_key.strip()
+                        st.query_params["workspace"] = ws_key.strip()
                         st.query_params["view"] = "login"
                         st.rerun()
                     else:
@@ -753,19 +730,17 @@ def render_login():
     selected_user = st.selectbox("من أنت؟", user_options, label_visibility="collapsed")
     
     pin = st.text_input("رمز الدخول السري (PIN)", type="password", placeholder="أدخل الرقم السري الخاص بك")
-    remember_me = st.checkbox("تذكرني وثبّت التطبيق على هذا الجهاز", value=True, help="سيقوم النظام بحفظ بياناتك، وعند إضافة الرابط كأيقونة على هاتفك سيدخل تلقائياً.")
         
     if st.button("دخول للنظام", type="primary", use_container_width=True):
-        auth_success = False
-        target_view = 'dashboard'
-        
         if "المدير العام" in selected_user:
             m_pin_dec = decrypt_password(st.session_state.app_config.get('MANAGER_PIN', '0000'))
             if pin == m_pin_dec or pin == st.session_state.app_config.get('MANAGER_PIN', '0000'):
                 st.session_state.current_user = "المدير العام"
-                target_view = 'dashboard'
-                st.session_state.view = target_view
-                auth_success = True
+                st.session_state.view = 'dashboard'
+                st.query_params["workspace"] = st.session_state.workspace_key
+                st.query_params["user"] = selected_user
+                st.query_params["token"] = pin
+                st.session_state.login_success_data = {'ws': st.session_state.workspace_key, 'user': selected_user, 'token': pin}
                 
                 st.session_state.all_chats = load_user_chats(selected_user)
                 if selected_user not in st.session_state.all_chats or not st.session_state.all_chats[selected_user]:
@@ -773,6 +748,7 @@ def render_login():
                     st.session_state.all_chats[selected_user] = [initial_msg]
                     log_message(selected_user, initial_msg)
                     overwrite_chat_for_user(selected_user, st.session_state.all_chats[selected_user])
+                st.rerun()
             else:
                 st.error("عذراً، رمز الدخول غير صحيح!")
         else:
@@ -781,9 +757,17 @@ def render_login():
             
             if pin == expected_pin:
                 st.session_state.current_user = selected_user
-                target_view = emp_data.get('views', ['ai'])[0] if emp_data and emp_data.get('views') else 'ai'
-                st.session_state.view = target_view
-                auth_success = True
+                if emp_data and emp_data.get('views'):
+                    st.session_state.view = emp_data['views'][0]
+                    st.query_params["view"] = emp_data['views'][0]
+                else:
+                    st.session_state.view = 'ai' 
+                    st.query_params["view"] = "ai"
+                
+                st.query_params["workspace"] = st.session_state.workspace_key
+                st.query_params["user"] = selected_user
+                st.query_params["token"] = pin
+                st.session_state.login_success_data = {'ws': st.session_state.workspace_key, 'user': selected_user, 'token': pin}
                     
                 st.session_state.all_chats = load_user_chats(selected_user)
                 if selected_user not in st.session_state.all_chats or not st.session_state.all_chats[selected_user]:
@@ -792,23 +776,15 @@ def render_login():
                     st.session_state.all_chats[selected_user] = [initial_msg]
                     log_message(selected_user, initial_msg)
                     overwrite_chat_for_user(selected_user, st.session_state.all_chats[selected_user])
+                st.rerun()
             else:
                 st.error("عذراً، رمز الدخول السري الخاص بك غير صحيح!")
-                
-        if auth_success:
-            st.query_params["workspace"] = st.session_state.get('workspace_key', '')
-            if remember_me:
-                st.query_params["user"] = selected_user
-                st.query_params["auth_token"] = encrypt_password(pin) if HAS_CRYPTO else pin
-            st.query_params["view"] = target_view
-            st.rerun()
             
     if st.button("تغيير مساحة العمل", use_container_width=True):
         del st.session_state['workspace_key']
         del st.session_state['workspace_id']
         st.session_state.view = 'workspace_login'
         st.query_params.clear()
-        st.query_params["logout"] = "true"
         st.rerun()
         
     st.markdown("</div>", unsafe_allow_html=True)
@@ -1130,7 +1106,6 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
         
         if st.button("🔴 تسجيل الخروج", use_container_width=True):
             st.query_params.clear()
-            st.query_params["logout"] = "true"
             st.session_state.clear()
             st.rerun()
             
@@ -2791,7 +2766,6 @@ def render_super_admin():
         st.markdown("---")
         if st.button("🔴 تسجيل الخروج وإغلاق", use_container_width=True, type="primary"):
             st.query_params.clear()
-            st.query_params["logout"] = "true"
             st.session_state.clear()
             st.rerun()
 
@@ -2859,4 +2833,457 @@ def render_super_admin():
     st.markdown("<div style='background:rgba(255,255,255,0.02); padding:20px; border-radius:12px; border:1px solid rgba(255,255,255,0.05); margin-bottom:20px;'>", unsafe_allow_html=True)
     with st.form("new_license_form", clear_on_submit=True, border=False):
         c1, c2, c3, c4, c5 = st.columns([2.5, 2, 2, 2, 2])
-        with c1: new_ws_id = st.text_input("كود الشركة (بالإنجليزية):", placeholder="مثال: Ghareeb
+        with c1: new_ws_id = st.text_input("كود الشركة (بالإنجليزية):", placeholder="مثال: Ghareeb2026")
+        with c2: duration = st.selectbox("مدة الاشتراك:", ["شهر واحد", "3 شهور", "6 شهور", "سنة كاملة"])
+        with c3: max_dev = st.number_input("أقصى عدد للمستخدمين:", min_value=1, max_value=1000, value=5)
+        with c4: new_m_pin = st.text_input("رقم دخول المدير (PIN):", value="0000")
+        with c5: 
+            st.markdown("<br>", unsafe_allow_html=True)
+            add_btn = st.form_submit_button("تفعيل المساحة", use_container_width=True, type="primary")
+
+    if add_btn:
+        safe_id = "".join(c for c in str(new_ws_id) if c.isalnum() or c in ('_', '-'))
+        if not safe_id:
+            st.error("يرجى إدخال كود صحيح.")
+        elif safe_id in licenses['workspaces']:
+            st.error("هذا الكود موجود بالفعل! اختر كوداً آخر.")
+        else:
+            days = 30 if duration == "شهر واحد" else 90 if duration == "3 شهور" else 180 if duration == "6 شهور" else 365
+            expiry = (get_local_now() + timedelta(days=days)).strftime("%Y-%m-%d")
+            
+            licenses['workspaces'][safe_id] = {
+                "status": "active",
+                "expiry_date": expiry,
+                "created_on": get_local_now().strftime("%Y-%m-%d"),
+                "max_devices": int(max_dev)
+            }
+            
+            enc_pin = encrypt_password(new_m_pin) if HAS_CRYPTO else new_m_pin
+            initial_config = {
+                'ODOO_URL': '', 'ODOO_DB': '', 'ODOO_USER': '', 'ODOO_PASS': '',
+                'AI_PROVIDER_URL': 'https://api.openai.com/v1', 'AI_API_KEY': '',
+                'AI_MODEL_NAME': 'gpt-4o', 'AI_SYSTEM_PROMPT': DEFAULT_SYSTEM_PROMPT,
+                'MANAGER_PIN': enc_pin, 
+                'EMPLOYEES': [], 'EVALUATIONS': {}, 'EVAL_HISTORY': {}, 'TASK_REGISTRY': [], 'GLOBAL_TASKS': {}, 'NOTIFICATIONS': {}, 'MEMORIES': {} 
+            }
+            
+            try:
+                save_licenses(licenses)
+                if FIREBASE_CONNECTED and db:
+                    db.collection('Mudir_Workspaces').document(safe_id).set(initial_config)
+                st.success(f"تم إنشاء ترخيص الشركة بنجاح! المستخدمين: {max_dev} | الانتهاء: {expiry}")
+                time.sleep(2)
+                st.rerun()
+            except Exception as e:
+                st.error(f"حدث خطأ أثناء حفظ البيانات: {e}")
+                
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("<div class='g-card'>", unsafe_allow_html=True)
+    st.markdown(f"<div class='g-card-title'>{get_icon('table', 22)} الشركات المشتركة وإدارة التراخيص</div>", unsafe_allow_html=True)
+    
+    if not licenses['workspaces']:
+        st.info("لا توجد أي شركات مسجلة حتى الآن.")
+    else:
+        for ws_id, ws_info in licenses['workspaces'].items():
+            is_active = ws_info['status'] == 'active'
+            exp_date = datetime.strptime(ws_info['expiry_date'], "%Y-%m-%d")
+            is_expired = get_local_now() > exp_date
+            
+            status_html = "<span style='color:#00ff82;'>نشط</span>" if is_active and not is_expired else "<span style='color:#ff2d78;'>منتهي / متوقف</span>"
+            max_d = ws_info.get('max_devices', 1)
+            
+            with st.container():
+                rc1, rc2, rc3, rc4, rc5, rc6 = st.columns([1.5, 1.5, 1.2, 1.5, 1.5, 2.5])
+                rc1.markdown(f"**الشركة:** `{ws_id}`")
+                rc2.markdown(f"**الحالة:** {status_html}", unsafe_allow_html=True)
+                rc3.markdown(f"**مستخدمين:** {max_d}")
+                rc4.markdown(f"**الانتهاء:** {ws_info['expiry_date']}")
+                
+                with rc5:
+                    if st.button("تغيير PIN", key=f"btn_pin_{ws_id}", use_container_width=True):
+                        change_workspace_pin_dialog(ws_id)
+                        
+                with rc6:
+                    c_act1, c_act2 = st.columns([2, 1])
+                    with c_act1:
+                        action_opts = ["اختر إجراء...", "تجديد +شهر", "تجديد +سنة", "تعديل المستخدمين", "إيقاف (تعليق)", "تفعيل", "حذف المساحة"]
+                        action = st.selectbox("الإجراء", action_opts, key=f"act_{ws_id}", label_visibility="collapsed")
+                    with c_act2:
+                        if st.button("تنفيذ", key=f"exec_{ws_id}", use_container_width=True):
+                            if action == "تجديد +شهر":
+                                new_exp = (exp_date + timedelta(days=30)).strftime("%Y-%m-%d")
+                                licenses['workspaces'][ws_id]['expiry_date'] = new_exp
+                                licenses['workspaces'][ws_id]['status'] = 'active'
+                                save_licenses(licenses)
+                                st.rerun()
+                            elif action == "تجديد +سنة":
+                                new_exp = (exp_date + timedelta(days=365)).strftime("%Y-%m-%d")
+                                licenses['workspaces'][ws_id]['expiry_date'] = new_exp
+                                licenses['workspaces'][ws_id]['status'] = 'active'
+                                save_licenses(licenses)
+                                st.rerun()
+                            elif action == "تعديل المستخدمين":
+                                edit_workspace_devices_dialog(ws_id, licenses)
+                            elif action == "إيقاف (تعليق)":
+                                licenses['workspaces'][ws_id]['status'] = 'suspended'
+                                save_licenses(licenses)
+                                st.rerun()
+                            elif action == "تفعيل":
+                                licenses['workspaces'][ws_id]['status'] = 'active'
+                                save_licenses(licenses)
+                                st.rerun()
+                            elif action == "حذف المساحة":
+                                delete_workspace_dialog(ws_id, licenses)
+                st.markdown("<hr style='border-color:rgba(255,255,255,0.05); margin:10px 0;'>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+def render_settings():
+    st.markdown(f"""<div class="page-header"><div class="ph-icon-wrap">{get_icon("settings", 46, "#00f2ff")}</div><div><div class="ph-title">إعدادات النواة المركزية</div><div class="ph-sub">إصدار COMMANDER: إدارة شاملة للبيانات، الخوادم، وهيكل الموظفين</div></div></div>""", unsafe_allow_html=True)
+
+    licenses = load_licenses()
+    ws_id = st.session_state.get('workspace_key', '')
+    ws_data = licenses.get('workspaces', {}).get(ws_id, {})
+    max_devices = ws_data.get('max_devices', 1)
+
+    st.markdown(f"<div class='g-card-title' style='color:#00ff82;'>{get_icon('folder', 22)} خزنة الشركة (النسخ الاحتياطي السحابي)</div>", unsafe_allow_html=True)
+    st.info("نظراً لطبيعة الخوادم السحابية، يُنصح بتحميل نسخة احتياطية من بيانات شركتك والاحتفاظ بها.")
+    
+    cv1, cv2 = st.columns(2)
+    with cv1:
+        vault_data_str = json.dumps(CFG, ensure_ascii=False, indent=4)
+        st.download_button(
+            label="📥 سحب ملف خزنة الشركة (Backup)",
+            data=vault_data_str.encode('utf-8-sig'),
+            file_name=f"Mudir_Vault_{ws_id}_{get_local_now().strftime('%Y%m%d')}.json",
+            mime="application/json",
+            use_container_width=True
+        )
+    with cv2:
+        uploaded_vault = st.file_uploader("📤 استعادة النظام من الخزنة", type=['json'], label_visibility="collapsed")
+        if uploaded_vault:
+            if st.button("🚨 تأكيد الاستعادة (سيمسح البيانات الحالية)", type="primary", use_container_width=True):
+                try:
+                    restored_data = json.load(uploaded_vault)
+                    st.session_state.app_config = restored_data
+                    save_config(restored_data)
+                    st.success("تم استعادة بيانات الشركة بنجاح! جاري إعادة التشغيل...")
+                    time.sleep(1)
+                    st.rerun()
+                except Exception:
+                    st.error("ملف الخزنة تالف أو غير صالح.")
+    
+    st.markdown("<br><hr style='border-color:rgba(255,255,255,0.05)'><br>", unsafe_allow_html=True)
+
+    st.markdown(f"<div class='g-card-title'>{get_icon('check', 22)} إعدادات الأمان للمدير العام</div>", unsafe_allow_html=True)
+    m_pin = st.text_input("رمز الدخول السري للمدير (PIN)", value=CFG.get('MANAGER_PIN', '0000'), type="password", disabled=True, help="لا يمكن تغيير الرقم السري إلا من قبل الإدارة العليا (Super Admin).")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    st.markdown(f"<div class='g-card-title'>{get_icon('clock', 22)} مواعيد العمل الرسمية للشركة</div>", unsafe_allow_html=True)
+    st.info("المدير سيستخدم هذه المواعيد لمعرفة متى يبدأ وينتهي الدوام، ليتخذ قرارات مناسبة بشأن توزيع المهام للموظفين والمهندسين.")
+    col_t1, col_t2, col_t3 = st.columns(3)
+    with col_t1:
+        work_start_input = st.number_input("ساعة بدء العمل (نظام 24 ساعة):", min_value=0, max_value=23, value=int(CFG.get('WORK_START', 8)), step=1)
+    with col_t2:
+        work_end_input = st.number_input("ساعة انتهاء العمل (نظام 24 ساعة):", min_value=0, max_value=23, value=int(CFG.get('WORK_END', 17)), step=1)
+    with col_t3:
+        tz_opts = ["Africa/Cairo", "Asia/Riyadh", "Asia/Dubai", "Europe/London", "America/New_York", "UTC"]
+        curr_tz = CFG.get('TIMEZONE', 'Africa/Cairo')
+        if curr_tz not in tz_opts: tz_opts.append(curr_tz)
+        tz_input = st.selectbox("توقيت الشركة (المنطقة الزمنية):", tz_opts, index=tz_opts.index(curr_tz))
+        
+    if st.button("💾 حفظ مواعيد العمل", key="save_work_hours", use_container_width=True):
+        update_system_config({
+            'WORK_START': int(work_start_input),
+            'WORK_END': int(work_end_input),
+            'TIMEZONE': tz_input
+        })
+        st.success("تم حفظ مواعيد العمل بنجاح!")
+        time.sleep(1)
+        st.rerun()
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    st.markdown(f"<div class='g-card-title'>{get_icon('users', 22)} هيكل الفريق والبطاقات التعريفية (الحد الأقصى: {max_devices} مستخدم)</div>", unsafe_allow_html=True)
+    
+    current_emps = CFG.get('EMPLOYEES', [])
+    view_options = {i[2]: i[0] for i in ALL_NAV_ITEMS if i[0] not in ['settings']}
+    
+    st.info(f"تم استهلاك {len(current_emps)} من أصل {max_devices} مستخدم مسموح به في رخصة شركتك.")
+    
+    with st.expander("➕ إضافة موظف جديد", expanded=False):
+        with st.form("add_emp_form", clear_on_submit=True):
+            c_emp1, c_emp2, c_emp3 = st.columns([2, 2, 2])
+            with c_emp1: new_emp_name = st.text_input("اسم الموظف", placeholder="مثال: أحمد محمود")
+            with c_emp2: new_emp_role = st.text_input("الوظيفة / القسم", placeholder="مثال: مبيعات هاتفية")
+            with c_emp3: new_emp_pin = st.text_input("الرقم السري للموظف (PIN)", placeholder="مثال: 1234")
+            
+            new_emp_desc = st.text_area("الوصف الوظيفي والأهداف (KPIs)", placeholder="اكتب هنا مهام الموظف وما تتوقعه منه، ليقوم الذكاء الاصطناعي بمتابعته وتوجيهه بناءً عليها...")
+            
+            new_emp_views = st.multiselect("الشاشات المسموحة", list(view_options.keys()), default=["مكتب المدير"])
+            submit_emp = st.form_submit_button("إضافة الموظف للنظام", use_container_width=True, type="primary")
+
+        if submit_emp:
+            if len(current_emps) >= max_devices:
+                st.error("🚫 عذراً! لقد وصلت للحد الأقصى لعدد المستخدمين المسموح به في رخصتك الحالية.")
+            elif any(emp['name'].strip().lower() == new_emp_name.strip().lower() for emp in current_emps):
+                st.error("🚫 عذراً! يوجد موظف مسجل بنفس هذا الاسم مسبقاً. يرجى استخدام اسم مختلف.")
+            elif new_emp_name and new_emp_role and new_emp_views and new_emp_pin:
+                view_keys = [view_options[k] for k in new_emp_views]
+                current_emps.append({
+                    'name': new_emp_name, 
+                    'role': new_emp_role, 
+                    'pin': new_emp_pin, 
+                    'job_desc': new_emp_desc,
+                    'views': view_keys
+                })
+                
+                try:
+                    current_cfg = get_workspace_doc().get().to_dict() or {}
+                    current_cfg['EMPLOYEES'] = current_emps
+                    get_workspace_doc().set(current_cfg, merge=True)
+                except Exception as e:
+                    st.error(f"خطأ في الحفظ: {e}")
+                
+                CFG['EMPLOYEES'] = current_emps
+                st.rerun()
+            else:
+                st.warning("أدخل كافة البيانات (الاسم، الوظيفة، الرمز السري) واختر شاشة واحدة على الأقل.")
+                
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    if current_emps:
+        st.markdown("**📋 بطاقات الموظفين (Cyberpunk UI):**")
+        emp_cols = st.columns(2)
+        
+        for i, emp in enumerate(current_emps):
+            views_str = " | ".join([k for k, v in view_options.items() if emp.get('views') and view_options.get(k) in emp['views']])
+            pin_display = emp.get('pin', '0000')
+            desc_display = emp.get('job_desc', 'لا يوجد وصف مخصص.')
+            
+            with emp_cols[i % 2]:
+                st.markdown(f"""
+                <div class="emp-card-neon">
+                    <div class="emp-header">
+                        <div class="emp-avatar">{emp['name'][:1]}</div>
+                        <div style="margin-right: 15px;">
+                            <div class="emp-name">{emp['name']}</div>
+                            <div class="emp-role">{emp['role']}</div>
+                        </div>
+                    </div>
+                    <div class="emp-info-grid">
+                        <div>
+                            <div class="emp-label">رمز الدخول السري:</div>
+                            <div class="emp-pin-box">✱✱{pin_display[-2:] if len(pin_display)>2 else pin_display}</div>
+                        </div>
+                        <div>
+                            <div class="emp-label">الصلاحيات والشاشات:</div>
+                            <div class="emp-value" style="font-size:0.8rem; line-height: 1.4;">{views_str}</div>
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <div class="emp-label">مؤشرات الأداء (KPIs):</div>
+                        <div class="emp-value" style="font-size:0.85rem; color:#94a3b8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{desc_display}</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                btn_col1, btn_col2 = st.columns(2)
+                with btn_col1:
+                    if st.button(f"✏️ تعديل {emp['name']}", key=f"edit_emp_{i}", use_container_width=True):
+                        edit_employee_dialog(i, current_emps, view_options)
+                with btn_col2:
+                    if st.button(f"🗑️ إزالة {emp['name']}", key=f"del_emp_{i}", use_container_width=True, type="secondary"):
+                        current_emps.pop(i)
+                        try:
+                            current_cfg = get_workspace_doc().get().to_dict() or {}
+                            current_cfg['EMPLOYEES'] = current_emps
+                            get_workspace_doc().set(current_cfg, merge=True)
+                        except Exception as e:
+                            st.error(f"خطأ في الحذف: {e}")
+                        CFG['EMPLOYEES'] = current_emps
+                        st.rerun()
+                st.markdown("<br>", unsafe_allow_html=True)
+    else:
+        st.markdown("<div style='color:var(--c-dim); font-size:0.9rem; text-align:center; padding: 20px; border: 1px dashed rgba(255,255,255,0.1); border-radius: 12px;'>لا يوجد موظفين مسجلين حالياً بالهيكل.</div>", unsafe_allow_html=True)
+
+    st.markdown("<br><hr style='border-color:rgba(255,255,255,0.05)'><br>", unsafe_allow_html=True)
+
+    st.markdown(f"<div class='g-card-title'>{get_icon('cpu', 22)} إعدادات الاتصال بالخادم المركزي</div>", unsafe_allow_html=True)
+    
+    st.markdown("### شخصية وتوجيهات المدير (System Prompt)")
+    st.info("تنبيه: لا تقم بتغيير هيكل العلامات السرية (TASK, CLOSE_TASK, EVAL, MEMO) حتى لا يفقد المدير ذاكرته.")
+    ai_system_prompt = st.text_area("تعليمات الإدارة", value=CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT), height=250)
+    
+    if st.button("💾 حفظ تعليمات الإدارة فقط", key="save_prompt", use_container_width=True):
+        update_system_config({'AI_SYSTEM_PROMPT': ai_system_prompt})
+        st.success("تم حفظ تعليمات الإدارة بنجاح!")
+        time.sleep(1)
+        st.rerun()
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("### دليل وإعدادات الربط")
+    
+    with st.expander("معلومات إضافية حول روابط الخدمة (انقر للفتح)"):
+        st.markdown("""
+        **لربط الخادم الرئيسي (OpenAI):**
+        - **رابط المزود:** `https://api.openai.com/v1`
+        - **اسم الموديل:** `gpt-4o` أو `gpt-3.5-turbo`
+        
+        **ملاحظة عن JSON Mode:** بعض الموديلات لا تدعم `json_object` صراحة ولكنها تستجيب جيداً. موديلات OpenAI مثل `gpt-4o` تدعمها بكفاءة بشرط تضمين كلمة JSON في التعليمات.
+        """)
+        
+    saved_url = CFG.get('AI_PROVIDER_URL', '')
+    url_presets = ["https://openrouter.ai/api/v1", "https://api.openai.com/v1", "https://api.x.ai/v1", "https://generativelanguage.googleapis.com/v1beta/openai/", ""]
+    if saved_url not in url_presets: url_presets.insert(0, saved_url)
+    url_options = list(dict.fromkeys(url_presets)) + ["مخصص (كتابة يدوية)..."]
+    
+    sel_url = st.selectbox("رابط مزود الخدمة (Base URL)", url_options, index=url_options.index(saved_url) if saved_url in url_options else 0, help="اختر رابط الخدمة أو اكتبه يدوياً باختيار 'مخصص'")
+    ai_url = st.text_input("أدخل الرابط المخصص:", value=saved_url) if sel_url == "مخصص (كتابة يدوية)..." else sel_url
+
+    saved_model = CFG.get('AI_MODEL_NAME', 'gpt-4o')
+    model_presets = ["gpt-4o", "gpt-4o-mini", "openai/gpt-4o-mini", "google/gemini-2.5-flash", "gemini-2.5-flash", "anthropic/claude-3-5-sonnet", "grok-beta"]
+    if saved_model not in model_presets: model_presets.insert(0, saved_model)
+    model_options = list(dict.fromkeys(model_presets)) + ["مخصص (كتابة يدوية)..."]
+    
+    sel_model = st.selectbox("اسم الموديل (Model Name)", model_options, index=model_options.index(saved_model) if saved_model in model_options else 0, help="تأكد من توافق اسم الموديل مع مزود الخدمة (مثال: OpenAI يستخدم gpt-4o)")
+    ai_model = st.text_input("أدخل اسم الموديل المخصص:", value=saved_model) if sel_model == "مخصص (كتابة يدوية)..." else sel_model
+
+    ai_key = st.text_input("مفتاح الربط (API Key)", value=CFG.get('AI_API_KEY', ''), type="password", help="انسخ المفتاح وتأكد من عدم وجود مسافات فارغة قبله أو بعده")
+
+    if st.button("💾 حفظ وفحص إعدادات الخادم المركزي", key="save_and_test_ai", use_container_width=True, type="primary"):
+        update_system_config({
+            'AI_PROVIDER_URL': ai_url, 'AI_MODEL_NAME': ai_model, 'AI_API_KEY': ai_key
+        })
+        st.success("تم حفظ إعدادات الذكاء الاصطناعي بنجاح!")
+        
+        if not ai_key.strip():
+            st.warning("الرجاء إدخال مفتاح الربط في الحقل أعلاه قبل إجراء الفحص.")
+        else:
+            try:
+                with st.spinner("جاري فحص الاتصال بالخادم..."):
+                    test_client = OpenAI(api_key=ai_key.strip(), base_url=ai_url.strip() if ai_url.strip() else None)
+                    resp = test_client.chat.completions.create(model=ai_model, messages=[{"role": "user", "content": "Hello"}], max_tokens=15)
+                    if resp.choices[0].message.content: st.success("تم الاتصال بالخادم المركزي بنجاح!")
+            except Exception as e: 
+                err_msg = str(e).lower()
+                if "429" in err_msg or "quota" in err_msg or "rate limit" in err_msg or "insufficient" in err_msg:
+                    st.error("❌ انتهت عدد التوكينز يرجى التجديد")
+                elif "404" in err_msg or "not found" in err_msg or "connection" in err_msg or "resolve" in err_msg or "model" in err_msg:
+                    st.error("❌ ال url base , model غير صحيحين")
+                elif "401" in err_msg or "auth" in err_msg or "key" in err_msg:
+                    st.error("❌ مفتاح الربط (API Key) غير صحيح أو منتهي.")
+                else:
+                    st.error(f"❌ فشل الاتصال بالخادم. تفاصيل الخطأ: {e}")
+        time.sleep(1.5)
+        st.rerun()
+
+    st.markdown("<br><hr style='border-color:rgba(255,255,255,0.05)'><br>", unsafe_allow_html=True)
+
+    st.markdown(f"<div class='g-card-title'>{get_icon('fusion', 22)} تكوين قاعدة البيانات (Odoo)</div>", unsafe_allow_html=True)
+    o_url = st.text_input("رابط الخادم (URL)", value=CFG.get('ODOO_URL', ''))
+    o_db = st.text_input("قاعدة البيانات (DB)", value=CFG.get('ODOO_DB', ''))
+    o_usr = st.text_input("المستخدم (User)", value=CFG.get('ODOO_USER', ''))
+    o_pwd = st.text_input("كلمة المرور (Password)", value=CFG.get('ODOO_PASS', ''), type="password")
+    
+    if st.button("💾 حفظ وفحص إعدادات Odoo وإعادة بناء النواة", key="save_and_test_odoo", use_container_width=True, type="primary"):
+        try:
+            current_cfg = get_workspace_doc().get().to_dict() or {}
+            if 'ALL_CHATS' in current_cfg: del current_cfg['ALL_CHATS']
+            if 'AUDIT_LOG' in current_cfg: del current_cfg['AUDIT_LOG']
+            current_cfg.update({
+                'ODOO_URL': o_url, 'ODOO_DB': o_db, 'ODOO_USER': o_usr
+            })
+            
+            if o_pwd and not is_encrypted(o_pwd):
+                current_cfg['ODOO_PASS'] = encrypt_password(o_pwd) if HAS_CRYPTO else o_pwd
+            elif o_pwd:
+                current_cfg['ODOO_PASS'] = o_pwd
+                
+            get_workspace_doc().set(current_cfg, merge=True)
+            st.session_state.app_config = load_config() 
+            fetch_master_data.clear()
+            st.session_state.data_loaded = False
+            st.success("تم الحفظ بنجاح على قاعدة البيانات السحابية!")
+            
+            try:
+                with st.spinner("جاري فحص الاتصال بـ Odoo..."):
+                    cm = xmlrpc.client.ServerProxy(f'{o_url}/xmlrpc/2/common')
+                    uid = cm.authenticate(o_db, o_usr, o_pwd, {})
+                    if uid: st.success("الاتصال بقاعدة البيانات ناجح وموثق!")
+                    else: st.error("المصادقة مرفوضة. تأكد من البيانات.")
+            except Exception as test_e: 
+                st.error(f"خطأ في الاتصال بـ Odoo: {test_e}")
+
+            time.sleep(1.5)
+            st.rerun()
+        except Exception as e:
+            st.error(f"حدث خطأ أثناء الحفظ على الخادم السحابي: {e}")
+            
+    st.markdown("<div style='text-align: center; color: var(--c-dim); font-size: 0.9rem; margin-top: 50px; font-weight: bold;'>Powered by محمد الحلواني</div>", unsafe_allow_html=True)
+
+
+# ============================================================
+# [MODULE 8: APP ROUTER] 
+# ============================================================
+def inject_pwa_manifest():
+    pwa_html = """
+    <script>
+        // 1. تثبيت التطبيق (PWA)
+        if (!document.querySelector('link[rel="manifest"]')) {
+            const manifest = {
+                "name": "Mudir OS",
+                "short_name": "Mudir",
+                "start_url": window.location.pathname,
+                "display": "standalone",
+                "background_color": "#04040a",
+                "theme_color": "#00f2ff",
+                "icons": [
+                    {"src": "https://cdn-icons-png.flaticon.com/512/9128/9128965.png", "sizes": "512x512", "type": "image/png"}
+                ]
+            };
+            const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+            const link = document.createElement('link');
+            link.rel = 'manifest';
+            link.href = URL.createObjectURL(blob);
+            document.head.appendChild(link);
+        }
+
+        // 2. نظام التذكر الصلب (LocalStorage Auto-Login)
+        const currentSearch = window.location.search;
+        if (currentSearch.includes('logout=true')) {
+            localStorage.removeItem('mudir_auth_url'); // مسح الذاكرة عند الخروج
+        } else if (currentSearch.includes('workspace=')) {
+            localStorage.setItem('mudir_auth_url', currentSearch); // تحديث وحفظ الرابط السري
+        } else if (currentSearch === '' || currentSearch === '?') {
+            const savedAuth = localStorage.getItem('mudir_auth_url');
+            if (savedAuth) {
+                window.location.replace(window.location.pathname + savedAuth); // الدخول التلقائي
+            }
+        }
+    </script>
+    """
+    import streamlit.components.v1 as components
+    components.html(pwa_html, height=0, width=0)
+
+inject_pwa_manifest()
+
+view = st.session_state.get('view', 'login')
+curr_user = st.session_state.get('current_user')
+
+if view == "workspace_login": 
+    render_workspace_login()
+elif view == "super_admin": 
+    render_super_admin()
+elif not curr_user or view == "login": 
+    render_login()
+else:
+    if view == "dashboard": render_dashboard()
+    elif view == "departments": render_departments()
+    elif view == "forecast": render_forecast()
+    elif view == "ai": render_ai()
+    elif view == "fusion": render_fusion()
+    elif view == "territories": render_territories()
+    elif view == "settings": render_settings()
+    else: render_dashboard()
