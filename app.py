@@ -2220,7 +2220,7 @@ def render_territories():
     city_details = city_details.rename(columns={'عدد_العملاء': 'عدد العملاء', 'إجمالي_الفواتير': 'إجمالي الفواتير (ج.م)'})
     city_details = city_details.sort_values('إجمالي الفواتير (ج.م)', ascending=False)
     
-    if st.button(f"📥 تحليل وتصدير التقرير الجغرافي (Word / PDF)", use_container_width=True):
+    if st.button(f"📥 تحليل وتصدير التقرير الجغرافي (Word / PDF)", use_container_width=True, key="export_geo_btn"):
         export_data = {"المدن والتمركز الجغرافي": city_details}
         show_detailed_report("التحليل الجغرافي للاستحواذ", {"df": export_data})
         
@@ -2243,25 +2243,6 @@ def render_territories():
                                             .format({'إجمالي الفواتير (ج.م)': "{:,.0f} ج.م", 'عدد العملاء': "{:,.0f}"})
                                             
     st.dataframe(styled_city_details, use_container_width=True, hide_index=True)
-
-    
-    if st.button(f"📥 تحليل وتصدير التقرير الجغرافي (Word / PDF)", use_container_width=True):
-        export_data = {"المدن والتمركز الجغرافي": city_details}
-        show_detailed_report("التحليل الجغرافي للاستحواذ", {"df": export_data})
-        
-    st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin-bottom: 20px;'>", unsafe_allow_html=True)
-    
-    st.markdown(f"<div class='g-card-title'>{get_icon('globe', 22)} الخريطة الحرارية للاستحواذ المالي بالمدن</div>", unsafe_allow_html=True)
-    if not city_df.empty:
-        fig = px.treemap(city_df, path=[px.Constant("إجمالي الإيرادات"), 'المدينة'], values='total_invoiced',
-                         color='total_invoiced', color_continuous_scale=['#1f2c34', '#7000ff', '#00f2ff'],
-                         template='plotly_dark')
-        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', margin=dict(t=20, b=0, l=0, r=0), hoverlabel=dict(font_family="Cairo", font_size=14))
-        fig.update_traces(textinfo="label+value+percent parent", hovertemplate='<b>%{label}</b><br>القيمة: %{value:,.0f} ج.م<extra></extra>')
-        st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown(f"<br><div class='g-card-title'>{get_icon('table', 22)} تفاصيل التمركز الجغرافي وقوة المدن</div>", unsafe_allow_html=True)
-    st.dataframe(style_dataframe(city_details), use_container_width=True, hide_index=True)
 
 
 # =========================================================================
@@ -2434,6 +2415,56 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 overwrite_chat_for_user(curr_user, st.session_state.all_chats[curr_user])
                 st.rerun(scope="fragment")
 
+def build_ai_context(curr_user, CFG, df_s, df_p):
+    """
+    دالة هيكلية لبناء السياق المعرفي بشكل قابل للتوسعة (Modular Context Builder).
+    تجمع البيانات وتنسقها كمكونات منفصلة (Components) بدلاً من نص واحد صلب.
+    """
+    t_sales_appr = df_s[df_s['state'].isin(['sale','done'])]['amount_total'].sum() if df_s is not None and not df_s.empty and 'state' in df_s.columns else 0
+    t_sales_draft = df_s[df_s['state'].isin(['draft','sent'])]['amount_total'].sum() if df_s is not None and not df_s.empty and 'state' in df_s.columns else 0
+    p_len = len(df_p) if df_p is not None else 0
+    
+    my_quotes = "لا يوجد مسودات تخصك حالياً."
+    if df_s is not None and not df_s.empty and 'state' in df_s.columns and 'user_id' in df_s.columns:
+        emp_short = curr_user.split(" - ")[0]
+        mask = df_s['user_id'].astype(str).str.contains(emp_short, na=False, case=False)
+        my_drafts = df_s[(df_s['state'].isin(['draft', 'sent'])) & mask].head(3)
+        if not my_drafts.empty:
+            my_quotes = " | ".join([f"عرض ({row.get('name', 'N/A')}) للعميل ({clean_odoo_m2o(row.get('partner_id', ''))}) بقيمة {row.get('amount_total', 0)} ج" for _, row in my_drafts.iterrows()])
+
+    emp_memo = get_employee_memory(curr_user)
+
+    global_tasks = CFG.get('GLOBAL_TASKS', {})
+    emp_short = curr_user.split(" - ")[0]
+    open_tasks = []
+    for t in list(global_tasks.values())[-30:]:
+        if t.get('status') == 'open':
+            if t['emp'] == emp_short or curr_user == "المدير العام":
+                open_tasks.append(f"مهمة لـ {t['emp']}: {t['task']}")
+            else:
+                open_tasks.append(f"مهمة لـ {t['emp']} (محجوزة)")
+    open_tasks_str = "\n".join(open_tasks) if open_tasks else "لا يوجد مهام مفتوحة حالياً."
+
+    base_prompt = CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT)
+    curr_emp_data = next((e for e in CFG.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == curr_user), None)
+    job_desc = curr_emp_data.get('job_desc', 'لا يوجد وصف.') if curr_emp_data else 'أنت تتحدث مع المدير العام.'
+    
+    context_parts = [
+        "=== حقائق Odoo (أرقام سريعة) ===",
+        f"إجمالي المبيعات المعتمدة بالشركة: {t_sales_appr:,.0f} ج | المسودات العامة: {t_sales_draft:,.0f} ج | إجمالي العملاء: {p_len}",
+        "",
+        f"=== بيانات الموظف اللي بيكلمك ({curr_user.split(' - ')[0]}) ===",
+        f"وصف وظيفته: {job_desc}",
+        f"عروض الأسعار المفتوحة الخاصة به حالياً: {my_quotes}",
+        f"ذاكرتك الشخصية عن الموظف ده (لا تنساها): {emp_memo if emp_memo else 'لا توجد ملاحظات سابقة.'}",
+        "",
+        "=== خريطة المهام المفتوحة في الشركة (لا تكرر إسنادها) ===",
+        open_tasks_str
+    ]
+    
+    live_context = "\n".join(context_parts)
+    return base_prompt + "\n\n" + live_context
+
 def render_ai():
     
     CFG = st.session_state.app_config
@@ -2511,56 +2542,7 @@ def render_ai():
     # -------------------------------------------------------------
     # بناء السياق المعرفي المضغوط (Odoo Context Compression)
     # -------------------------------------------------------------
-    df_s = df_s_master
-    df_p = df_p_master
-
-    t_sales_appr = df_s[df_s['state'].isin(['sale','done'])]['amount_total'].sum() if df_s is not None and not df_s.empty and 'state' in df_s.columns else 0
-    t_sales_draft = df_s[df_s['state'].isin(['draft','sent'])]['amount_total'].sum() if df_s is not None and not df_s.empty and 'state' in df_s.columns else 0
-    p_len = len(df_p) if df_p is not None else 0
-    
-    # فلترة العروض المفتوحة التي تخص الموظف الحالي فقط لتوفير التوكنز
-    my_quotes = "لا يوجد مسودات تخصك حالياً."
-    if df_s is not None and not df_s.empty and 'state' in df_s.columns and 'user_id' in df_s.columns:
-        emp_short = curr_user.split(" - ")[0]
-        # البحث عن اسم الموظف داخل خانة المبيعات
-        mask = df_s['user_id'].astype(str).str.contains(emp_short, na=False, case=False)
-        my_drafts = df_s[(df_s['state'].isin(['draft', 'sent'])) & mask].head(3)
-        if not my_drafts.empty:
-            my_quotes = " | ".join([f"عرض ({row.get('name', 'N/A')}) للعميل ({clean_odoo_m2o(row.get('partner_id', ''))}) بقيمة {row.get('amount_total', 0)} ج" for _, row in my_drafts.iterrows()])
-
-    # جلب الذاكرة المركزية الخاصة بالموظف
-    emp_memo = get_employee_memory(curr_user)
-
-    # جلب جميع المهام المفتوحة لبقية الشركة (حتى لا يتم التكرار) وتوفير التوكنز
-    global_tasks = CFG.get('GLOBAL_TASKS', {})
-    emp_short = curr_user.split(" - ")[0]
-    open_tasks = []
-    for t in list(global_tasks.values())[-30:]:
-        if t.get('status') == 'open':
-            if t['emp'] == emp_short or curr_user == "المدير العام":
-                open_tasks.append(f"مهمة لـ {t['emp']}: {t['task']}")
-            else:
-                open_tasks.append(f"مهمة لـ {t['emp']} (محجوزة)")
-    open_tasks_str = "\n".join(open_tasks) if open_tasks else "لا يوجد مهام مفتوحة حالياً."
-
-    base_prompt = CFG.get('AI_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT)
-    curr_emp_data = next((e for e in CFG.get('EMPLOYEES', []) if f"{e['name']} - {e['role']}" == curr_user), None)
-    job_desc = curr_emp_data.get('job_desc', 'لا يوجد وصف.') if curr_emp_data else 'أنت تتحدث مع المدير العام.'
-    
-    live_context = f"""
-=== حقائق Odoo (أرقام سريعة) ===
-إجمالي المبيعات المعتمدة بالشركة: {t_sales_appr:,.0f} ج | المسودات العامة: {t_sales_draft:,.0f} ج | إجمالي العملاء: {p_len}
-
-=== بيانات الموظف اللي بيكلمك ({curr_user.split(' - ')[0]}) ===
-وصف وظيفته: {job_desc}
-عروض الأسعار المفتوحة الخاصة به حالياً: {my_quotes}
-ذاكرتك الشخصية عن الموظف ده (لا تنساها): {emp_memo if emp_memo else 'لا توجد ملاحظات سابقة.'}
-
-=== خريطة المهام المفتوحة في الشركة (لا تكرر إسنادها) ===
-{open_tasks_str}
-"""
-
-    sys_prompt_context = base_prompt + "\n" + live_context
+    sys_prompt_context = build_ai_context(curr_user, CFG, df_s_master, df_p_master)
 
     if "المدير العام" in curr_user:
         gm_tabs = st.tabs(["مراقبة وتقييم الموظفين (سري)", "مكتبي الخاص (توجيهات الإدارة)"])
