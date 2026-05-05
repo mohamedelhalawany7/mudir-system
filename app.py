@@ -255,7 +255,7 @@ def append_employee_memory(curr_user, new_memo):
 
 def save_chat_for_user(user_key):
     if 'workspace_id' in st.session_state:
-        chats = st.session_state.all_chats.get(user_key, [])[-30:] # السماح بتخزين عدد أكبر ليتسع لآلية التلخيص
+        chats = st.session_state.all_chats.get(user_key, [])[-35:] # السماح بتخزين عدد أكبر ليتسع لآلية التلخيص
         try:
             if FIREBASE_CONNECTED and db:
                 get_workspace_doc().collection('Chats').document(user_key).set({'messages': chats}, merge=True)
@@ -2284,7 +2284,6 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
             
         user_msg = {"role": "user", "content": user_input}
         st.session_state.all_chats[curr_user].append(user_msg)
-        # تم إلغاء القطع العشوائي وسيتم تطبيق التلخيص الذكي
         st.session_state.all_chats = st.session_state.all_chats # تحديث إجباري للحالة
         
         user_msg_log = user_msg.copy()
@@ -2301,7 +2300,6 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 auto_reply = "عذراً نحن خارج أوقات العمل، أراك غداً"
                 ai_final_msg = {"role": "assistant", "content": auto_reply}
                 st.session_state.all_chats[curr_user].append(ai_final_msg)
-                # تم إلغاء القطع الصارم هنا أيضاً
                 st.session_state.all_chats = st.session_state.all_chats # تحديث إجباري للحالة
                 log_message(curr_user, ai_final_msg)
                 overwrite_chat_for_user(curr_user, st.session_state.all_chats[curr_user])
@@ -2309,10 +2307,11 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
 
             with st.spinner("يكتب الآن..."):
                 # --- نظام التلخيص الذكي التراكمي للرسائل القديمة ---
-                if len(st.session_state.all_chats[curr_user]) > 25:
+                # نرفع الحد لـ 30 عشان التلخيص يحصل كل فترة طويلة مش بشكل متكرر وتوفير للـ API
+                if len(st.session_state.all_chats[curr_user]) >= 30:
                     try:
-                        old_msgs = st.session_state.all_chats[curr_user][:10]
-                        recent_msgs = st.session_state.all_chats[curr_user][10:]
+                        old_msgs = st.session_state.all_chats[curr_user][:15]
+                        recent_msgs = st.session_state.all_chats[curr_user][15:]
                         chat_text = "\n".join([f"{'الموظف' if m['role']=='user' else 'المدير'}: {m['content']}" for m in old_msgs])
                         sum_prompt = f"قم بتلخيص المحادثات القديمة التالية في نقاط رئيسية قصيرة ومكثفة لتبقى كمرجع سياقي في الذاكرة:\n{chat_text}"
                         summary_res = call_universal_ai([{"role": "user", "content": sum_prompt}], json_mode=False)
@@ -2323,7 +2322,13 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                         st.session_state.all_chats[curr_user] = st.session_state.all_chats[curr_user][-20:] # إجراء احتياطي
                 # ---------------------------------------------------
 
-                recent_history = st.session_state.all_chats[curr_user][-6:]
+                # إرسال آخر 10 رسائل لضمان سياق أغنى مع الحفاظ الدائم على رسالة التلخيص
+                chat_length = len(st.session_state.all_chats[curr_user])
+                if chat_length > 10 and "ملخص تراكمي" in str(st.session_state.all_chats[curr_user][0].get('content', '')):
+                    recent_history = [st.session_state.all_chats[curr_user][0]] + st.session_state.all_chats[curr_user][-9:]
+                else:
+                    recent_history = st.session_state.all_chats[curr_user][-10:]
+
                 api_messages = [{"role": "system", "content": sys_prompt_context}]
                 
                 fs_updates = {} 
@@ -2578,11 +2583,6 @@ def render_ai():
     # بناء السياق المعرفي المضغوط (Odoo Context Compression)
     # -------------------------------------------------------------
     sys_prompt_context = build_ai_context(curr_user, CFG, df_s_master, df_p_master)
-    
-    # تحديث الـ System Prompt في الـ Session State إذا تم تغييره هنا
-    if CFG.get('AI_SYSTEM_PROMPT') != DEFAULT_SYSTEM_PROMPT:
-        CFG['AI_SYSTEM_PROMPT'] = DEFAULT_SYSTEM_PROMPT
-        save_config(CFG)
 
     if "المدير العام" in curr_user:
         gm_tabs = st.tabs(["مراقبة وتقييم الموظفين (سري)", "مكتبي الخاص (توجيهات الإدارة)"])
