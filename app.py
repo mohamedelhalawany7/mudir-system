@@ -2214,7 +2214,36 @@ def render_territories():
     city_details = df_s_appr.groupby('المدينة').agg(
         عدد_العملاء=('اسم العميل', 'nunique'),
         إجمالي_الفواتير=('amount_total', 'sum')
-    ).reset_index().sort_values('إجمالي_الفواتير', ascending=False)
+    ).reset_index()
+    
+    # إعادة تسمية الأعمدة وترتيبها من الأعلى للأقل
+    city_details = city_details.rename(columns={'عدد_العملاء': 'عدد العملاء', 'إجمالي_الفواتير': 'إجمالي الفواتير (ج.م)'})
+    city_details = city_details.sort_values('إجمالي الفواتير (ج.م)', ascending=False)
+    
+    if st.button(f"📥 تحليل وتصدير التقرير الجغرافي (Word / PDF)", use_container_width=True):
+        export_data = {"المدن والتمركز الجغرافي": city_details}
+        show_detailed_report("التحليل الجغرافي للاستحواذ", {"df": export_data})
+        
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin-bottom: 20px;'>", unsafe_allow_html=True)
+    
+    st.markdown(f"<div class='g-card-title'>{get_icon('globe', 22)} الخريطة الحرارية للاستحواذ المالي بالمدن</div>", unsafe_allow_html=True)
+    if not city_df.empty:
+        fig = px.treemap(city_df, path=[px.Constant("إجمالي الإيرادات"), 'المدينة'], values='total_invoiced',
+                         color='total_invoiced', color_continuous_scale=['#1f2c34', '#7000ff', '#00f2ff'],
+                         template='plotly_dark')
+        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', margin=dict(t=20, b=0, l=0, r=0), hoverlabel=dict(font_family="Cairo", font_size=14))
+        fig.update_traces(textinfo="label+value+percent parent", hovertemplate='<b>%{label}</b><br>القيمة: %{value:,.0f} ج.م<extra></extra>')
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown(f"<br><div class='g-card-title'>{get_icon('table', 22)} تفاصيل التمركز الجغرافي وقوة المدن</div>", unsafe_allow_html=True)
+    
+    # تطبيق الخريطة الحرارية (Heatmap) على عدد العملاء وإجمالي الفواتير
+    styled_city_details = city_details.style.background_gradient(subset=['عدد العملاء'], cmap='Purples') \
+                                            .background_gradient(subset=['إجمالي الفواتير (ج.م)'], cmap='RdYlGn') \
+                                            .format({'إجمالي الفواتير (ج.م)': "{:,.0f} ج.م", 'عدد العملاء': "{:,.0f}"})
+                                            
+    st.dataframe(styled_city_details, use_container_width=True, hide_index=True)
+
     
     if st.button(f"📥 تحليل وتصدير التقرير الجغرافي (Word / PDF)", use_container_width=True):
         export_data = {"المدن والتمركز الجغرافي": city_details}
