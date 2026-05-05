@@ -276,16 +276,16 @@ def append_chat_message(user_key, message):
                 st.session_state.offline_db['Chats'][user_key]['messages'].append(message)
         except Exception: pass
 
-def overwrite_chat_for_user(user_key, chats):
-    """تستخدم لمسح الشات أو الاستعادة الكاملة (كتابة ثقيلة)"""
+def save_chat_for_user(user_key):
     if 'workspace_id' in st.session_state:
+        chats = st.session_state.all_chats.get(user_key, [])[-20:]
         try:
             if FIREBASE_CONNECTED and db:
                 get_workspace_doc().collection('Chats').document(user_key).set({'messages': chats}, merge=True)
             else:
                 if 'Chats' not in st.session_state.offline_db: st.session_state.offline_db['Chats'] = {}
                 st.session_state.offline_db['Chats'][user_key] = {'messages': chats}
-        except Exception: pass
+        except Exception as e: pass
 
 def log_message(user, msg_dict):
     if 'workspace_id' in st.session_state:
@@ -2278,12 +2278,13 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
             
         user_msg = {"role": "user", "content": user_input}
         st.session_state.all_chats[curr_user].append(user_msg)
+        st.session_state.all_chats[curr_user] = st.session_state.all_chats[curr_user][-20:] # إضافة الحد الأقصى 20 رسالة
         st.session_state.all_chats = st.session_state.all_chats # تحديث إجباري للحالة
         
         user_msg_log = user_msg.copy()
         user_msg_log['user'] = curr_user
         log_message(curr_user, user_msg_log)
-        append_chat_message(curr_user, user_msg)
+        overwrite_chat_for_user(curr_user, st.session_state.all_chats[curr_user]) # استخدام الكتابة الفوقية بدل الإضافة المطلقة
         
         with chat_area:
             with st.chat_message("user"):
@@ -2294,9 +2295,10 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 auto_reply = "عذراً نحن خارج أوقات العمل، أراك غداً"
                 ai_final_msg = {"role": "assistant", "content": auto_reply}
                 st.session_state.all_chats[curr_user].append(ai_final_msg)
+                st.session_state.all_chats[curr_user] = st.session_state.all_chats[curr_user][-20:] # تطبيق الحد
                 st.session_state.all_chats = st.session_state.all_chats # تحديث إجباري للحالة
                 log_message(curr_user, ai_final_msg)
-                append_chat_message(curr_user, ai_final_msg)
+                overwrite_chat_for_user(curr_user, st.session_state.all_chats[curr_user])
                 st.rerun(scope="fragment")
 
             with st.spinner("يكتب الآن..."):
@@ -2395,6 +2397,7 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
 
                 ai_final_msg = {"role": "assistant", "content": clean_response}
                 st.session_state.all_chats[curr_user].append(ai_final_msg)
+                st.session_state.all_chats[curr_user] = st.session_state.all_chats[curr_user][-20:] # تطبيق الحد
                 st.session_state.all_chats = st.session_state.all_chats # تحديث إجباري للحالة
                 st.session_state.app_config = st.session_state.app_config # تحديث إجباري للحالة
                 
@@ -2402,7 +2405,7 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 ai_final_msg_log['user'] = curr_user
                 log_message(curr_user, ai_final_msg_log)
                 
-                append_chat_message(curr_user, ai_final_msg)
+                overwrite_chat_for_user(curr_user, st.session_state.all_chats[curr_user])
                 st.rerun(scope="fragment")
 
 def render_ai():
