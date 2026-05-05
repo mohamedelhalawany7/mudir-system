@@ -701,7 +701,7 @@ def render_workspace_login():
     st.markdown("<h2 style='color:#fff; margin-top:0;'>بوابة الدخول المؤسسية (Mudir OS)</h2>", unsafe_allow_html=True)
     st.markdown("<p style='color:var(--c-dim); margin-bottom: 30px;'>أدخل كود الشركة المرخص لفتح مساحة العمل الخاصة بك</p>", unsafe_allow_html=True)
     
-    ws_key = st.text_input("كود الشركة (License Key):", type="password", placeholder="أدخل الكود هنا...", autocomplete="new-password")
+    ws_key = st.text_input("كود الشركة (License Key):", type="password", placeholder="أدخل الكود هنا...")
     remember_ws = st.checkbox("تذكر مساحة العمل على هذا الجهاز", value=True)
     
     if st.button("تأكيد ودخول", type="primary", use_container_width=True):
@@ -752,7 +752,7 @@ def render_login():
     user_options = ["المدير العام (صلاحيات كاملة)"] + [f"{emp['name']} - {emp['role']}" for emp in employees]
     selected_user = st.selectbox("من أنت؟", user_options, label_visibility="collapsed")
     
-    pin = st.text_input("رمز الدخول السري (PIN)", type="password", placeholder="أدخل الرقم السري الخاص بك", autocomplete="new-password")
+    pin = st.text_input("رمز الدخول السري (PIN)", type="password", placeholder="أدخل الرقم السري الخاص بك")
     remember_me = st.checkbox("تذكرني وثبّت التطبيق على هذا الجهاز", value=True, help="سيقوم النظام بحفظ بياناتك، وعند إضافة الرابط كأيقونة على هاتفك سيدخل تلقائياً.")
         
     if st.button("دخول للنظام", type="primary", use_container_width=True):
@@ -797,28 +797,13 @@ def render_login():
                 
         if auth_success:
             st.query_params["workspace"] = st.session_state.get('workspace_key', '')
-            st.query_params["view"] = target_view
             if remember_me:
-                enc_token = encrypt_password(pin) if HAS_CRYPTO else pin
                 st.query_params["user"] = selected_user
-                st.query_params["auth_token"] = enc_token
-                
-                st.components.v1.html(f"""<script>
-                    try {{
-                        window.parent.localStorage.setItem('mudir_auth_url', '?workspace={st.session_state.get('workspace_key', '')}&user={selected_user}&auth_token={enc_token}&view={target_view}');
-                    }} catch(e) {{}}
-                </script>""", height=0)
-            else:
-                st.components.v1.html("""<script>
-                    try {{ window.parent.localStorage.removeItem('mudir_auth_url'); }} catch(e) {{}}
-                </script>""", height=0)
-                
-            time.sleep(0.5)
+                st.query_params["auth_token"] = encrypt_password(pin) if HAS_CRYPTO else pin
+            st.query_params["view"] = target_view
             st.rerun()
             
     if st.button("تغيير مساحة العمل", use_container_width=True):
-        st.components.v1.html("""<script>try{window.parent.localStorage.removeItem('mudir_auth_url');}catch(e){}</script>""", height=0)
-        time.sleep(0.3)
         del st.session_state['workspace_key']
         del st.session_state['workspace_id']
         st.session_state.view = 'workspace_login'
@@ -1144,8 +1129,6 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
         st.markdown("---")
         
         if st.button("🔴 تسجيل الخروج", use_container_width=True):
-            st.components.v1.html("""<script>try{window.parent.localStorage.removeItem('mudir_auth_url');}catch(e){}</script>""", height=0)
-            time.sleep(0.5)
             st.query_params.clear()
             st.query_params["logout"] = "true"
             st.session_state.clear()
@@ -2788,7 +2771,7 @@ def edit_workspace_devices_dialog(ws_id, licenses):
 @st.dialog("حذف مساحة العمل")
 def delete_workspace_dialog(ws_id, licenses):
     st.warning(f"هل أنت متأكد من حذف المساحة `{ws_id}` بشكل نهائي؟ هذا الإجراء لا يمكن التراجع عنه.")
-    pin_confirm = st.text_input("اكتب رمز الـ Super Admin للتأكيد:", type="password", autocomplete="new-password")
+    pin_confirm = st.text_input("اكتب رمز الـ Super Admin للتأكيد:", type="password")
     
     if st.button("🚨 تأكيد الحذف النهائي", type="primary", use_container_width=True):
         if pin_confirm == MASTER_ADMIN_CODE:
@@ -2807,8 +2790,6 @@ def render_super_admin():
         st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v52.1</div></div>""", unsafe_allow_html=True)
         st.markdown("---")
         if st.button("🔴 تسجيل الخروج وإغلاق", use_container_width=True, type="primary"):
-            st.components.v1.html("""<script>try { window.parent.localStorage.removeItem('mudir_auth_url'); } catch(e) {}</script>""", height=0)
-            time.sleep(0.5)
             st.query_params.clear()
             st.query_params["logout"] = "true"
             st.session_state.clear()
@@ -2878,312 +2859,4 @@ def render_super_admin():
     st.markdown("<div style='background:rgba(255,255,255,0.02); padding:20px; border-radius:12px; border:1px solid rgba(255,255,255,0.05); margin-bottom:20px;'>", unsafe_allow_html=True)
     with st.form("new_license_form", clear_on_submit=True, border=False):
         c1, c2, c3, c4, c5 = st.columns([2.5, 2, 2, 2, 2])
-        with c1: new_ws_id = st.text_input("كود الشركة (بالإنجليزية):", placeholder="مثال: Ghareeb")
-        with c2: new_ws_name = st.text_input("اسم الشركة:", placeholder="مثال: شركة غريب")
-        with c3: new_ws_expiry = st.date_input("تاريخ الانتهاء:", value=get_local_now().date() + timedelta(days=365))
-        with c4: new_ws_devices = st.number_input("أقصى عدد للمستخدمين:", min_value=1, value=10)
-        with c5:
-            st.markdown("<br>", unsafe_allow_html=True)
-            submit_new_ws = st.form_submit_button("إصدار الترخيص", use_container_width=True)
-
-        if submit_new_ws:
-            if new_ws_id.strip() and new_ws_name.strip() and new_ws_id.strip() != "SUPER_ADMIN":
-                clean_id = new_ws_id.strip()
-                if clean_id in licenses['workspaces']:
-                    st.error("كود الشركة موجود مسبقاً!")
-                else:
-                    licenses['workspaces'][clean_id] = {
-                        'name': new_ws_name.strip(),
-                        'expiry_date': new_ws_expiry.strftime("%Y-%m-%d"),
-                        'max_devices': new_ws_devices,
-                        'status': 'active',
-                        'created_at': get_local_now().strftime("%Y-%m-%d %H:%M:%S")
-                    }
-                    save_licenses(licenses)
-                    st.success(f"تم إصدار الترخيص بنجاح لشركة: {new_ws_name}")
-                    time.sleep(1)
-                    st.rerun()
-            else:
-                st.error("برجاء إدخال بيانات صحيحة لكود واسم الشركة.")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown(f"<div class='g-card-title' style='margin-top: 30px;'>{get_icon('layers', 22)} الشركات المشتركة (Workspaces)</div>", unsafe_allow_html=True)
-    if not licenses['workspaces']:
-        st.info("لا توجد شركات مسجلة حالياً.")
-    else:
-        for ws_id, ws_info in licenses['workspaces'].items():
-            st.markdown("<div style='background:rgba(255,255,255,0.02); padding:15px; border-radius:12px; border:1px solid rgba(255,255,255,0.05); margin-bottom:15px;'>", unsafe_allow_html=True)
-            col1, col2, col3 = st.columns([2, 2, 3])
-            
-            status_badge = "<span style='color:#00ff82;'>نشط</span>" if ws_info.get('status') == 'active' else "<span style='color:#ff2d78;'>موقوف</span>"
-            with col1:
-                st.markdown(f"<strong style='font-size:1.1rem; color:var(--c-primary);'>{ws_info.get('name', 'بدون اسم')}</strong><br><span style='color:var(--c-dim); font-size:0.9rem;'>كود: {ws_id}</span>", unsafe_allow_html=True)
-            with col2:
-                st.markdown(f"<div style='font-size:0.9rem;'>تاريخ الانتهاء: <strong>{ws_info.get('expiry_date', '')}</strong><br>الحالة: {status_badge}<br>الحد الأقصى للمستخدمين: <strong>{ws_info.get('max_devices', 1)}</strong></div>", unsafe_allow_html=True)
-            with col3:
-                bc1, bc2, bc3, bc4 = st.columns(4)
-                with bc1:
-                    btn_label = "إيقاف 🛑" if ws_info.get('status') == 'active' else "تفعيل ✅"
-                    if st.button(btn_label, key=f"tgl_{ws_id}", use_container_width=True):
-                        new_status = 'suspended' if ws_info.get('status') == 'active' else 'active'
-                        licenses['workspaces'][ws_id]['status'] = new_status
-                        save_licenses(licenses)
-                        st.rerun()
-                with bc2:
-                    if st.button("العدد 👥", key=f"edit_dev_{ws_id}", use_container_width=True):
-                        edit_workspace_devices_dialog(ws_id, licenses)
-                with bc3:
-                    if st.button("الرقم 🔑", key=f"pin_{ws_id}", use_container_width=True):
-                        change_workspace_pin_dialog(ws_id)
-                with bc4:
-                    if st.button("حذف 🗑️", key=f"del_{ws_id}", use_container_width=True):
-                        delete_workspace_dialog(ws_id, licenses)
-            st.markdown("</div>", unsafe_allow_html=True)
-
-def render_settings():
-    CFG = st.session_state.app_config
-    
-    st.markdown(f"""
-    <div class="page-header" style="justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 24px;">
-            <div class="ph-icon-wrap">{get_icon("settings", 46, "#00f2ff")}</div>
-            <div>
-                <div class="ph-title">إعدادات النظام</div>
-                <div class="ph-sub">إدارة الموظفين والصلاحيات وربط الخوادم (المدير العام فقط)</div>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if st.session_state.current_user != "المدير العام":
-        st.error("ليس لديك صلاحية لدخول هذه الشاشة.")
-        return
-
-    st.markdown(f"<div class='g-card-title'>{get_icon('users', 22)} إدارة الموظفين والصلاحيات</div>", unsafe_allow_html=True)
-    
-    current_emps = CFG.get('EMPLOYEES', [])
-    view_options = {"لوحة القيادة": "dashboard", "أداء الأقسام": "departments", "التنبؤ المستقبلي": "forecast", "مكتب المدير": "ai", "مختبر البيانات": "fusion", "التحليل الجغرافي": "territories"}
-
-    if current_emps:
-        for idx, emp in enumerate(current_emps):
-            st.markdown(f"""
-            <div class="emp-card-neon">
-                <div class="emp-header">
-                    <div class="emp-avatar">{emp['name'][:1] if emp['name'] else '?'}</div>
-                    <div style="margin-right: 15px;">
-                        <div class="emp-name">{emp['name']}</div>
-                        <div class="emp-role">{emp['role']}</div>
-                    </div>
-                </div>
-                <div class="emp-info-grid">
-                    <div>
-                        <div class="emp-label">الرمز السري</div>
-                        <div class="emp-pin-box">{emp['pin']}</div>
-                    </div>
-                    <div>
-                        <div class="emp-label">الصلاحيات</div>
-                        <div class="emp-value">{" | ".join([list(view_options.keys())[list(view_options.values()).index(v)] for v in emp.get('views', []) if v in view_options.values()])}</div>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            c_edit1, c_edit2 = st.columns([1, 1])
-            with c_edit1:
-                if st.button(f"تعديل بيانات {emp['name']}", key=f"edit_emp_{idx}", use_container_width=True):
-                    edit_employee_dialog(idx, current_emps, view_options)
-            with c_edit2:
-                if st.button(f"حذف الموظف {emp['name']}", key=f"del_emp_{idx}", use_container_width=True):
-                    current_emps.pop(idx)
-                    update_system_config({'EMPLOYEES': current_emps})
-                    st.success("تم الحذف!")
-                    time.sleep(1)
-                    st.rerun()
-            st.markdown("<hr style='border-color:rgba(255,255,255,0.05); margin: 15px 0;'>", unsafe_allow_html=True)
-
-    with st.expander("➕ إضافة موظف جديد", expanded=False):
-        n_name = st.text_input("اسم الموظف:")
-        n_role = st.text_input("الوظيفة / القسم:")
-        n_pin = st.text_input("الرقم السري (PIN):", value=f"{random.randint(1000, 9999)}", autocomplete="new-password")
-        n_desc = st.text_area("الوصف الوظيفي (سيقرأه الذكاء الاصطناعي):")
-        n_views = st.multiselect("اختر شاشات الوصول:", list(view_options.keys()), default=["مكتب المدير"])
-        
-        if st.button("إضافة الموظف", type="primary"):
-            if n_name and n_role and n_pin and n_views:
-                new_emp = {
-                    'name': n_name,
-                    'role': n_role,
-                    'pin': n_pin,
-                    'job_desc': n_desc,
-                    'views': [view_options[k] for k in n_views]
-                }
-                current_emps.append(new_emp)
-                update_system_config({'EMPLOYEES': current_emps})
-                st.success("تم إضافة الموظف بنجاح!")
-                time.sleep(1)
-                st.rerun()
-            else:
-                st.warning("يرجى ملء جميع الحقول المطلوبة.")
-
-    st.markdown("<br><hr style='border-color:rgba(255,255,255,0.05)'><br>", unsafe_allow_html=True)
-
-    st.markdown(f"<div class='g-card-title'>{get_icon('command', 22)} إعدادات الذكاء الاصطناعي (الخادم المركزي)</div>", unsafe_allow_html=True)
-    ai_url = st.text_input("رابط الخادم (Base URL)", value=CFG.get('AI_PROVIDER_URL', 'https://api.openai.com/v1'))
-    ai_model = st.text_input("اسم النموذج (Model Name)", value=CFG.get('AI_MODEL_NAME', 'gpt-4o'))
-    ai_key = st.text_input("مفتاح الربط (API Key)", value=CFG.get('AI_API_KEY', ''), type="password", help="انسخ المفتاح وتأكد من عدم وجود مسافات فارغة قبله أو بعده", autocomplete="new-password")
-
-    if st.button("💾 حفظ وفحص إعدادات الخادم المركزي", key="save_and_test_ai", use_container_width=True, type="primary"):
-        update_system_config({
-            'AI_PROVIDER_URL': ai_url, 'AI_MODEL_NAME': ai_model, 'AI_API_KEY': ai_key
-        })
-        st.success("تم حفظ إعدادات الذكاء الاصطناعي بنجاح!")
-        
-        if not ai_key.strip():
-            st.warning("الرجاء إدخال مفتاح الربط في الحقل أعلاه قبل إجراء الفحص.")
-        else:
-            try:
-                with st.spinner("جاري فحص الاتصال بالخادم..."):
-                    test_client = OpenAI(api_key=ai_key.strip(), base_url=ai_url.strip() if ai_url.strip() else None)
-                    resp = test_client.chat.completions.create(model=ai_model, messages=[{"role": "user", "content": "Hello"}], max_tokens=15)
-                    if resp.choices[0].message.content: st.success("تم الاتصال بالخادم المركزي بنجاح!")
-            except Exception as e: 
-                err_msg = str(e).lower()
-                if "429" in err_msg or "quota" in err_msg or "rate limit" in err_msg or "insufficient" in err_msg:
-                    st.error("❌ انتهت عدد التوكينز يرجى التجديد")
-                elif "404" in err_msg or "not found" in err_msg or "connection" in err_msg or "resolve" in err_msg or "model" in err_msg:
-                    st.error("❌ ال url base , model غير صحيحين")
-                elif "401" in err_msg or "auth" in err_msg or "key" in err_msg:
-                    st.error("❌ مفتاح الربط (API Key) غير صحيح أو منتهي.")
-                else:
-                    st.error(f"❌ فشل الاتصال بالخادم. تفاصيل الخطأ: {e}")
-        time.sleep(1.5)
-        st.rerun()
-
-    st.markdown("<br><hr style='border-color:rgba(255,255,255,0.05)'><br>", unsafe_allow_html=True)
-
-    st.markdown(f"<div class='g-card-title'>{get_icon('fusion', 22)} تكوين قاعدة البيانات (Odoo)</div>", unsafe_allow_html=True)
-    o_url = st.text_input("رابط الخادم (URL)", value=CFG.get('ODOO_URL', ''))
-    o_db = st.text_input("قاعدة البيانات (DB)", value=CFG.get('ODOO_DB', ''))
-    o_usr = st.text_input("المستخدم (User)", value=CFG.get('ODOO_USER', ''))
-    o_pwd = st.text_input("كلمة المرور (Password)", value=CFG.get('ODOO_PASS', ''), type="password", autocomplete="new-password")
-    
-    if st.button("💾 حفظ وفحص إعدادات Odoo وإعادة بناء النواة", key="save_and_test_odoo", use_container_width=True, type="primary"):
-        try:
-            current_cfg = get_workspace_doc().get().to_dict() or {}
-            if 'ALL_CHATS' in current_cfg: del current_cfg['ALL_CHATS']
-            if 'AUDIT_LOG' in current_cfg: del current_cfg['AUDIT_LOG']
-            current_cfg.update({
-                'ODOO_URL': o_url, 'ODOO_DB': o_db, 'ODOO_USER': o_usr
-            })
-            
-            if o_pwd and not is_encrypted(o_pwd):
-                current_cfg['ODOO_PASS'] = encrypt_password(o_pwd) if HAS_CRYPTO else o_pwd
-            elif o_pwd:
-                current_cfg['ODOO_PASS'] = o_pwd
-                
-            get_workspace_doc().set(current_cfg, merge=True)
-            st.session_state.app_config = load_config() 
-            fetch_master_data.clear()
-            st.session_state.data_loaded = False
-            st.success("تم الحفظ بنجاح على قاعدة البيانات السحابية!")
-            
-            try:
-                with st.spinner("جاري فحص الاتصال بـ Odoo..."):
-                    cm = xmlrpc.client.ServerProxy(f'{o_url}/xmlrpc/2/common')
-                    uid = cm.authenticate(o_db, o_usr, o_pwd, {})
-                    if uid: st.success("الاتصال بقاعدة البيانات ناجح وموثق!")
-                    else: st.error("المصادقة مرفوضة. تأكد من البيانات.")
-            except Exception as test_e: 
-                st.error(f"خطأ في الاتصال بـ Odoo: {test_e}")
-
-            time.sleep(1.5)
-            st.rerun()
-        except Exception as e:
-            st.error(f"حدث خطأ أثناء الحفظ على الخادم السحابي: {e}")
-            
-    st.markdown("<div style='text-align: center; color: var(--c-dim); font-size: 0.9rem; margin-top: 50px; font-weight: bold;'>Powered by محمد الحلواني</div>", unsafe_allow_html=True)
-
-
-# ============================================================
-# [MODULE 8: APP ROUTER & INJECTIONS] 
-# ============================================================
-APP_NAME = "Mudir OS"
-APP_ICON_URL = "https://cdn-icons-png.flaticon.com/512/2103/2103468.png"  # أيقونة ذكية واحترافية للمدير والإدارة
-
-def inject_pwa_manifest():
-    pwa_html = f"""
-    <script>
-        // 1. حقن وتثبيت التطبيق PWA (عبر النافذة الأم لتخطي الـ Iframe)
-        if (window.top === window.self) {{
-            if (!document.querySelector('link[rel="manifest"]')) {{
-                const manifest = {{
-                    "name": "{APP_NAME}",
-                    "short_name": "Mudir",
-                    "start_url": window.location.pathname,
-                    "display": "standalone",
-                    "background_color": "#04040a",
-                    "theme_color": "#00f2ff",
-                    "icons": [
-                        {{"src": "{APP_ICON_URL}", "sizes": "512x512", "type": "image/png"}}
-                    ]
-                }};
-                const blob = new Blob([JSON.stringify(manifest)], {{type: 'application/json'}});
-                const link = document.createElement('link');
-                link.rel = 'manifest';
-                link.href = URL.createObjectURL(blob);
-                document.head.appendChild(link);
-            }}
-
-            // 2. نظام التذكر الصلب الأساسي
-            const currentSearch = window.location.search;
-            if (currentSearch.includes('logout=true')) {{
-                localStorage.removeItem('mudir_auth_url'); 
-            }} else if (currentSearch.includes('workspace=')) {{
-                localStorage.setItem('mudir_auth_url', currentSearch); 
-            }} else if (currentSearch === '' || currentSearch === '?') {{
-                const savedAuth = localStorage.getItem('mudir_auth_url');
-                if (savedAuth) {{
-                    window.location.replace(window.location.pathname + savedAuth);
-                }}
-            }}
-        }} else {{
-            // 3. اختراق الإطار المعزول الخاص بـ Streamlit 
-            const currentSearch = window.location.search;
-            if (currentSearch.includes('logout=true')) {{
-                try {{ window.parent.localStorage.removeItem('mudir_auth_url'); }} catch(e){{}}
-            }} else if (currentSearch.includes('workspace=')) {{
-                try {{ window.parent.localStorage.setItem('mudir_auth_url', currentSearch); }} catch(e){{}}
-            }} else if (currentSearch === '' || currentSearch === '?') {{
-                try {{
-                    const savedAuth = window.parent.localStorage.getItem('mudir_auth_url');
-                    if (savedAuth) {{
-                        window.parent.location.replace(window.parent.location.pathname + savedAuth);
-                    }}
-                }} catch (e) {{}}
-            }}
-        }}
-    </script>
-    """
-    import streamlit.components.v1 as components
-    components.html(pwa_html, height=0, width=0)
-
-inject_pwa_manifest()
-
-view = st.session_state.get('view', 'login')
-curr_user = st.session_state.get('current_user')
-
-if view == "workspace_login": 
-    render_workspace_login()
-elif view == "super_admin": 
-    render_super_admin()
-elif not curr_user or view == "login": 
-    render_login()
-else:
-    if view == "dashboard": render_dashboard()
-    elif view == "departments": render_departments()
-    elif view == "forecast": render_forecast()
-    elif view == "ai": render_ai()
-    elif view == "fusion": render_fusion()
-    elif view == "territories": render_territories()
-    elif view == "settings": render_settings()
-    else: render_dashboard()
+        with c1: new_ws_id = st.text_input("كود الشركة (بالإنجليزية):", placeholder="مثال: Ghareeb
