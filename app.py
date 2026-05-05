@@ -701,7 +701,7 @@ def render_workspace_login():
     st.markdown("<h2 style='color:#fff; margin-top:0;'>بوابة الدخول المؤسسية (Mudir OS)</h2>", unsafe_allow_html=True)
     st.markdown("<p style='color:var(--c-dim); margin-bottom: 30px;'>أدخل كود الشركة المرخص لفتح مساحة العمل الخاصة بك</p>", unsafe_allow_html=True)
     
-    ws_key = st.text_input("كود الشركة (License Key):", type="password", placeholder="أدخل الكود هنا...")
+    ws_key = st.text_input("كود الشركة (License Key):", type="password", placeholder="أدخل الكود هنا...", autocomplete="new-password")
     remember_ws = st.checkbox("تذكر مساحة العمل على هذا الجهاز", value=True)
     
     if st.button("تأكيد ودخول", type="primary", use_container_width=True):
@@ -752,7 +752,7 @@ def render_login():
     user_options = ["المدير العام (صلاحيات كاملة)"] + [f"{emp['name']} - {emp['role']}" for emp in employees]
     selected_user = st.selectbox("من أنت؟", user_options, label_visibility="collapsed")
     
-    pin = st.text_input("رمز الدخول السري (PIN)", type="password", placeholder="أدخل الرقم السري الخاص بك")
+    pin = st.text_input("رمز الدخول السري (PIN)", type="password", placeholder="أدخل الرقم السري الخاص بك", autocomplete="new-password")
     remember_me = st.checkbox("تذكرني وثبّت التطبيق على هذا الجهاز", value=True, help="سيقوم النظام بحفظ بياناتك، وعند إضافة الرابط كأيقونة على هاتفك سيدخل تلقائياً.")
         
     if st.button("دخول للنظام", type="primary", use_container_width=True):
@@ -797,13 +797,28 @@ def render_login():
                 
         if auth_success:
             st.query_params["workspace"] = st.session_state.get('workspace_key', '')
-            if remember_me:
-                st.query_params["user"] = selected_user
-                st.query_params["auth_token"] = encrypt_password(pin) if HAS_CRYPTO else pin
             st.query_params["view"] = target_view
+            if remember_me:
+                enc_token = encrypt_password(pin) if HAS_CRYPTO else pin
+                st.query_params["user"] = selected_user
+                st.query_params["auth_token"] = enc_token
+                
+                st.components.v1.html(f"""<script>
+                    try {{
+                        window.parent.localStorage.setItem('mudir_auth_url', '?workspace={st.session_state.get('workspace_key', '')}&user={selected_user}&auth_token={enc_token}&view={target_view}');
+                    }} catch(e) {{}}
+                </script>""", height=0)
+            else:
+                st.components.v1.html("""<script>
+                    try {{ window.parent.localStorage.removeItem('mudir_auth_url'); }} catch(e) {{}}
+                </script>""", height=0)
+                
+            time.sleep(0.5)
             st.rerun()
             
     if st.button("تغيير مساحة العمل", use_container_width=True):
+        st.components.v1.html("""<script>try{window.parent.localStorage.removeItem('mudir_auth_url');}catch(e){}</script>""", height=0)
+        time.sleep(0.3)
         del st.session_state['workspace_key']
         del st.session_state['workspace_id']
         st.session_state.view = 'workspace_login'
@@ -1129,6 +1144,8 @@ if st.session_state.get('view') not in ['workspace_login', 'super_admin', 'login
         st.markdown("---")
         
         if st.button("🔴 تسجيل الخروج", use_container_width=True):
+            st.components.v1.html("""<script>try{window.parent.localStorage.removeItem('mudir_auth_url');}catch(e){}</script>""", height=0)
+            time.sleep(0.5)
             st.query_params.clear()
             st.query_params["logout"] = "true"
             st.session_state.clear()
@@ -2771,7 +2788,7 @@ def edit_workspace_devices_dialog(ws_id, licenses):
 @st.dialog("حذف مساحة العمل")
 def delete_workspace_dialog(ws_id, licenses):
     st.warning(f"هل أنت متأكد من حذف المساحة `{ws_id}` بشكل نهائي؟ هذا الإجراء لا يمكن التراجع عنه.")
-    pin_confirm = st.text_input("اكتب رمز الـ Super Admin للتأكيد:", type="password")
+    pin_confirm = st.text_input("اكتب رمز الـ Super Admin للتأكيد:", type="password", autocomplete="new-password")
     
     if st.button("🚨 تأكيد الحذف النهائي", type="primary", use_container_width=True):
         if pin_confirm == MASTER_ADMIN_CODE:
@@ -2790,6 +2807,8 @@ def render_super_admin():
         st.markdown(f"""<div class="sidebar-brand"><div class="brand-logo">{get_icon("check", 32, "#7000ff")}</div><div class="brand-name">SAAS ADMIN</div><div class="brand-ver">v52.1</div></div>""", unsafe_allow_html=True)
         st.markdown("---")
         if st.button("🔴 تسجيل الخروج وإغلاق", use_container_width=True, type="primary"):
+            st.components.v1.html("""<script>try { window.parent.localStorage.removeItem('mudir_auth_url'); } catch(e) {}</script>""", height=0)
+            time.sleep(0.5)
             st.query_params.clear()
             st.query_params["logout"] = "true"
             st.session_state.clear()
@@ -2985,7 +3004,7 @@ def render_settings():
     with st.expander("➕ إضافة موظف جديد", expanded=False):
         n_name = st.text_input("اسم الموظف:")
         n_role = st.text_input("الوظيفة / القسم:")
-        n_pin = st.text_input("الرقم السري (PIN):", value=f"{random.randint(1000, 9999)}")
+        n_pin = st.text_input("الرقم السري (PIN):", value=f"{random.randint(1000, 9999)}", autocomplete="new-password")
         n_desc = st.text_area("الوصف الوظيفي (سيقرأه الذكاء الاصطناعي):")
         n_views = st.multiselect("اختر شاشات الوصول:", list(view_options.keys()), default=["مكتب المدير"])
         
@@ -3011,7 +3030,7 @@ def render_settings():
     st.markdown(f"<div class='g-card-title'>{get_icon('command', 22)} إعدادات الذكاء الاصطناعي (الخادم المركزي)</div>", unsafe_allow_html=True)
     ai_url = st.text_input("رابط الخادم (Base URL)", value=CFG.get('AI_PROVIDER_URL', 'https://api.openai.com/v1'))
     ai_model = st.text_input("اسم النموذج (Model Name)", value=CFG.get('AI_MODEL_NAME', 'gpt-4o'))
-    ai_key = st.text_input("مفتاح الربط (API Key)", value=CFG.get('AI_API_KEY', ''), type="password", help="انسخ المفتاح وتأكد من عدم وجود مسافات فارغة قبله أو بعده")
+    ai_key = st.text_input("مفتاح الربط (API Key)", value=CFG.get('AI_API_KEY', ''), type="password", help="انسخ المفتاح وتأكد من عدم وجود مسافات فارغة قبله أو بعده", autocomplete="new-password")
 
     if st.button("💾 حفظ وفحص إعدادات الخادم المركزي", key="save_and_test_ai", use_container_width=True, type="primary"):
         update_system_config({
@@ -3046,7 +3065,7 @@ def render_settings():
     o_url = st.text_input("رابط الخادم (URL)", value=CFG.get('ODOO_URL', ''))
     o_db = st.text_input("قاعدة البيانات (DB)", value=CFG.get('ODOO_DB', ''))
     o_usr = st.text_input("المستخدم (User)", value=CFG.get('ODOO_USER', ''))
-    o_pwd = st.text_input("كلمة المرور (Password)", value=CFG.get('ODOO_PASS', ''), type="password")
+    o_pwd = st.text_input("كلمة المرور (Password)", value=CFG.get('ODOO_PASS', ''), type="password", autocomplete="new-password")
     
     if st.button("💾 حفظ وفحص إعدادات Odoo وإعادة بناء النواة", key="save_and_test_odoo", use_container_width=True, type="primary"):
         try:
@@ -3088,9 +3107,8 @@ def render_settings():
 # ============================================================
 # [MODULE 8: APP ROUTER & INJECTIONS] 
 # ============================================================
-# ⚠️ يمكنك تغيير هذه القيم لتعكس اسم شركتك والشعار الخاص بك
 APP_NAME = "Mudir OS"
-APP_ICON_URL = "https://cdn-icons-png.flaticon.com/512/9128/9128965.png"
+APP_ICON_URL = "https://cdn-icons-png.flaticon.com/512/2103/2103468.png"  # أيقونة ذكية واحترافية للمدير والإدارة
 
 def inject_pwa_manifest():
     pwa_html = f"""
