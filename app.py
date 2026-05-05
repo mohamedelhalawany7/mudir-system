@@ -2289,13 +2289,13 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
             
         user_msg = {"role": "user", "content": user_input}
         st.session_state.all_chats[curr_user].append(user_msg)
-        st.session_state.all_chats[curr_user] = st.session_state.all_chats[curr_user][-20:] # إضافة الحد الأقصى 20 رسالة
+        st.session_state.all_chats[curr_user] = st.session_state.all_chats[curr_user][-20:] # تطبيق الحد الأقصى 20 رسالة
         st.session_state.all_chats = st.session_state.all_chats # تحديث إجباري للحالة
         
         user_msg_log = user_msg.copy()
         user_msg_log['user'] = curr_user
         log_message(curr_user, user_msg_log)
-        overwrite_chat_for_user(curr_user, st.session_state.all_chats[curr_user]) # استخدام الكتابة الفوقية بدل الإضافة المطلقة
+        overwrite_chat_for_user(curr_user, st.session_state.all_chats[curr_user]) # حفظ 20 رسالة فقط فوقياً
         
         with chat_area:
             with st.chat_message("user"):
@@ -2306,7 +2306,7 @@ def render_chat_fragment(curr_user, sys_prompt_context, CFG):
                 auto_reply = "عذراً نحن خارج أوقات العمل، أراك غداً"
                 ai_final_msg = {"role": "assistant", "content": auto_reply}
                 st.session_state.all_chats[curr_user].append(ai_final_msg)
-                st.session_state.all_chats[curr_user] = st.session_state.all_chats[curr_user][-20:] # تطبيق الحد
+                st.session_state.all_chats[curr_user] = st.session_state.all_chats[curr_user][-20:]
                 st.session_state.all_chats = st.session_state.all_chats # تحديث إجباري للحالة
                 log_message(curr_user, ai_final_msg)
                 overwrite_chat_for_user(curr_user, st.session_state.all_chats[curr_user])
