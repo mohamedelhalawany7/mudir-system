@@ -748,6 +748,12 @@ def render_login():
     st.markdown(f"<h2 style='color:#fff; margin-top:0;'>تسجيل الدخول - مساحة: {st.session_state.get('workspace_key', '')}</h2>", unsafe_allow_html=True)
     st.markdown("<p style='color:var(--c-dim); margin-bottom: 30px;'>الرجاء تحديد هويتك للوصول لمهامك وصلاحياتك المحددة</p>", unsafe_allow_html=True)
     
+    st.markdown("""<div style='background:rgba(0,242,255,0.05); border:1px solid rgba(0,242,255,0.2); padding:10px; border-radius:8px; margin-bottom:20px; font-size:0.85rem; color:#e2e8f0; text-align:right;'>
+    💡 <b>لتثبيت التطبيق على هاتفك:</b><br>
+    - <b>أندرويد (Chrome):</b> اضغط على القائمة (⋮) ثم اختر <i>Install App</i> أو <i>Add to Home screen</i>.<br>
+    - <b>آيفون (Safari):</b> اضغط على زر المشاركة (مربع بسهم لأعلى) ثم اختر <i>Add to Home Screen</i>.
+    </div>""", unsafe_allow_html=True)
+    
     employees = st.session_state.app_config.get('EMPLOYEES', [])
     user_options = ["المدير العام (صلاحيات كاملة)"] + [f"{emp['name']} - {emp['role']}" for emp in employees]
     selected_user = st.selectbox("من أنت؟", user_options, label_visibility="collapsed")
@@ -831,35 +837,8 @@ def render_login():
 # ============================================================
 # [MODULE 5: STYLING & UI CSS] 
 # ============================================================
-if 'splash_shown' not in st.session_state:
-    st.markdown("""
-    <div id="mudir-splash" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:#04040a; z-index:9999999; display:flex; flex-direction:column; align-items:center; justify-content:center; animation: splashFade 1.8s forwards; pointer-events:none;">
-        <div style="width: 80px; height: 80px; border-radius: 20px; background: linear-gradient(135deg, rgba(0,242,255,0.15), rgba(112,0,255,0.15)); border: 2px solid #00f2ff; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 30px rgba(0,242,255,0.3); margin-bottom: 20px;">
-            <svg width="45" height="45" viewBox="0 0 24 24" fill="none" stroke="#00f2ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-        </div>
-        <h2 style="color:#fff; font-family:'Orbitron', sans-serif; letter-spacing:4px; margin:0;">MUDIR OS</h2>
-        <div style="color:#00f2ff; font-size:0.8rem; font-family:'Orbitron', sans-serif; margin-top:5px; margin-bottom: 20px;">QUANTUM EDITION</div>
-        <div style="width:200px; height:3px; background:rgba(255,255,255,0.1); border-radius:4px; overflow:hidden;">
-            <div style="width:100%; height:100%; background:#00f2ff; animation: loadProgress 1.5s ease-in-out forwards; box-shadow: 0 0 10px #00f2ff;"></div>
-        </div>
-    </div>
-    <style>
-    @keyframes splashFade { 0% { opacity: 1; visibility: visible; } 80% { opacity: 1; visibility: visible; } 100% { opacity: 0; visibility: hidden; } }
-    @keyframes loadProgress { 0% { transform: translateX(-100%); } 100% { transform: translateX(0); } }
-    </style>
-    """, unsafe_allow_html=True)
-    st.session_state.splash_shown = True
-
 st.markdown("""
 <style>
-/* إخفاء كل ملامح Streamlit الافتراضية (شريط التحميل والأيقونات) */
-[data-testid="stHeader"] { display: none !important; }
-[data-testid="stStatusWidget"] { display: none !important; visibility: hidden !important; }
-[data-testid="stToolbar"] { display: none !important; }
-#MainMenu { display: none !important; }
-footer { display: none !important; }
-.stDeployButton { display: none !important; }
-
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Orbitron:wght@400;700;900&display=swap');
 
 :root {
@@ -3159,12 +3138,6 @@ def inject_pwa_manifest():
                 link.rel = 'manifest';
                 link.href = URL.createObjectURL(blob);
                 document.head.appendChild(link);
-                
-                // دعم أنظمة آيفون (iOS) للتعرف عليه كتطبيق أصلي
-                const appleMeta1 = document.createElement('meta'); appleMeta1.name = 'apple-mobile-web-app-capable'; appleMeta1.content = 'yes';
-                const appleMeta2 = document.createElement('meta'); appleMeta2.name = 'apple-mobile-web-app-status-bar-style'; appleMeta2.content = 'black-translucent';
-                const appleIcon = document.createElement('link'); appleIcon.rel = 'apple-touch-icon'; appleIcon.href = '{APP_ICON_URL}';
-                document.head.appendChild(appleMeta1); document.head.appendChild(appleMeta2); document.head.appendChild(appleIcon);
             }}
 
             // 2. نظام التذكر الصلب الأساسي
