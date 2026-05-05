@@ -287,6 +287,17 @@ def save_chat_for_user(user_key):
                 st.session_state.offline_db['Chats'][user_key] = {'messages': chats}
         except Exception as e: pass
 
+def overwrite_chat_for_user(user_key, chats):
+    """تستخدم لمسح الشات أو الاستعادة الكاملة وتحديثه بالإجبار"""
+    if 'workspace_id' in st.session_state:
+        try:
+            if FIREBASE_CONNECTED and db:
+                get_workspace_doc().collection('Chats').document(user_key).set({'messages': chats}, merge=True)
+            else:
+                if 'Chats' not in st.session_state.offline_db: st.session_state.offline_db['Chats'] = {}
+                st.session_state.offline_db['Chats'][user_key] = {'messages': chats}
+        except Exception: pass
+
 def log_message(user, msg_dict):
     if 'workspace_id' in st.session_state:
         entry = msg_dict.copy()
