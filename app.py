@@ -2228,12 +2228,16 @@ def render_territories():
     
     st.markdown(f"<div class='g-card-title'>{get_icon('globe', 22)} الخريطة الحرارية للاستحواذ المالي بالمدن</div>", unsafe_allow_html=True)
     if not city_df.empty:
-        fig = px.treemap(city_df, path=[px.Constant("إجمالي الإيرادات"), 'المدينة'], values='total_invoiced',
-                         color='total_invoiced', color_continuous_scale=['#1f2c34', '#7000ff', '#00f2ff'],
-                         template='plotly_dark')
-        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', margin=dict(t=20, b=0, l=0, r=0), hoverlabel=dict(font_family="Cairo", font_size=14))
-        fig.update_traces(textinfo="label+value+percent parent", hovertemplate='<b>%{label}</b><br>القيمة: %{value:,.0f} ج.م<extra></extra>')
-        st.plotly_chart(fig, use_container_width=True)
+        plot_df = city_df[city_df['total_invoiced'] > 0]
+        if not plot_df.empty:
+            fig = px.treemap(plot_df, path=[px.Constant("إجمالي الإيرادات"), 'المدينة'], values='total_invoiced',
+                             color='total_invoiced', color_continuous_scale=['#1f2c34', '#7000ff', '#00f2ff'],
+                             template='plotly_dark')
+            fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', margin=dict(t=20, b=0, l=0, r=0), hoverlabel=dict(font_family="Cairo", font_size=14))
+            fig.update_traces(textinfo="label+value+percent parent", hovertemplate='<b>%{label}</b><br>القيمة: %{value:,.0f} ج.م<extra></extra>')
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("لا توجد إيرادات موجبة للمدن في هذه الفترة لعرض الخريطة الحرارية.")
 
     st.markdown(f"<br><div class='g-card-title'>{get_icon('table', 22)} تفاصيل التمركز الجغرافي وقوة المدن</div>", unsafe_allow_html=True)
     
@@ -2244,10 +2248,6 @@ def render_territories():
                                             
     st.dataframe(styled_city_details, use_container_width=True, hide_index=True)
 
-
-# =========================================================================
-# THE SMART AI CHAT FRAGMENT - SOLVING THE JSON/TOKEN/MEMORY ISSUES
-# =========================================================================
 @st.fragment
 def render_chat_fragment(curr_user, sys_prompt_context, CFG):
     chat_area = st.container(height=650, border=False)
