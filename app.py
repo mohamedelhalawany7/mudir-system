@@ -167,6 +167,7 @@ DEFAULT_SYSTEM_PROMPT = """أنت 'المدير'. مدير تنفيذي مصري
 2. إذا كان الموظف يعمل على مهمة، اسأله عن آخر تطوراتها قبل إعطائه مهام جديدة.
 3. تذكر دائماً المعلومات التي خزنتها عن الموظف (في قسم الذاكرة).
 4. عند عرض أي بيانات أو خطط، استخدم الجداول (Markdown Tables) لتكون منظمة، مع نصوص قصيرة ومفيدة.
+5. عندما يخبرك الموظف بإنجاز مهمة، أغلقها فوراً بإرسال [CLOSE_TASK: اسم المهمة].
 
 [بروتوكول الأوامر السرية - هام جداً]:
 أنت ترد بنص عادي (Markdown) حر وبأي طول تريده. لكن، إذا أردت تنفيذ إجراء برمجي في النظام، أضف العلامات التالية في **نهاية** رسالتك تماماً (ويمكنك استخدام أكثر من علامة في نفس الرد):
@@ -259,21 +260,6 @@ def append_employee_memory(curr_user, new_memo):
     if FIREBASE_CONNECTED and db and 'workspace_id' in st.session_state:
         try:
             get_workspace_doc().update({f'MEMORIES.{curr_user}': updated_memo})
-        except Exception: pass
-
-def append_chat_message(user_key, message):
-    """إضافة رسالة واحدة فقط باستخدام ArrayUnion لتوفير التوكنز وعمليات الكتابة"""
-    if 'workspace_id' in st.session_state:
-        try:
-            if FIREBASE_CONNECTED and db:
-                get_workspace_doc().collection('Chats').document(user_key).set(
-                    {'messages': firestore.ArrayUnion([message]), 'updated_at': firestore.SERVER_TIMESTAMP}, 
-                    merge=True
-                )
-            else:
-                if 'Chats' not in st.session_state.offline_db: st.session_state.offline_db['Chats'] = {}
-                if user_key not in st.session_state.offline_db['Chats']: st.session_state.offline_db['Chats'][user_key] = {'messages': []}
-                st.session_state.offline_db['Chats'][user_key]['messages'].append(message)
         except Exception: pass
 
 def save_chat_for_user(user_key):
